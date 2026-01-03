@@ -41,9 +41,47 @@ type SystemCommandResult struct {
 	Error    error
 }
 
+type ConfigFile struct {
+	Defaults ConfigFileDefaults `yaml: "defaults"`
+	Rbac     ConfigFileRbac     `yaml: "rbac"`
+}
+
+type ConfigFileDefaults struct {
+	Timeout             string `yaml: "timeout"`
+	UserRulesRootFolder string `yaml: "userRulesRootFolder"`
+	UserRulesFile       string `yaml: "userRulesFile"`
+}
+
+type ConfigFileRbac struct {
+	Roles  map[string]ConfigFileRbacRoles  `yaml: "roles"`
+	Groups map[string]ConfigFileRbacGroups `yaml: "groups"`
+	Users  map[string]ConfigFileRbacUsers  `yaml: "users"`
+}
+
+type ConfigFileRbacRoles struct {
+	Permissions []string `yaml: "permissions"`
+}
+
+type ConfigFileRbacGroups struct {
+	Role string `yaml: "role"`
+}
+
+type ConfigFileRbacUsers struct {
+	UserRulesFile string `yaml: "userRulesFile"`
+	Group         string `yaml: "group"`
+	Password      string `yaml: "password"`
+}
+
+var (
+	RBAC_ACTIVATE_RULE = "set_rules"
+	PERM_VALID         = 1
+	PERM_INVALID       = 0
+)
+
 // Global variables
 var (
 	rules     = map[string]*AuthPFRule{}
 	lock      = sync.Mutex{}
 	jwtSecret = []byte("your-secret-key-change-in-production")
+	config    ConfigFile
 )

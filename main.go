@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
 )
 
@@ -57,5 +58,10 @@ func main() {
 	e.DELETE("/api/v1/authpf/activate", deleteAllAuthPFRules, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)
 	go startRuleCleaner(logger)
+
+	if err := config.loadConfig("authpf-api-config.yaml"); err != nil {
+		log.Errorf("%s", err.Error())
+		os.Exit(1)
+	}
 	e.Logger.Fatal(e.Start("127.0.0.1:8080"))
 }

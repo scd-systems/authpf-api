@@ -55,6 +55,12 @@ func loadAuthPFRule(c echo.Context) error {
 	fullPath := path.Join(rulePath...)
 	authPfCommand := buildAuthPFCmd(r, fullPath)
 
+	// Check permission
+	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_RULE); err != nil {
+		c.Logger().Infof(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "msg": err.Error()})
+	}
+
 	if _, err := loadPfRule(c, authPfCommand); err != nil {
 		c.Logger().Errorf("Loading authpf rules failed for user: %s", r.Username)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "msg": "authpf rule not loaded"})

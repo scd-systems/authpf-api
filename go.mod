@@ -6,6 +6,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/rs/zerolog v1.34.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

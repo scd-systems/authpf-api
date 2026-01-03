@@ -1,11 +1,12 @@
 package main
 
 import (
-	"net/http"
-	"time"
-
+	"crypto/sha256"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"net/http"
+	"time"
 )
 
 // login handles POST /login with username and password
@@ -62,4 +63,11 @@ func jwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("username", claims.Username)
 		return next(c)
 	}
+}
+
+func comparePasswordHash(pw string) error {
+	h := sha256.New()
+	h.Write([]byte(pw))
+	fmt.Printf("%x", h.Sum(nil))
+	return nil
 }
