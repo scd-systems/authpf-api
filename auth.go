@@ -1,12 +1,11 @@
 package main
 
 import (
-	"crypto/sha256"
-	"fmt"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/labstack/echo/v4"
 )
 
 // login handles POST /login with username and password
@@ -18,6 +17,11 @@ func login(c echo.Context) error {
 
 	if req.Username == "" || req.Password == "" {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid credentials"})
+	}
+
+	if err := config.checkUserAndPassword(req.Username, req.Password); err != nil {
+		c.Logger().Errorf(err.Error())
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username or password"})
 	}
 
 	claims := &JWTClaims{
@@ -63,11 +67,4 @@ func jwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("username", claims.Username)
 		return next(c)
 	}
-}
-
-func comparePasswordHash(pw string) error {
-	h := sha256.New()
-	h.Write([]byte(pw))
-	fmt.Printf("%x", h.Sum(nil))
-	return nil
 }

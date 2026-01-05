@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -128,17 +129,25 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	}
 }
 
-func reloadPF(c echo.Context) error {
-	result := executeSystemCommand("ls", "-la")
-	if result.Error != nil {
-		c.Logger().Errorf("pfctl failed: %v", result.Error)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "pfctl execution failed"})
-	}
-	return c.JSON(http.StatusOK, echo.Map{"status": result.Stdout})
-}
+// func reloadPF(c echo.Context) error {
+// 	result := executeSystemCommand("ls", "-la")
+// 	if result.Error != nil {
+// 		c.Logger().Errorf("pfctl failed: %v", result.Error)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "pfctl execution failed"})
+// 	}
+// 	return c.JSON(http.StatusOK, echo.Map{"status": result.Stdout})
+// }
 
 func loadPfRule(c echo.Context, cmd []string) (string, error) {
-	result := executeSystemCommand("/sbin/pfctl", cmd...)
+	prefix := ""
+	switch config.Server.ElevatorMode {
+	case "sudo":
+		prefix = "sudo"
+	case "doas":
+		prefix = "doas"
+	}
+	pfCtl := strings.TrimSpace(fmt.Sprintf("%s %s", prefix, config.Defaults.PfctlBinary))
+	result := executeSystemCommand(pfCtl, cmd...)
 	if result.Error != nil {
 		c.Logger().Errorf("Failed: %v", result.Error)
 		return result.Stdout, result.Error
@@ -154,6 +163,6 @@ func buildAuthPFRulePath(username string) []string {
 
 func buildAuthPFCmd(r *AuthPFRule, path string) []string {
 	clientIP := fmt.Sprintf("client_ip=%s", r.ClientIP)
-	clientID := fmt.Sprintf("client_id=%s", r.ClientID)
+	clientID := fmt.Sprintf("client_id=%d", r.ClientID)
 	return []string{"-a", "authpf/user", "-D", clientIP, "-D", clientID, "-f", path}
 }

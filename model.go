@@ -42,40 +42,62 @@ type SystemCommandResult struct {
 }
 
 type ConfigFile struct {
-	Defaults ConfigFileDefaults `yaml: "defaults"`
-	Rbac     ConfigFileRbac     `yaml: "rbac"`
+	Defaults ConfigFileDefaults `yaml:"defaults"`
+	Server   ConfigFileServer   `yaml:"server"`
+	AuthPF   ConfigFileAuthPF   `yaml:"authpf"`
+	Rbac     ConfigFileRbac     `yaml:"rbac"`
 }
 
 type ConfigFileDefaults struct {
-	Timeout             string `yaml: "timeout"`
-	UserRulesRootFolder string `yaml: "userRulesRootFolder"`
-	UserRulesFile       string `yaml: "userRulesFile"`
+	Timeout             string `yaml:"timeout"`
+	UserRulesRootFolder string `yaml:"userRulesRootFolder"`
+	UserRulesFile       string `yaml:"userRulesFile"`
+	PfctlBinary         string `yaml:"pfctlBinary"`
+}
+
+type ConfigFileAuthPF struct {
+	ClientID      string `yaml:"clientID"`
+	AnchorName    string `yaml:"anchorName"`
+	TableName     string `yaml:"tableName"`
+	MultiClientIP bool   `yaml:"multiClientIP"`
+}
+
+type ConfigFileServer struct {
+	Bind         string              `yaml:"bind"`
+	Port         uint16              `yaml:"port"`
+	SSL          ConfigFileServerSSL `yaml:"ssl"`
+	ElevatorMode string              `yaml:"elevatorMode"`
+}
+
+type ConfigFileServerSSL struct {
+	Certificate string `yaml:"certificate"`
+	Key         string `yaml:"key"`
 }
 
 type ConfigFileRbac struct {
-	Roles  map[string]ConfigFileRbacRoles  `yaml: "roles"`
-	Groups map[string]ConfigFileRbacGroups `yaml: "groups"`
-	Users  map[string]ConfigFileRbacUsers  `yaml: "users"`
+	Roles map[string]ConfigFileRbacRoles `yaml:"roles"`
+	Users map[string]ConfigFileRbacUsers `yaml:"users"`
 }
 
 type ConfigFileRbacRoles struct {
-	Permissions []string `yaml: "permissions"`
-}
-
-type ConfigFileRbacGroups struct {
-	Role string `yaml: "role"`
+	Permissions []string `yaml:"permissions"`
 }
 
 type ConfigFileRbacUsers struct {
-	UserRulesFile string `yaml: "userRulesFile"`
-	Group         string `yaml: "group"`
-	Password      string `yaml: "password"`
+	UserRulesFile string `yaml:"userRulesFile"`
+	Password      string `yaml:"password"`
+	Role          string `yaml:"role"`
 }
 
-var (
-	RBAC_ACTIVATE_RULE = "set_rules"
-	PERM_VALID         = 1
-	PERM_INVALID       = 0
+const (
+	CONFIG_FILE                = "/usr/local/etc/authpf-api-config.yaml"
+	RBAC_ACTIVATE_RULE         = "set_rules"
+	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rule"
+	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rule"
+	RBAC_GET_STATUS_OWN_RULE   = "view_own_rule"
+	RBAC_GET_STATUS_OTHER_RULE = "view_other_rule"
+	PERM_INVALID               = iota
+	PERM_VALID
 )
 
 // Global variables

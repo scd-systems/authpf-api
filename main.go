@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -21,6 +22,16 @@ func main() {
 		logLevel = "info"
 	}
 	level, _ := zerolog.ParseLevel(logLevel)
+
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = CONFIG_FILE
+	}
+
+	if err := config.loadConfig(configFile); err != nil {
+		log.Errorf("%s", err.Error())
+		os.Exit(1)
+	}
 
 	logger := zerolog.New(os.Stdout).
 		With().
@@ -52,16 +63,16 @@ func main() {
 
 	// Register the new POST endpoint for loading authpf rules
 	e.POST("/api/v1/authpf/activate", loadAuthPFRule, jwtMiddleware)
-	e.GET("/api/v1/authpf/control/reloadpf", reloadPF, jwtMiddleware)
+	// e.GET("/api/v1/authpf/control/reloadpf", reloadPF, jwtMiddleware)
 	e.GET("/api/v1/authpf/activate", getLoadAuthPFRules, jwtMiddleware)
 	e.GET("/api/v1/authpf/rules", getLoadAuthPFRules, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/activate", deleteAllAuthPFRules, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)
 	go startRuleCleaner(logger)
 
-	if err := config.loadConfig("authpf-api-config.yaml"); err != nil {
-		log.Errorf("%s", err.Error())
-		os.Exit(1)
+	if config.Server.SSL.Certificate != "" {
+		e.Logger.Fatal(e.StartTLS(fmt.Sprintf("%s:%d", config.Server.Bind, config.Server.Port), config.Server.SSL.Certificate, config.Server.SSL.Key))
+	} else {
+		e.Logger.Fatal(e.Start(fmt.Sprintf("%s:%d", config.Server.Bind, config.Server.Port)))
 	}
-	e.Logger.Fatal(e.Start("127.0.0.1:8080"))
 }

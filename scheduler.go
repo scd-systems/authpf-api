@@ -8,6 +8,7 @@ import (
 
 // startRuleCleaner runs a periodic cleanup of expired authpf rules.
 func startRuleCleaner(logger zerolog.Logger) {
+	logger.Debug().Msgf("Starting scheduler")
 	ticker := time.NewTicker(time.Second * 60)
 	defer ticker.Stop()
 	for {
@@ -20,6 +21,7 @@ func startRuleCleaner(logger zerolog.Logger) {
 			if !r.ExpiresAt.IsZero() && now.After(r.ExpiresAt) {
 				logger.Info().Msgf("Rule timeout detected, removed authpf rules for user: %s", r.Username)
 				delete(rules, id)
+				// TODO: ADD: run deactivate User
 			}
 		}
 		lock.Unlock()
