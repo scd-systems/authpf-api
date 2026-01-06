@@ -27,9 +27,14 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	select {
 	case err := <-done:
 		exitCode := 0
+
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
+			} else {
+				// Return -1 and error if exec cannot run
+				exitCode = -1
+				stderr.WriteString(err.Error())
 			}
 		}
 
@@ -81,23 +86,21 @@ func executePfctlCommand(cmd []string) *SystemCommandResult {
 	return executeSystemCommand(pfCtl, cmd...)
 }
 
-func buildAuthPFRulePath(username string) []string {
+func buildAuthPFRulePath(username string) string {
 	const prefix = "/etc/authpf/users"
 	const rulesFile = "authpf.rules"
-	return []string{prefix, username, rulesFile}
+	return path.Join(prefix, username, rulesFile)
 }
 
 func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
+	anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
 	switch mode {
 	case AUTHPF_ACTIVATE:
 		clientIP := fmt.Sprintf("client_ip=%s", r.ClientIP)
 		clientID := fmt.Sprintf("client_id=%d", r.ClientID)
 		rulePath := buildAuthPFRulePath(r.Username)
-		fullPath := path.Join(rulePath...)
-		anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
-		return []string{"-a", anchor, "-D", clientIP, "-D", clientID, "-f", fullPath}
+		return []string{"-a", anchor, "-D", clientIP, "-D", clientID, "-f", rulePath}
 	case AUTHPF_DEACTIVATE:
-		anchor := fmt.Sprintf("authpf/%s", r.Username)
 		return []string{"-a", anchor, "-Fa"}
 	}
 	return nil
