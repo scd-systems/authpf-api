@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
-	"strings"
 	"time"
 )
 
@@ -70,20 +69,23 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 // }
 
 func buildPfctlCmd() string {
-	prefix := ""
+	prefix := config.Defaults.PfctlBinary
 	switch config.Server.ElevatorMode {
 	case "sudo":
 		prefix = "sudo"
 	case "doas":
 		prefix = "doas"
 	}
-	pfCtl := strings.TrimSpace(fmt.Sprintf("%s %s", prefix, config.Defaults.PfctlBinary))
-	return pfCtl
+	return prefix
 }
 
 func executePfctlCommand(cmd []string) *SystemCommandResult {
-	pfCtl := buildPfctlCmd()
-	return executeSystemCommand(pfCtl, cmd...)
+	prefix := buildPfctlCmd()
+	args := cmd
+	if prefix != config.Defaults.PfctlBinary {
+		args = append([]string{config.Defaults.PfctlBinary}, cmd...)
+	}
+	return executeSystemCommand(prefix, args...)
 }
 
 func buildAuthPFRulePath(username string) string {

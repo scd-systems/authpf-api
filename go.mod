@@ -1,4 +1,4 @@
-module scd-systems.net
+module scd-systems.net/authpf-api
 
 go 1.25.5
 

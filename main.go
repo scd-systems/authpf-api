@@ -83,10 +83,9 @@ func main() {
 	e.POST("/login", login)
 
 	// Register the new POST endpoint for loading authpf rules
-	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
-	// e.GET("/api/v1/authpf/control/reloadpf", reloadPF, jwtMiddleware)
 	e.GET("/api/v1/authpf/activate", getLoadAuthPFRules, jwtMiddleware)
-	e.GET("/api/v1/authpf/rules", getLoadAuthPFRules, jwtMiddleware)
+	e.GET("/api/v1/authpf/all", getLoadAuthPFRules, jwtMiddleware)
+	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)
 	go startRuleCleaner(logger)
