@@ -35,6 +35,7 @@ type LoginResponse struct {
 
 type SystemCommandResult struct {
 	Command  string
+	Args     []string
 	Stdout   string
 	Stderr   string
 	ExitCode int
@@ -60,6 +61,7 @@ type ConfigFileAuthPF struct {
 	AnchorName    string `yaml:"anchorName"`
 	TableName     string `yaml:"tableName"`
 	MultiClientIP bool   `yaml:"multiClientIP"`
+	ClearOnStart  bool   `yaml:"clearOnStart"`
 }
 
 type ConfigFileServer struct {
@@ -67,6 +69,7 @@ type ConfigFileServer struct {
 	Port         uint16              `yaml:"port"`
 	SSL          ConfigFileServerSSL `yaml:"ssl"`
 	ElevatorMode string              `yaml:"elevatorMode"`
+	Logfile      string              `yaml:"logfile"`
 }
 
 type ConfigFileServerSSL struct {
@@ -92,12 +95,12 @@ type ConfigFileRbacUsers struct {
 const (
 	CONFIG_FILE                = "/usr/local/etc/authpf-api-config.yaml"
 	RBAC_ACTIVATE_RULE         = "set_rules"
-	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rule"
-	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rule"
-	RBAC_GET_STATUS_OWN_RULE   = "view_own_rule"
-	RBAC_GET_STATUS_OTHER_RULE = "view_other_rule"
-	PERM_INVALID               = iota
-	PERM_VALID
+	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rules"
+	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"
+	RBAC_GET_STATUS_OWN_RULE   = "view_own_rules"
+	RBAC_GET_STATUS_OTHER_RULE = "view_other_rules"
+	AUTHPF_ACTIVATE            = "activate"
+	AUTHPF_DEACTIVATE          = "deactivate"
 )
 
 // Global variables

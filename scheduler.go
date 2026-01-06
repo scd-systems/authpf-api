@@ -21,7 +21,11 @@ func startRuleCleaner(logger zerolog.Logger) {
 			if !r.ExpiresAt.IsZero() && now.After(r.ExpiresAt) {
 				logger.Info().Msgf("Rule timeout detected, removed authpf rules for user: %s", r.Username)
 				delete(rules, id)
-				// TODO: ADD: run deactivate User
+				result := unloadAuthPFRule(r.Username)
+				logger.Debug().Msgf("Run Command: %s, ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, result.ExitCode, result.Stdout, result.Stderr)
+				if result.Error != nil {
+					logger.Error().Msgf("Unloading authpf rules failed for user: %s", r.Username)
+				}
 			}
 		}
 		lock.Unlock()

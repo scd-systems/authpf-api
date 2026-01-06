@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -11,17 +12,27 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func setLevel() log.Lvl {
+	levelStr := os.Getenv("LOG_LEVEL")
+	switch strings.ToLower(levelStr) {
+	case "debug":
+		return log.DEBUG
+	case "info":
+		return log.INFO
+	case "warn":
+		return log.WARN
+	case "error":
+		return log.ERROR
+	default:
+		return log.INFO
+	}
+}
+
 func main() {
 	e := echo.New()
 	// Suppress Echo's startup banner and default logger output
 	e.HideBanner = true
 	// e.Logger.SetOutput(io.Discard) // discard startup logs
-
-	logLevel := os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "info"
-	}
-	level, _ := zerolog.ParseLevel(logLevel)
 
 	configFile := os.Getenv("CONFIG_FILE")
 	if configFile == "" {
@@ -33,6 +44,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	level, _ := zerolog.ParseLevel(logLevel)
+
 	logger := zerolog.New(os.Stdout).
 		With().
 		Timestamp().
@@ -43,6 +60,8 @@ func main() {
 		LogURI:       true,
 		LogStatus:    true,
 		LogUserAgent: true,
+		LogRemoteIP:  true,
+		LogLatency:   true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			logger.Info().
 				Str("IP", c.RealIP()).
@@ -54,6 +73,8 @@ func main() {
 		},
 	}))
 
+	e.Logger.SetLevel(setLevel())
+
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Server running")
 	})
@@ -62,11 +83,11 @@ func main() {
 	e.POST("/login", login)
 
 	// Register the new POST endpoint for loading authpf rules
-	e.POST("/api/v1/authpf/activate", loadAuthPFRule, jwtMiddleware)
+	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
 	// e.GET("/api/v1/authpf/control/reloadpf", reloadPF, jwtMiddleware)
 	e.GET("/api/v1/authpf/activate", getLoadAuthPFRules, jwtMiddleware)
 	e.GET("/api/v1/authpf/rules", getLoadAuthPFRules, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/activate", deleteAllAuthPFRules, jwtMiddleware)
+	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)
 	go startRuleCleaner(logger)
 
