@@ -29,33 +29,33 @@ func TestValidateUserPermissions(t *testing.T) {
 		expected   string
 	}{
 		{
-			name:       "Erfolg: Admin darf schreiben",
+			name:       "Success: Admin can write",
 			username:   "alice",
 			permission: "write",
 			wantErr:    false,
 		},
 		{
-			name:       "Erfolg: Guest darf lesen",
+			name:       "Success: Guest can read",
 			username:   "bob",
 			permission: "read",
 			wantErr:    false,
 		},
 		{
-			name:       "Fehler: User nicht gefunden",
+			name:       "Error: User not found",
 			username:   "unknown",
 			permission: "read",
 			wantErr:    true,
 			expected:   "User \"unknown\" not found",
 		},
 		{
-			name:       "Fehler: Rolle existiert nicht",
+			name:       "Error: Role does not exist",
 			username:   "charlie",
 			permission: "read",
 			wantErr:    true,
 			expected:   "Role \"non_existent_role\" for user \"charlie\" does not exists",
 		},
 		{
-			name:       "Fehler: Fehlende Berechtigung",
+			name:       "Error: Missing permission",
 			username:   "bob",
 			permission: "delete",
 			wantErr:    true,
@@ -82,7 +82,7 @@ func TestValidateUserPermissions(t *testing.T) {
 }
 
 func TestCheckUserAndPassword(t *testing.T) {
-	// Hilfsfunktion zum Erstellen eines gültigen Passwort-Hashes im Hex-Format
+	// Helper function to create a valid password hash in hex format
 	hashPassword := func(pw string) string {
 		sum := sha256.Sum256([]byte(pw))
 		return hex.EncodeToString(sum[:])
@@ -95,7 +95,7 @@ func TestCheckUserAndPassword(t *testing.T) {
 		Rbac: ConfigFileRbac{
 			Users: map[string]ConfigFileRbacUsers{
 				validUser: {Password: hashPassword(validPass)},
-				"bob":     {Password: "invalid-hex-string-!!"}, // Verursacht hex.DecodeString Fehler
+				"bob":     {Password: "invalid-hex-string-!!"},
 			},
 		},
 	}

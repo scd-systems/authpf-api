@@ -8,6 +8,24 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// validatePayload validates the JSON payload from the request
+func validatePayload(c echo.Context, r *AuthPFRule) error {
+	if err := c.Bind(r); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON payload"})
+	}
+	return nil
+}
+
+// getSessionUsername validates the username from the JWT token in the Echo context
+// Returns the username if valid, or an error if validation fails
+func getSessionUsername(c echo.Context) (string, error) {
+	username, ok := c.Get("username").(string)
+	if !ok || username == "" {
+		return "", c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username in token"})
+	}
+	return username, nil
+}
+
 // loadAuthPFRule handles POST /api/v1/authpf/activate
 func activateAuthPFRule(c echo.Context) error {
 	lock.Lock()
@@ -28,15 +46,17 @@ func activateAuthPFRule(c echo.Context) error {
 		}
 	}
 
-	if err := c.Bind(r); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON payload"})
+	if err := validatePayload(c, r); err != nil {
+		return err
 	}
 
 	r.ClientIP = c.RealIP()
-	username, ok := c.Get("username").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username in token"})
+
+	username, err := getSessionUsername(c)
+	if err != nil {
+		return err
 	}
+
 	r.Username = username
 
 	for _, v := range rules {
@@ -80,16 +100,15 @@ func deactivateAuthPFRule(c echo.Context) error {
 
 	r := &AuthPFRule{}
 
-	if err := c.Bind(r); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON payload"})
+	if err := validatePayload(c, r); err != nil {
+		return err
 	}
 
 	r.ClientIP = c.RealIP()
-	username, ok := c.Get("username").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username in token"})
+	username, err := getSessionUsername(c)
+	if err != nil {
+		return err
 	}
-
 	r.Username = username
 
 	for _, v := range rules {
@@ -137,6 +156,18 @@ func unloadAuthPFRule(username string) *SystemCommandResult {
 func deleteAllAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+
+	username, err := getSessionUsername(c)
+	if err != nil {
+		return err
+	}
+
+	// Check permission
+	if err := config.validateUserPermissions(username, RBAC_DEACTIVATE_OTHER_RULE); err != nil {
+		c.Logger().Infof(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "msg": err.Error()})
+	}
+
 	rules = make(map[string]*AuthPFRule)
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }

@@ -8,7 +8,7 @@ import (
 
 // startRuleCleaner runs a periodic cleanup of expired authpf rules.
 func startRuleCleaner(logger zerolog.Logger) {
-	logger.Debug().Msgf("Starting scheduler")
+	logger.Debug().Msgf("Authpf scheduler starting")
 	ticker := time.NewTicker(time.Second * 60)
 	defer ticker.Stop()
 	for {

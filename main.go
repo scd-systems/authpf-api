@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -29,6 +31,15 @@ func setLevel() log.Lvl {
 }
 
 func main() {
+	// TODO: Implement proper Args + Flags Handler
+	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
+	version := flag.Bool("version", false, "Show version and exit")
+	flag.Parse()
+	if *version {
+		fmt.Printf("authpf-api version %s\n", Version)
+		os.Exit(0)
+	}
+
 	e := echo.New()
 	// Suppress Echo's startup banner and default logger output
 	e.HideBanner = true
@@ -50,11 +61,27 @@ func main() {
 	}
 	level, _ := zerolog.ParseLevel(logLevel)
 
-	logger := zerolog.New(os.Stdout).
+	var logWriter io.Writer
+	if *foreground {
+		logWriter = os.Stdout
+	} else if config.Server.Logfile != "" {
+		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.Errorf("Failed to open logfile: %s", err.Error())
+			logWriter = os.Stdout
+		} else {
+			logWriter = file
+		}
+	} else {
+		logWriter = os.Stdout
+	}
+
+	logger := zerolog.New(logWriter).
 		With().
 		Timestamp().
 		Logger().
 		Level(level)
+	logger.Info().Str("version", Version).Msg("authpf-api starting")
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogURI:       true,
@@ -63,12 +90,16 @@ func main() {
 		LogRemoteIP:  true,
 		LogLatency:   true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			logger.Info().
+			username, _ := c.Get("username").(string)
+			logEntry := logger.Info().
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
 				Str("URI", v.URI).
-				Int("status", v.Status).
-				Msg("request")
+				Int("status", v.Status)
+			if username != "" {
+				logEntry.Str("user", username)
+			}
+			logEntry.Msg("request")
 			return nil
 		},
 	}))

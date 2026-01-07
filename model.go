@@ -105,6 +105,7 @@ const (
 
 // Global variables
 var (
+	Version   = "dev"
 	rules     = map[string]*AuthPFRule{}
 	lock      = sync.Mutex{}
 	jwtSecret = []byte("your-secret-key-change-in-production")
