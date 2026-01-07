@@ -13,7 +13,7 @@ type AuthPFRule struct {
 	Timeout   string    `json:"timeout,omitempty"`
 	ClientIP  string    `json:"client_ip"`
 	ClientID  int       `json:"client_id"`
-	ExpiresAt time.Time `json:"expireat"`
+	ExpiresAt time.Time `json:"expire_at"`
 }
 
 // JWTClaims represents the JWT token claims
@@ -87,9 +87,10 @@ type ConfigFileRbacRoles struct {
 }
 
 type ConfigFileRbacUsers struct {
-	UserRulesFile string `yaml:"userRulesFile"`
+	UserRulesFile string `yaml:"userRulesFile,omitempty"`
 	Password      string `yaml:"password"`
 	Role          string `yaml:"role"`
+	ClientID      int    `yaml:"clientId,omitempty"`
 }
 
 const (
@@ -106,7 +107,7 @@ const (
 // Global variables
 var (
 	Version   = "dev"
-	rules     = map[string]*AuthPFRule{}
+	rulesdb   = map[string]*AuthPFRule{}
 	lock      = sync.Mutex{}
 	jwtSecret = []byte("your-secret-key-change-in-production")
 	config    ConfigFile

@@ -81,6 +81,15 @@ func main() {
 		Timestamp().
 		Logger().
 		Level(level)
+
+	// Store logger into context
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Set("logger", logger)
+			return next(c)
+		}
+	})
+
 	logger.Info().Str("version", Version).Msg("authpf-api starting")
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -115,7 +124,7 @@ func main() {
 
 	// Register the new POST endpoint for loading authpf rules
 	e.GET("/api/v1/authpf/activate", getLoadAuthPFRules, jwtMiddleware)
-	e.GET("/api/v1/authpf/all", getLoadAuthPFRules, jwtMiddleware)
+	e.GET("/api/v1/authpf/all", getAllLoadAuthPFRules, jwtMiddleware)
 	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)

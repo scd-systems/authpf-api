@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 )
 
 // validatePayload validates the JSON payload from the request
@@ -30,6 +32,7 @@ func getSessionUsername(c echo.Context) (string, error) {
 func activateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+	logger := c.Get("logger").(zerolog.Logger)
 
 	timeoutStr := c.QueryParam("timeout")
 	if timeoutStr == "" {
@@ -58,45 +61,84 @@ func activateAuthPFRule(c echo.Context) error {
 	}
 
 	r.Username = username
+	if config.Rbac.Users[r.Username].ClientID > 0 {
+		r.ClientID = config.Rbac.Users[r.Username].ClientID
+	}
 
-	for _, v := range rules {
+	for _, v := range rulesdb {
 		if v.Username == r.Username {
-			c.Logger().Infof("Loading authpf failed")
-			return c.JSON(http.StatusMethodNotAllowed, echo.Map{"error": "authpf rule for user already activated"})
+			msg := "authpf rule for user already activated"
+			logger.Info().Str("user", r.Username).Msg(msg)
+			return c.JSON(http.StatusMethodNotAllowed, echo.Map{"error": msg})
 		}
 	}
 
-	rules[r.Username] = r
+	rulesdb[r.Username] = r
 
 	// Check permission
 	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_RULE); err != nil {
-		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "msg": err.Error()})
+		logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
 	}
 
 	// Run pfctl command
 	result := loadAuthPFRule(r)
-	c.Logger().Debugf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+	logger.Debug().Str("user", r.Username).Msg(msg)
+
 	if result.Error != nil {
-		c.Logger().Errorf("Loading authpf rules failed for user: %s", r.Username)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "msg": "authpf rule not loaded"})
+		msg := "Loading authpf rules failed"
+		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	c.Logger().Infof("Loading authpf rule user=%s with timeout=%s, ExpireAt=%s", r.Username, r.Timeout, r.ExpiresAt)
-	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "msg": "authpf rule is being loaded"})
+	msg = fmt.Sprintf("Loading authpf rule: user=%s, client_ip=%s, client_id=%d, timeout=%s, expire_at=%s", r.Username, r.ClientIP, r.ClientID, r.Timeout, r.ExpiresAt)
+	logger.Info().Str("status", "activated").Str("user", r.Username).Msg(msg)
+	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "message": "authpf rule is being loaded"})
 }
 
-// getLoadAuthPFRules handles GET /api/v1/authpf/rules
+// getLoadAuthPFRules handles GET /api/v1/authpf/activate
 func getLoadAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	return c.JSON(http.StatusOK, rules)
+
+	username, err := getSessionUsername(c)
+	if err != nil {
+		return err
+	}
+
+	// Check permission
+	if err := config.validateUserPermissions(username, RBAC_GET_STATUS_OWN_RULE); err != nil {
+		c.Logger().Infof(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, rulesdb[username])
+}
+
+// getAllLoadAuthPFRules handles GET /api/v1/authpf/all
+func getAllLoadAuthPFRules(c echo.Context) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	username, err := getSessionUsername(c)
+	if err != nil {
+		return err
+	}
+
+	// Check permission
+	if err := config.validateUserPermissions(username, RBAC_GET_STATUS_OTHER_RULE); err != nil {
+		c.Logger().Infof(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	}
+	return c.JSON(http.StatusOK, rulesdb)
 }
 
 // deleteOwnAuthPFRules handles DELETE /api/v1/authpf/activate
 func deactivateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+	logger := c.Get("logger").(zerolog.Logger)
 
 	r := &AuthPFRule{}
 
@@ -111,30 +153,37 @@ func deactivateAuthPFRule(c echo.Context) error {
 	}
 	r.Username = username
 
-	for _, v := range rules {
-		if v.Username != r.Username {
-			c.Logger().Infof("Unloading authpf failed")
-			return c.JSON(http.StatusMethodNotAllowed, echo.Map{"error": "authpf rule for user not activated"})
-		}
+	if _, ok := rulesdb[r.Username]; !ok {
+		msg := "authpf rule for user not activated"
+		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		return c.JSON(http.StatusMethodNotAllowed, echo.Map{"status": "failed", "message": msg})
 	}
 
 	// Check permission
 	if err := config.validateUserPermissions(r.Username, RBAC_DEACTIVATE_OWN_RULE); err != nil {
-		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "msg": err.Error()})
+		logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
 	}
 
 	// Run pfctl command
 	result := unloadAuthPFRule(r.Username)
-	c.Logger().Debugf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-
+	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+	logger.Debug().Str("user", r.Username).Msg(msg)
 	if result.Error != nil {
-		c.Logger().Errorf("Unloading authpf rules failed for user: %s", r.Username)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "msg": "authpf rule not unloaded"})
+		msg := "authpf rule not unloaded"
+		logger.Info().Str("user", r.Username).Msg(msg)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
+	}
+	// Remove User from db
+	for idx, v := range rulesdb {
+		if v.Username == r.Username {
+			delete(rulesdb, idx)
+		}
 	}
 
-	c.Logger().Infof("Unloading authpf rule user=%s succeed", r.Username)
-	return c.JSON(http.StatusAccepted, echo.Map{"status": "queued", "user": r.Username, "msg": "authpf rule is being unloaded"})
+	msg = "authpf rule is being unloaded"
+	logger.Info().Str("status", "queued").Str("user", r.Username).Msg(msg)
+	return c.JSON(http.StatusAccepted, echo.Map{"status": "queued", "user": r.Username, "message": msg})
 }
 
 // Run Load AuthPF Rule
@@ -165,9 +214,10 @@ func deleteAllAuthPFRules(c echo.Context) error {
 	// Check permission
 	if err := config.validateUserPermissions(username, RBAC_DEACTIVATE_OTHER_RULE); err != nil {
 		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "msg": err.Error()})
+		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
 	}
 
-	rules = make(map[string]*AuthPFRule)
+	//TODO: pfctl -a "authpf/*" -Fa
+	rulesdb = make(map[string]*AuthPFRule)
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }

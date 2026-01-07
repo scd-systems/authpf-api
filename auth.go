@@ -20,7 +20,7 @@ func login(c echo.Context) error {
 	}
 
 	if err := config.checkUserAndPassword(req.Username, req.Password); err != nil {
-		c.Logger().Errorf(err.Error())
+		c.Logger().Infof(err.Error())
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username or password"})
 	}
 
@@ -37,7 +37,7 @@ func login(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}
-
+	c.Logger().Infof("User %s has been successfully authenticated", req.Username)
 	return c.JSON(http.StatusOK, LoginResponse{Token: tokenString})
 }
 
