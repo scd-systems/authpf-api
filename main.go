@@ -127,7 +127,7 @@ func main() {
 	e.GET("/api/v1/authpf/all", getAllLoadAuthPFRules, jwtMiddleware)
 	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFRule, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/all", deleteAllAuthPFRules, jwtMiddleware)
+	e.DELETE("/api/v1/authpf/all", deactivateAllAuthPFRules, jwtMiddleware)
 	go startRuleCleaner(logger)
 
 	if config.Server.SSL.Certificate != "" {

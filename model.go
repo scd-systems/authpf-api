@@ -95,7 +95,8 @@ type ConfigFileRbacUsers struct {
 
 const (
 	CONFIG_FILE                = "/usr/local/etc/authpf-api.conf"
-	RBAC_ACTIVATE_RULE         = "set_rules"
+	RBAC_ACTIVATE_OWN_RULE     = "set_own_rules"
+	RBAC_ACTIVATE_OTHER_RULE   = "set_other_rules"
 	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rules"
 	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"
 	RBAC_GET_STATUS_OWN_RULE   = "view_own_rules"

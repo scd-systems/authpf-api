@@ -34,17 +34,19 @@ func activateAuthPFRule(c echo.Context) error {
 	defer lock.Unlock()
 	logger := c.Get("logger").(zerolog.Logger)
 
-	timeoutStr := c.QueryParam("timeout")
-	if timeoutStr == "" {
-		timeoutStr = config.Defaults.Timeout
-	}
+	r := &AuthPFRule{}
 
-	r := &AuthPFRule{
-		Timeout: timeoutStr,
+	// Set Timeout
+	reqTimeout := c.QueryParam("timeout")
+	if reqTimeout == "" {
+		reqTimeout = config.Defaults.Timeout
 	}
+	reqUser := c.QueryParam("authpf_username")
 
-	if timeoutStr != "" {
-		if d, err := time.ParseDuration(timeoutStr); err == nil {
+	r.Timeout = reqTimeout
+
+	if reqTimeout != "" {
+		if d, err := time.ParseDuration(reqTimeout); err == nil {
 			r.ExpiresAt = time.Now().Add(d)
 		}
 	}
@@ -59,12 +61,23 @@ func activateAuthPFRule(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
 	r.Username = username
+
+	// Set authpf_username as user instead from JWT if set and allowed
+	if (reqUser != "") && (reqUser != username) {
+		if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_OTHER_RULE); err != nil {
+			logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
+			return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+		}
+		r.Username = reqUser
+	}
+
+	// Set UserID if available
 	if config.Rbac.Users[r.Username].UserID > 0 {
 		r.UserID = config.Rbac.Users[r.Username].UserID
 	}
 
+	// Check if session already exists
 	for _, v := range rulesdb {
 		if v.Username == r.Username {
 			msg := "authpf rule for user already activated"
@@ -73,8 +86,8 @@ func activateAuthPFRule(c echo.Context) error {
 		}
 	}
 
-	// Check permission
-	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_RULE); err != nil {
+	// Check permission to activate own rules
+	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_OWN_RULE); err != nil {
 		logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
 		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
 	}
@@ -144,6 +157,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 	logger := c.Get("logger").(zerolog.Logger)
+	reqUser := c.QueryParam("authpf_username")
 
 	r := &AuthPFRule{}
 
@@ -157,6 +171,15 @@ func deactivateAuthPFRule(c echo.Context) error {
 		return err
 	}
 	r.Username = username
+
+	// Set authpf_username as user instead from JWT if set and allowed
+	if (reqUser != "") && (reqUser != username) {
+		if err := config.validateUserPermissions(r.Username, RBAC_DEACTIVATE_OTHER_RULE); err != nil {
+			logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
+			return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+		}
+		r.Username = reqUser
+	}
 
 	if _, ok := rulesdb[r.Username]; !ok {
 		msg := "authpf rule for user not activated"
@@ -208,7 +231,7 @@ func unloadAuthPFRule(username string) *SystemCommandResult {
 }
 
 // deleteAllAuthPFRules handles DELETE /api/v1/authpf/all
-func deleteAllAuthPFRules(c echo.Context) error {
+func deactivateAllAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
