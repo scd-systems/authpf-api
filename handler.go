@@ -53,7 +53,7 @@ func activateAuthPFRule(c echo.Context) error {
 		return err
 	}
 
-	r.ClientIP = c.RealIP()
+	r.UserIP = c.RealIP()
 
 	username, err := getSessionUsername(c)
 	if err != nil {
@@ -61,8 +61,8 @@ func activateAuthPFRule(c echo.Context) error {
 	}
 
 	r.Username = username
-	if config.Rbac.Users[r.Username].ClientID > 0 {
-		r.ClientID = config.Rbac.Users[r.Username].ClientID
+	if config.Rbac.Users[r.Username].UserID > 0 {
+		r.UserID = config.Rbac.Users[r.Username].UserID
 	}
 
 	for _, v := range rulesdb {
@@ -72,8 +72,6 @@ func activateAuthPFRule(c echo.Context) error {
 			return c.JSON(http.StatusMethodNotAllowed, echo.Map{"error": msg})
 		}
 	}
-
-	rulesdb[r.Username] = r
 
 	// Check permission
 	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_RULE); err != nil {
@@ -92,7 +90,14 @@ func activateAuthPFRule(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	msg = fmt.Sprintf("Loading authpf rule: user=%s, client_ip=%s, client_id=%d, timeout=%s, expire_at=%s", r.Username, r.ClientIP, r.ClientID, r.Timeout, r.ExpiresAt)
+	// Store status into DB
+	if err := addToRulesDB(r); err != nil {
+		msg := "Unable to store user into Session DB"
+		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
+	}
+
+	msg = fmt.Sprintf("Loading authpf rule: user=%s, user_ip=%s, user_id=%d, timeout=%s, expire_at=%s", r.Username, r.UserIP, r.UserID, r.Timeout, r.ExpiresAt)
 	logger.Info().Str("status", "activated").Str("user", r.Username).Msg(msg)
 	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "message": "authpf rule is being loaded"})
 }
@@ -146,7 +151,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 		return err
 	}
 
-	r.ClientIP = c.RealIP()
+	r.UserIP = c.RealIP()
 	username, err := getSessionUsername(c)
 	if err != nil {
 		return err
@@ -174,11 +179,12 @@ func deactivateAuthPFRule(c echo.Context) error {
 		logger.Info().Str("user", r.Username).Msg(msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
+
 	// Remove User from db
-	for idx, v := range rulesdb {
-		if v.Username == r.Username {
-			delete(rulesdb, idx)
-		}
+	if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
+		msg := "Unable to remove user from Session DB"
+		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
 	msg = "authpf rule is being unloaded"
@@ -220,4 +226,24 @@ func deleteAllAuthPFRules(c echo.Context) error {
 	//TODO: pfctl -a "authpf/*" -Fa
 	rulesdb = make(map[string]*AuthPFRule)
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
+}
+
+func addToRulesDB(r *AuthPFRule) error {
+	rulesdb[r.Username] = r
+	return nil
+}
+
+func removeFromRulesDB(username string, user_ip string) error {
+	for idx, v := range rulesdb {
+		if v.Username == username {
+			if config.AuthPF.MultiUserIP {
+				if v.UserIP == user_ip {
+					delete(rulesdb, idx)
+				}
+			} else {
+				delete(rulesdb, idx)
+			}
+		}
+	}
+	return nil
 }

@@ -11,8 +11,8 @@ import (
 type AuthPFRule struct {
 	Username  string    `json:"username"`
 	Timeout   string    `json:"timeout,omitempty"`
-	ClientIP  string    `json:"client_ip"`
-	ClientID  int       `json:"client_id"`
+	UserIP    string    `json:"user_ip"`
+	UserID    int       `json:"user_id"`
 	ExpiresAt time.Time `json:"expire_at"`
 }
 
@@ -57,11 +57,11 @@ type ConfigFileDefaults struct {
 }
 
 type ConfigFileAuthPF struct {
-	ClientID      string `yaml:"clientID"`
-	AnchorName    string `yaml:"anchorName"`
-	TableName     string `yaml:"tableName"`
-	MultiClientIP bool   `yaml:"multiClientIP"`
-	ClearOnStart  bool   `yaml:"clearOnStart"`
+	UserID       string `yaml:"userID"`
+	AnchorName   string `yaml:"anchorName"`
+	TableName    string `yaml:"tableName"`
+	MultiUserIP  bool   `yaml:"multiUserIP"`
+	ClearOnStart bool   `yaml:"clearOnStart"`
 }
 
 type ConfigFileServer struct {
@@ -90,11 +90,11 @@ type ConfigFileRbacUsers struct {
 	UserRulesFile string `yaml:"userRulesFile,omitempty"`
 	Password      string `yaml:"password"`
 	Role          string `yaml:"role"`
-	ClientID      int    `yaml:"clientId,omitempty"`
+	UserID        int    `yaml:"userId,omitempty"`
 }
 
 const (
-	CONFIG_FILE                = "/usr/local/etc/authpf-api-config.yaml"
+	CONFIG_FILE                = "/usr/local/etc/authpf-api.conf"
 	RBAC_ACTIVATE_RULE         = "set_rules"
 	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rules"
 	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"

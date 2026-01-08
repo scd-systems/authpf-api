@@ -59,15 +59,6 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	}
 }
 
-// func reloadPF(c echo.Context) error {
-// 	result := executeSystemCommand("ls", "-la")
-// 	if result.Error != nil {
-// 		c.Logger().Errorf("pfctl failed: %v", result.Error)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "pfctl execution failed"})
-// 	}
-// 	return c.JSON(http.StatusOK, echo.Map{"status": result.Stdout})
-// }
-
 func buildPfctlCmd() string {
 	prefix := config.Defaults.PfctlBinary
 	switch config.Server.ElevatorMode {
@@ -98,10 +89,10 @@ func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
 	anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
 	switch mode {
 	case AUTHPF_ACTIVATE:
-		clientIP := fmt.Sprintf("client_ip=%s", r.ClientIP)
-		clientID := fmt.Sprintf("client_id=%d", r.ClientID)
+		userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
+		userID := fmt.Sprintf("user_id=%d", r.UserID)
 		rulePath := buildAuthPFRulePath(r.Username)
-		return []string{"-a", anchor, "-D", clientIP, "-D", clientID, "-f", rulePath}
+		return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
 	case AUTHPF_DEACTIVATE:
 		return []string{"-a", anchor, "-Fa"}
 	}
