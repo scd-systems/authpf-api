@@ -79,6 +79,18 @@ func executePfctlCommand(cmd []string) *SystemCommandResult {
 	return executeSystemCommand(prefix, args...)
 }
 
+func executePfctlCommands(commands [][]string) *SystemCommandResult {
+	var lastResult *SystemCommandResult
+
+	for _, cmd := range commands {
+		lastResult = executePfctlCommand(cmd)
+		if lastResult.Error != nil {
+			return lastResult
+		}
+	}
+	return lastResult
+}
+
 func buildAuthPFRulePath(username string) string {
 	const prefix = "/etc/authpf/users"
 	const rulesFile = "authpf.rules"
@@ -95,6 +107,20 @@ func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
 		return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
 	case AUTHPF_DEACTIVATE:
 		return []string{"-a", anchor, "-Fa"}
+	}
+	return nil
+}
+
+func buildMultiPfctlCmdParameters(r *AuthPFRule, mode string) [][]string {
+	anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
+	switch mode {
+	case AUTHPF_DEACTIVATE:
+		filter := []string{"nat", "queue", "ethernet", "rules", "states", "info", "Sources", "Reset"}
+		commands := make([][]string, len(filter))
+		for i, f := range filter {
+			commands[i] = []string{"-a", anchor, "-F", f}
+		}
+		return commands
 	}
 	return nil
 }

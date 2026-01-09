@@ -226,8 +226,8 @@ func unloadAuthPFRule(username string) *SystemCommandResult {
 	r := &AuthPFRule{
 		Username: username,
 	}
-	parameters := buildPfctlCmdParameters(r, AUTHPF_DEACTIVATE)
-	return executePfctlCommand(parameters)
+	parameters := buildMultiPfctlCmdParameters(r, AUTHPF_DEACTIVATE)
+	return executePfctlCommands(parameters)
 }
 
 // deleteAllAuthPFRules handles DELETE /api/v1/authpf/all
