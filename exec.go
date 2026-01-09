@@ -79,16 +79,23 @@ func executePfctlCommand(cmd []string) *SystemCommandResult {
 	return executeSystemCommand(prefix, args...)
 }
 
-func executePfctlCommands(commands [][]string) *SystemCommandResult {
-	var lastResult *SystemCommandResult
+func executePfctlCommands(commands [][]string) *MultiCommandResult {
+	results := make([]*SystemCommandResult, 0)
 
 	for _, cmd := range commands {
-		lastResult = executePfctlCommand(cmd)
-		if lastResult.Error != nil {
-			return lastResult
+		result := executePfctlCommand(cmd)
+		results = append(results, result)
+		if result.Error != nil {
+			return &MultiCommandResult{
+				Results: results,
+				Error:   result.Error,
+			}
 		}
 	}
-	return lastResult
+	return &MultiCommandResult{
+		Results: results,
+		Error:   nil,
+	}
 }
 
 func buildAuthPFRulePath(username string) string {

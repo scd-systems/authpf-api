@@ -194,10 +194,26 @@ func deactivateAuthPFRule(c echo.Context) error {
 	}
 
 	// Run pfctl command
-	result := unloadAuthPFRule(r.Username)
-	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-	logger.Debug().Str("user", r.Username).Msg(msg)
-	if result.Error != nil {
+	// result := unloadAuthPFRule(r.Username)
+	// msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+	// logger.Debug().Str("user", r.Username).Msg(msg)
+	// if result.Error != nil {
+	// 	msg := "authpf rule not unloaded"
+	// 	logger.Info().Str("user", r.Username).Msg(msg)
+	// 	return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
+	// }
+
+	multiResult := unloadAuthPFRule(r.Username)
+
+	// Log all commands
+	for i, result := range multiResult.Results {
+		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
+			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
+			result.ExitCode, result.Stdout, result.Stderr)
+		logger.Debug().Str("user", r.Username).Msg(msg)
+	}
+
+	if multiResult.Error != nil {
 		msg := "authpf rule not unloaded"
 		logger.Info().Str("user", r.Username).Msg(msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
@@ -210,7 +226,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	msg = "authpf rule is being unloaded"
+	msg := "authpf rule is being unloaded"
 	logger.Info().Str("status", "queued").Str("user", r.Username).Msg(msg)
 	return c.JSON(http.StatusAccepted, echo.Map{"status": "queued", "user": r.Username, "message": msg})
 }
@@ -222,7 +238,7 @@ func loadAuthPFRule(r *AuthPFRule) *SystemCommandResult {
 }
 
 // Run Unload AuthPF Rule
-func unloadAuthPFRule(username string) *SystemCommandResult {
+func unloadAuthPFRule(username string) *MultiCommandResult {
 	r := &AuthPFRule{
 		Username: username,
 	}

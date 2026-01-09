@@ -93,6 +93,11 @@ type ConfigFileRbacUsers struct {
 	UserID        int    `yaml:"userId,omitempty"`
 }
 
+type MultiCommandResult struct {
+	Results []*SystemCommandResult
+	Error   error
+}
+
 const (
 	CONFIG_FILE                = "/usr/local/etc/authpf-api.conf"
 	RBAC_ACTIVATE_OWN_RULE     = "set_own_rules"

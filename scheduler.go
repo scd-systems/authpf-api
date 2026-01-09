@@ -26,12 +26,17 @@ func startRuleCleaner(logger zerolog.Logger) {
 				if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
 					logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
 				}
-				result := unloadAuthPFRule(r.Username)
-				msg = fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-				logger.Debug().Msg(msg)
-				if result.Error != nil {
+				multiResult := unloadAuthPFRule(r.Username)
+				for i, result := range multiResult.Results {
+					msg = fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
+						i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
+						result.ExitCode, result.Stdout, result.Stderr)
+					logger.Debug().Msg(msg)
+				}
+				if multiResult.Error != nil {
 					logger.Error().Msgf("Unloading authpf rules failed for user: %s", r.Username)
 				}
+
 			}
 		}
 		lock.Unlock()
