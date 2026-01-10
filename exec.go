@@ -147,7 +147,7 @@ func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
 }
 
 func buildMultiPfctlCmdParameters(r *AuthPFRule, mode string) [][]string {
-	anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
+	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 	switch mode {
 	case AUTHPF_DEACTIVATE:
 		filter := []string{"nat", "queue", "ethernet", "rules", "states", "info", "Sources", "Reset"}

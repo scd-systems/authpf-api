@@ -116,7 +116,7 @@ func getLogWriter() (io.Writer, error) {
 	}
 
 	if config.Server.Logfile != "" {
-		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
 			log.Errorf("Failed to open logfile: %s", err.Error())
 			return os.Stdout, nil
