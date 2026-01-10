@@ -28,7 +28,7 @@ jobs:
           -o authpf-api-${{ matrix.os }}-${{ matrix.arch }} .
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
           path: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       
       - name: Generate Checksums
         run: |
