@@ -1,0 +1,87 @@
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [freebsd, openbsd]
+        arch: [amd64, arm64, armv7, riscv64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.25.5'
+      
+      - name: Build ${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
+          go build -ldflags "-X main.Version=${{ github.ref_name }}" \
+          -o authpf-api-${{ matrix.os }}-${{ matrix.arch }} .
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
+          path: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Generate Checksums
+        run: |
+          mkdir -p release
+          for dir in authpf-api-*/; do
+            for file in "$dir"*; do
+              if [ -f "$file" ]; then
+                cp "$file" release/
+                sha256sum "release/$(basename "$file")" >> release/SHA256SUMS
+              fi
+            done
+          done
+      
+      - name: Extract Release Notes from CHANGELOG
+        id: changelog
+        run: |
+          VERSION=${{ github.ref_name }}
+          # Extrahiere den Changelog-Eintrag für diese Version
+          awk "/^## \[${VERSION#v}\]/,/^## \[/" CHANGELOG.md | \
+          head -n -1 | tail -n +2 > RELEASE_NOTES.md
+          
+          # Fallback wenn Version nicht gefunden
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "## Release ${VERSION}" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "See CHANGELOG.md for details" >> RELEASE_NOTES.md
+          fi
+          
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/*
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
