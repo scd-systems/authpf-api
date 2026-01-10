@@ -5,7 +5,10 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"regexp"
+
+	log "github.com/labstack/gommon/log"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (c *ConfigFile) validateUserPermissions(username string, permission string) error {
@@ -28,17 +31,53 @@ func (c *ConfigFile) validateUserPermissions(username string, permission string)
 }
 
 func (c *ConfigFile) checkUserAndPassword(username string, clearTextPassword string) error {
-	_, ok := c.Rbac.Users[username]
+	user, ok := c.Rbac.Users[username]
 	if !ok {
-		return fmt.Errorf("User %q not found", username)
+		return fmt.Errorf("user %q not found", username)
 	}
-	userPassword, err := hex.DecodeString(c.Rbac.Users[username].Password)
-	if err != nil {
-		log.Fatal(err)
+
+	// Use bcrypt
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(clearTextPassword))
+	if err == nil {
+		return nil
 	}
-	requestPassword := sha256.Sum256([]byte(clearTextPassword))
-	if ret := subtle.ConstantTimeCompare(requestPassword[:], userPassword); ret != 1 {
-		return fmt.Errorf("Password not correct")
+
+	// SHA256 fallback
+	if len(user.Password) == 64 {
+		userPassword, err := hex.DecodeString(user.Password)
+		if err == nil {
+			requestPassword := sha256.Sum256([]byte(clearTextPassword))
+			if ret := subtle.ConstantTimeCompare(requestPassword[:], userPassword); ret == 1 {
+				log.Infof("User %q using legacy SHA256 password - please update to bcrypt", username)
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("password not correct")
+}
+
+// ValidateUsername check for valid username
+func (c *ConfigFile) validateUsername(username string) error {
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	if len(username) > 255 {
+		return fmt.Errorf("username too long (max 255 characters)")
+	}
+	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
+		return fmt.Errorf("username contains invalid characters")
+	}
+	if _, ok := c.Rbac.Users[username]; !ok {
+		return fmt.Errorf("user %q not found", username)
 	}
 	return nil
+}
+
+func GeneratePasswordHash(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
 }
