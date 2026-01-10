@@ -14,8 +14,8 @@ func (config *ConfigFile) loadConfig(configFile string) error {
 	}
 
 	perms := info.Mode().Perm()
-	if perms&0077 != 0 {
-		return fmt.Errorf("config file has insecure permissions: %o (should be 0600)", perms)
+	if perms&0037 != 0 {
+		return fmt.Errorf("config file has insecure permissions: %o (should be 0640)", perms)
 	}
 
 	yamlFile, err := os.ReadFile(configFile)
