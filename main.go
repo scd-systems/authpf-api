@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"io"
@@ -30,6 +31,31 @@ func setLevel() log.Lvl {
 	}
 }
 
+// validateSSLFiles checks if SSL certificate and key files exist and are readable
+func validateSSLFiles(certPath, keyPath string) error {
+	if certPath == "" {
+		return nil
+	}
+
+	// Check certificate file
+	if _, err := os.Stat(certPath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("SSL certificate file not found: %s", certPath)
+		}
+		return fmt.Errorf("cannot access SSL certificate file: %s - %v", certPath, err)
+	}
+
+	// Check key file
+	if _, err := os.Stat(keyPath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("SSL key file not found: %s", keyPath)
+		}
+		return fmt.Errorf("cannot access SSL key file: %s - %v", keyPath, err)
+	}
+
+	return nil
+}
+
 func main() {
 	// TODO: Implement proper Args + Flags Handler
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
@@ -54,6 +80,21 @@ func main() {
 		log.Errorf("%s", err.Error())
 		os.Exit(1)
 	}
+	if config.Server.JwtSecret != "" {
+		jwtSecret = []byte(config.Server.JwtSecret)
+	} else {
+		randomSecret := make([]byte, 32)
+		if _, err := rand.Read(randomSecret); err != nil {
+			log.Fatalf("Failed to generate JWT secret: %v", err)
+		}
+		jwtSecret = randomSecret
+		log.Warnf("Generated random JWT secret (not persisted - configure jwtSecret in config file)")
+	}
+	// Validate SSL files if SSL is enabled
+	if err := validateSSLFiles(config.Server.SSL.Certificate, config.Server.SSL.Key); err != nil {
+		log.Errorf("%s", err.Error())
+		os.Exit(1)
+	}
 
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel == "" {
@@ -65,7 +106,7 @@ func main() {
 	if *foreground {
 		logWriter = os.Stdout
 	} else if config.Server.Logfile != "" {
-		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			log.Errorf("Failed to open logfile: %s", err.Error())
 			logWriter = os.Stdout

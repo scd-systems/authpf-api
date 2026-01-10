@@ -70,6 +70,7 @@ type ConfigFileServer struct {
 	SSL          ConfigFileServerSSL `yaml:"ssl"`
 	ElevatorMode string              `yaml:"elevatorMode"`
 	Logfile      string              `yaml:"logfile"`
+	JwtSecret    string              `yaml:"jwtSecret"`
 }
 
 type ConfigFileServerSSL struct {
