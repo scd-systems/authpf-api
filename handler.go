@@ -4,29 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
 )
-
-// validatePayload validates the JSON payload from the request
-func validatePayload(c echo.Context, r *AuthPFRule) error {
-	if err := c.Bind(r); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON payload"})
-	}
-	return nil
-}
-
-// getSessionUsername validates the username from the JWT token in the Echo context
-// Returns the username if valid, or an error if validation fails
-func getSessionUsername(c echo.Context) (string, error) {
-	username, ok := c.Get("username").(string)
-	if !ok || username == "" {
-		return "", c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username in token"})
-	}
-	return username, nil
-}
 
 // loadAuthPFRule handles POST /api/v1/authpf/activate
 func activateAuthPFRule(c echo.Context) error {
@@ -36,60 +17,49 @@ func activateAuthPFRule(c echo.Context) error {
 
 	r := &AuthPFRule{}
 
-	// Set Timeout
-	reqTimeout := c.QueryParam("timeout")
-	if reqTimeout == "" {
-		reqTimeout = config.Defaults.Timeout
-	}
-	reqUser := c.QueryParam("authpf_username")
-
-	r.Timeout = reqTimeout
-
-	if reqTimeout != "" {
-		if d, err := time.ParseDuration(reqTimeout); err == nil {
-			r.ExpiresAt = time.Now().Add(d)
-		}
-	}
-
-	if err := validatePayload(c, r); err != nil {
-		return err
-	}
-
-	r.UserIP = c.RealIP()
-
-	username, err := getSessionUsername(c)
-	if err != nil {
-		return err
+	// Get and validate session username
+	username, valErr := ValidateSessionUsername(c)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 	r.Username = username
+	r.UserIP = c.RealIP()
 
-	// Set authpf_username as user instead from JWT if set and allowed
-	if (reqUser != "") && (reqUser != username) {
-		if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_OTHER_RULE); err != nil {
-			logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
-			return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
-		}
-		r.Username = reqUser
+	// Get query parameters
+	reqTimeout := c.QueryParam("timeout")
+	reqUser := c.QueryParam("authpf_username")
+
+	// Validate and resolve target user
+	targetUser, valErr := ResolveTargetUser(c, username, reqUser, RBAC_ACTIVATE_OTHER_RULE, logger)
+	if valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
+	}
+	r.Username = targetUser
+
+	// Validate timeout
+	timeout, expiresAt, valErr := ValidateTimeout(reqTimeout)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
+	}
+	r.Timeout = timeout
+	r.ExpiresAt = expiresAt
+
+	// Validate payload
+	if valErr := ValidatePayload(c, r); valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
 	// Set UserID if available
-	if config.Rbac.Users[r.Username].UserID > 0 {
-		r.UserID = config.Rbac.Users[r.Username].UserID
-	}
+	SetUserID(r)
 
 	// Check if session already exists
-	for _, v := range rulesdb {
-		if v.Username == r.Username {
-			msg := "authpf rule for user already activated"
-			logger.Info().Str("user", r.Username).Msg(msg)
-			return c.JSON(http.StatusMethodNotAllowed, echo.Map{"error": msg})
-		}
+	if valErr := CheckSessionExists(r.Username, logger); valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
 	// Check permission to activate own rules
-	if err := config.validateUserPermissions(r.Username, RBAC_ACTIVATE_OWN_RULE); err != nil {
-		logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	if valErr := CheckPermission(r.Username, RBAC_ACTIVATE_OWN_RULE, logger); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
 	// Run pfctl command
@@ -119,16 +89,17 @@ func activateAuthPFRule(c echo.Context) error {
 func getLoadAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+	logger := c.Get("logger").(zerolog.Logger)
 
-	username, err := getSessionUsername(c)
-	if err != nil {
-		return err
+	// Get and validate session username
+	username, valErr := ValidateSessionUsername(c)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
-	// Check permission
-	if err := config.validateUserPermissions(username, RBAC_GET_STATUS_OWN_RULE); err != nil {
-		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	// Check permission to view own rules
+	if valErr := CheckPermission(username, RBAC_GET_STATUS_OWN_RULE, logger); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
 	return c.JSON(http.StatusOK, rulesdb[username])
@@ -138,17 +109,19 @@ func getLoadAuthPFRules(c echo.Context) error {
 func getAllLoadAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+	logger := c.Get("logger").(zerolog.Logger)
 
-	username, err := getSessionUsername(c)
-	if err != nil {
-		return err
+	// Get and validate session username
+	username, valErr := ValidateSessionUsername(c)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
-	// Check permission
-	if err := config.validateUserPermissions(username, RBAC_GET_STATUS_OTHER_RULE); err != nil {
-		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	// Check permission to view all rules
+	if valErr := CheckPermission(username, RBAC_GET_STATUS_OTHER_RULE, logger); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
 	}
+
 	return c.JSON(http.StatusOK, rulesdb)
 }
 
@@ -157,51 +130,41 @@ func deactivateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 	logger := c.Get("logger").(zerolog.Logger)
-	reqUser := c.QueryParam("authpf_username")
 
 	r := &AuthPFRule{}
 
-	if err := validatePayload(c, r); err != nil {
-		return err
-	}
-
-	r.UserIP = c.RealIP()
-	username, err := getSessionUsername(c)
-	if err != nil {
-		return err
+	// Get and validate session username
+	username, valErr := ValidateSessionUsername(c)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 	r.Username = username
+	r.UserIP = c.RealIP()
 
-	// Set authpf_username as user instead from JWT if set and allowed
-	if (reqUser != "") && (reqUser != username) {
-		if err := config.validateUserPermissions(r.Username, RBAC_DEACTIVATE_OTHER_RULE); err != nil {
-			logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
-			return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
-		}
-		r.Username = reqUser
+	// Get query parameters
+	reqUser := c.QueryParam("authpf_username")
+
+	// Validate payload
+	if valErr := ValidatePayload(c, r); valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
-	if _, ok := rulesdb[r.Username]; !ok {
-		msg := "authpf rule for user not activated"
-		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
-		return c.JSON(http.StatusMethodNotAllowed, echo.Map{"status": "failed", "message": msg})
+	// Validate and resolve target user
+	targetUser, valErr := ResolveTargetUser(c, username, reqUser, RBAC_DEACTIVATE_OTHER_RULE, logger)
+	if valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
+	}
+	r.Username = targetUser
+
+	// Check if session exists
+	if valErr := CheckSessionNotExists(r.Username, logger); valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
-	// Check permission
-	if err := config.validateUserPermissions(r.Username, RBAC_DEACTIVATE_OWN_RULE); err != nil {
-		logger.Info().Str("status", "rejected").Str("user", r.Username).Msg(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	// Check permission to deactivate own rules
+	if valErr := CheckPermission(r.Username, RBAC_DEACTIVATE_OWN_RULE, logger); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
 	}
-
-	// Run pfctl command
-	// result := unloadAuthPFRule(r.Username)
-	// msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-	// logger.Debug().Str("user", r.Username).Msg(msg)
-	// if result.Error != nil {
-	// 	msg := "authpf rule not unloaded"
-	// 	logger.Info().Str("user", r.Username).Msg(msg)
-	// 	return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
-	// }
 
 	multiResult := unloadAuthPFRule(r.Username)
 
@@ -250,16 +213,17 @@ func unloadAuthPFRule(username string) *MultiCommandResult {
 func deactivateAllAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
+	logger := c.Get("logger").(zerolog.Logger)
 
-	username, err := getSessionUsername(c)
-	if err != nil {
-		return err
+	// Get and validate session username
+	username, valErr := ValidateSessionUsername(c)
+	if valErr != nil {
+		return RespondWithValidationError(c, valErr)
 	}
 
-	// Check permission
-	if err := config.validateUserPermissions(username, RBAC_DEACTIVATE_OTHER_RULE); err != nil {
-		c.Logger().Infof(err.Error())
-		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "message": err.Error()})
+	// Check permission to deactivate all rules
+	if valErr := CheckPermission(username, RBAC_DEACTIVATE_OTHER_RULE, logger); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
 	//TODO: pfctl -a "authpf/*" -Fa
