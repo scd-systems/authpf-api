@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"path"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/labstack/gommon/log"
 )
 
 func executeSystemCommand(command string, args ...string) *SystemCommandResult {
+	const commandExecutionTimeout = 30 * time.Second
+
 	cmd := exec.Command(command, args...)
 
 	// Capture stdout and stderr
@@ -45,8 +50,7 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 			ExitCode: exitCode,
 			Error:    err,
 		}
-
-	case <-time.After(30 * time.Second):
+	case <-time.After(commandExecutionTimeout):
 		cmd.Process.Kill()
 		return &SystemCommandResult{
 			Command:  command,
@@ -98,20 +102,44 @@ func executePfctlCommands(commands [][]string) *MultiCommandResult {
 	}
 }
 
-func buildAuthPFRulePath(username string) string {
-	const prefix = "/etc/authpf/users"
-	const rulesFile = "authpf.rules"
-	return path.Join(prefix, username, rulesFile)
+func buildAuthPFRulePath(username string) (string, error) {
+	if err := config.validateUsername(username); err != nil {
+		return "", err
+	}
+
+	basePath := config.Defaults.UserRulesRootFolder
+	rulePath := filepath.Join(basePath, username, config.Defaults.UserRulesFile)
+
+	absBase, err := filepath.Abs(basePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid base path: %v", err)
+	}
+
+	absRule, err := filepath.Abs(rulePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid rule path: %v", err)
+	}
+
+	if !strings.HasPrefix(absRule, absBase) {
+		return "", fmt.Errorf("path traversal detected: %s", rulePath)
+	}
+
+	return rulePath, nil
 }
 
 func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
-	anchor := fmt.Sprintf("%s/%s", config.AuthPF.AnchorName, r.Username)
+	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 	switch mode {
 	case AUTHPF_ACTIVATE:
 		userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
 		userID := fmt.Sprintf("user_id=%d", r.UserID)
-		rulePath := buildAuthPFRulePath(r.Username)
+		rulePath, err := buildAuthPFRulePath(r.Username)
+		if err != nil {
+			log.Errorf(err.Error())
+			return []string{}
+		}
 		return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
+
 	case AUTHPF_DEACTIVATE:
 		return []string{"-a", anchor, "-Fa"}
 	}
