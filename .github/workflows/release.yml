@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [freebsd]
-        arch: [amd64]
+        os: [freebsd, openbsd]
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,7 +70,7 @@ jobs:
           if [ ! -s RELEASE_NOTES.md ]; then
             echo "## Release ${VERSION}" > RELEASE_NOTES.md
             echo "" >> RELEASE_NOTES.md
-            echo "See CHANGELOG.md for details" >> RELEASE_NOTES.md
+            echo "See [Changelog](https://github.com/scd-systems/authpf-api/blob/${VERSION}/CHANGELOG.md) for details" >> RELEASE_NOTES.md
           fi
           
           echo "notes<<EOF" >> $GITHUB_OUTPUT
