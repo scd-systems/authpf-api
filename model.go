@@ -16,6 +16,12 @@ type AuthPFRule struct {
 	ExpiresAt time.Time `json:"expire_at"`
 }
 
+// AuthPFRulesResponse represents all rules with server time for client-side calculations
+type AuthPFRulesResponse struct {
+	Rules      map[string]*AuthPFRule `json:"rules"`
+	ServerTime time.Time              `json:"server_time"`
+}
+
 // JWTClaims represents the JWT token claims
 type JWTClaims struct {
 	Username string `json:"username"`

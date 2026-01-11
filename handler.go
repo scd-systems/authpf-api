@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
@@ -102,7 +103,11 @@ func getLoadAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	return c.JSON(http.StatusOK, rulesdb[username])
+	response := &AuthPFRulesResponse{
+		Rules:      map[string]*AuthPFRule{username: rulesdb[username]},
+		ServerTime: time.Now().UTC(),
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 // getAllLoadAuthPFRules handles GET /api/v1/authpf/all
@@ -122,7 +127,11 @@ func getAllLoadAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	return c.JSON(http.StatusOK, rulesdb)
+	response := &AuthPFRulesResponse{
+		Rules:      rulesdb,
+		ServerTime: time.Now().UTC(),
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 // deleteOwnAuthPFRules handles DELETE /api/v1/authpf/activate
