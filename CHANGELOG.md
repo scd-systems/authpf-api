@@ -19,16 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Bug fixes
 
-## [0.2.0] - 2026-01-10
+## [0.2.0] - 2026-01-12
 
 ### Added
 - Activate/Deactivate other user rules option
 - Automated GitHub Actions workflow for releases
 - Configureable JWT Secret, set a random if not defined 
 - UserID in anchors name "authpf/user($UserID)"
+- Flag to create bcrypt password for users
 
 ### Changed
-- Improve configfile loading
+- Improved configfile loading
+- Use bcrypt with salt for user password
 - Improved build system with Makefile
 
 ### Fixed

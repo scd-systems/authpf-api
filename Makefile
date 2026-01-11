@@ -1,6 +1,3 @@
-# Makefile for authpf-api
-# Supports building for FreeBSD and OpenBSD on amd64, arm64, armv7, and riscv64
-
 .PHONY: help build test clean lint fmt vet coverage build-all build-freebsd build-openbsd
 
 # Variables

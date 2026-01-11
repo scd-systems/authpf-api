@@ -1,2 +1,415 @@
-# authpf-api
-API for authpf
+# Authpf-API
+
+A RESTful API for managing FreeBSD/OpenBSD authpf rules via HTTP/S.
+
+## Overview
+
+**Authpf-API** is a Go-based REST API that provides a secure interface for managing packet filter (pf) authentication rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate authpf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
+
+## Features
+
+- 🔐 **JWT Authentication** - Secure token-based authentication
+- 👥 **Role-Based Access Control (RBAC)** - Fine-grained permission management
+- ⏱️ **Automatic Expiration** - Rules automatically expire after configured timeout
+- 🔄 **Scheduled Cleanup** - Periodic cleanup of expired rules
+- 🏗️ **Cross-Platform Build** - Support for FreeBSD and OpenBSD on multiple architectures
+- 🧑‍💼 **Runs as User** - API can run as user and use elevator tool (sudo/doas) to run pfctl subcommands
+
+## Supported Platforms
+
+### Operating Systems
+- FreeBSD
+- OpenBSD
+- macOS
+- Other pf based OS with anchor support
+
+### Architectures
+- amd64 (x86-64)
+- arm64 (ARM 64-bit)
+- riscv64 (RISC-V 64-bit)
+
+## Requirements
+
+- Go 1.24 or higher
+- FreeBSD or OpenBSD system
+- pfctl binary (usually pre-installed on BSD systems)
+- Optional: sudo or doas for privilege escalation
+
+## Installation
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/scd-systems/authpf-api.git
+cd authpf-api
+
+# Build for current system
+make build
+
+# Or build for all platforms
+make build-all
+
+# Run the application
+./build/authpf-api-freebsd-amd64 -foreground
+```
+
+### Using Make
+
+```bash
+# Show available targets
+make help
+
+# Build for specific platform
+make build GOOS=freebsd GOARCH=amd64
+
+# Run tests
+make test
+
+# Generate coverage report
+make coverage-html
+```
+
+## Configuration
+
+The application is configured via a YAML configuration file. By default, it looks for `/usr/local/etc/authpf-api-config.yaml`.
+
+### Configuration File Example
+
+```yaml
+defaults:
+  timeout: 30m                          # Default rule timeout
+  userRulesrootfolder: /etc/authpf/users
+  userrulesfile: authpf.rules
+  pfctlBinary: /sbin/pfctl
+
+authpf:
+  anchorName: authpf                    # pf anchor name
+  tableName: authpf-users               # pf table name
+  multiClientIP: false                  # Allow multiple IPs per user ()
+
+server:
+  bind: 0.0.0.0
+  port: 8080
+  ssl:
+    certificate: cert.pem               # Leave empty to disable SSL
+    key: key.pem
+  elevatorMode: none                    # Options: none, sudo, doas
+  logfile: /var/log/authpf-api.log
+
+rbac:
+  roles:
+    admin:
+      permissions:
+        - set_other_rules
+        - delete_own_rules
+        - delete_other_rules
+        - view_own_rules
+        - view_other_rules
+    user:
+      permissions:
+        - set_own_rules
+        - delete_own_rules
+        - view_own_rules
+  users:
+    authpf-user1:
+      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      role: user
+    authpf-admin:
+      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      role: admin
+```
+
+### Environment Variables
+
+```bash
+# Configuration file path
+export CONFIG_FILE=/path/to/config.yaml
+
+# Log level (debug, info, warn, error)
+export LOG_LEVEL=info
+```
+
+### Command-Line Flags
+
+```bash
+# Show version and exit
+./authpf-api -version
+
+# Log to stdout instead of logfile
+./authpf-api -foreground
+
+# Generate User Password (bcrypted)
+./authpf-api -gen-user-password
+```
+
+## API Endpoints
+
+### Authentication
+
+#### Login
+```http
+POST /login
+Content-Type: application/json
+
+{
+  "username": "authpf-user1",
+  "password": "testing"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+### AuthPF Rules
+
+All endpoints require JWT authentication via `Authorization: Bearer <token>` header.
+
+#### Activate Rule
+```http
+POST /api/v1/authpf/activate?timeout=30m
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Response (201 Created):**
+```json
+{
+  "status": "activated",
+  "user": "authpf-user1",
+  "msg": "authpf rule is being loaded"
+}
+```
+
+#### Deactivate Rule
+```http
+DELETE /api/v1/authpf/activate
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{}
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "status": "queued",
+  "user": "authpf-user1",
+  "msg": "authpf rule is being unloaded"
+}
+```
+
+#### Get All Rules
+```http
+GET /api/v1/authpf/all
+Authorization: Bearer <token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "authpf-user1": {
+    "username": "authpf-user1",
+    "timeout": "30m",
+    "client_ip": "192.168.1.100",
+    "expireat": "2026-01-07T22:00:00Z"
+  }
+}
+```
+
+#### Delete All Rules (Admin Only)
+```http
+DELETE /api/v1/authpf/all
+Authorization: Bearer <token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "cleared"
+}
+```
+
+### Query Parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `authpf_username` | Activate/Deactivate the authpf rules from another user (require set_other_rules/delete_other_rules permissions in role) |
+| `timeout` | Modify the authpf expire timeout (default 30m) |
+
+Example:
+
+```http
+POST /api/v1/authpf/activate?authpf_username=othername
+Authorization: Bearer <token>
+```
+
+## Permissions
+
+### Available Permissions
+
+| Permission | Description |
+|-----------|-------------|
+| `set_own_rules` | Allow user to activate authpf rules |
+| `set_other_rules` | Allow user to activate rules from other users |
+| `delete_own_rules` | Allow user to deactivate their own rules |
+| `delete_other_rules` | Allow user to deactivate rules from other users |
+| `view_own_rules` | Allow user to view their own rules |
+| `view_other_rules` | Allow user to view rules from other users |
+
+### Default Roles
+
+**Admin Role:**
+- set_other_rules
+- delete_own_rules
+- delete_other_rules
+- view_own_rules
+- view_other_rules
+
+**User Role:**
+- set_own_rules
+- delete_own_rules
+- view_own_rules
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with verbose output
+make test-verbose
+
+# Generate coverage report
+make coverage
+
+# Generate HTML coverage report
+make coverage-html
+```
+
+### Code Quality
+
+```bash
+# Format code
+make fmt
+
+# Run linter
+make lint
+
+# Run go vet
+make vet
+```
+
+### Building
+
+```bash
+# Build for current system
+make build
+
+# Build for FreeBSD
+make build-freebsd
+
+# Build for OpenBSD
+make build-openbsd
+
+# Build for all platforms
+make build-all
+```
+
+## Logging
+
+The application uses structured JSON logging with zerolog. Logs can be output to:
+
+1. **Logfile** (default) - Configured in `server.logfile`
+2. **Stdout** - Use `-foreground` flag
+
+### User Password Generation
+
+The authpf-api supports **Bcrypt** (recommended) and **SHA256** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
+
+#### Interactive Mode
+
+Generate a password hash interactively (password input is hidden):
+
+```bash
+./authpf-api -gen-user-password
+Enter password:
+$2a$10$N9qo8uLOic.......
+```
+
+#### Piped Mode
+
+Generate a password hash by piping the password:
+
+```bash
+echo "your-password" | ./authpf-api -gen-user-password
+$2a$10$N9qo8uLOickgx2ZM........
+```
+
+#### Adding Users to Configuration
+
+Copy the generated hash and add it to your configuration file (`/usr/local/etc/authpf-api.conf`):
+
+```yaml
+rbac:
+  users:
+    authpf-user1:
+      password: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36gZvQOm
+      role: user
+    authpf-admin:
+      password: $2a$10$abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQR
+      role: admin
+```
+
+#### User Management with authpf-api-cli
+
+For comprehensive user and rule management, use the **authpf-api-cli** tool. Refer to the [authpf-api-cli documentation](https://github.com/scd-systems/authpf-api-cli/README.md) for detailed instructions on managing users, roles, and permissions.
+
+## Troubleshooting
+
+### Connection Refused
+- Verify server is running: `ps aux | grep authpf-api`
+- Check bind address and port in configuration
+- Ensure firewall allows connections
+
+### Authentication Failed
+- Verify username and password are correct
+- Check user exists in configuration
+- Verify password hash is correct
+
+### Rule Not Loading
+- Check pfctl binary path in configuration
+- Verify user has permission to run pfctl
+- Check authpf rules file exists and is readable
+- Review logs for detailed error messages
+
+### Permission Denied
+- Verify user role has required permission
+- Check RBAC configuration
+- Review logs for permission errors
+
+## Contributing
+
+Contributions are welcome! 
+
+Please ensure:
+
+1. Code follows Go conventions
+2. All tests pass: `make test`
+3. Code is formatted: `make fmt`
+4. Linter passes: `make lint`
+5. Commit messages are descriptive
+
+## License
+
+See LICENSE file for details.
+
+## Support
+
+For issues, questions, or suggestions, please open an issue on the project repository.
