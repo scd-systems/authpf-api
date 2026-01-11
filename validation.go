@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -201,4 +202,28 @@ func RespondWithValidationErrorStatus(c echo.Context, valErr *ValidationError) e
 		"message": valErr.Message,
 		"details": valErr.Details,
 	})
+}
+
+// ValidateUserIP validates that the provided IP address is a valid IPv4 or IPv6 address
+// Returns a ValidationError if the IP is invalid or empty
+func ValidateUserIP(ip string) *ValidationError {
+	if ip == "" {
+		return &ValidationError{
+			StatusCode: http.StatusBadRequest,
+			Message:    "invalid IP address",
+			Details:    "IP address cannot be empty",
+		}
+	}
+
+	// Parse the IP address - net.ParseIP returns nil if the IP is invalid
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return &ValidationError{
+			StatusCode: http.StatusBadRequest,
+			Message:    "invalid IP address",
+			Details:    fmt.Sprintf("'%s' is not a valid IPv4 or IPv6 address", ip),
+		}
+	}
+
+	return nil
 }
