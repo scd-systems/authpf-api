@@ -24,6 +24,10 @@ func activateAuthPFRule(c echo.Context) error {
 		return RespondWithValidationError(c, valErr)
 	}
 	r.Username = username
+
+	if valErr := ValidateUserIP(c.RealIP()); valErr != nil {
+		return RespondWithValidationErrorStatus(c, valErr)
+	}
 	r.UserIP = c.RealIP()
 
 	// Get query parameters
@@ -205,7 +209,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 
 // Run Load AuthPF Rule
 func loadAuthPFRule(r *AuthPFRule) *SystemCommandResult {
-	parameters := buildPfctlCmdParameters(r, AUTHPF_ACTIVATE)
+	parameters := buildPfctlActivateCmdParameters(r)
 	return executePfctlCommand(parameters)
 }
 
@@ -214,7 +218,7 @@ func unloadAuthPFRule(username string) *MultiCommandResult {
 	r := &AuthPFRule{
 		Username: username,
 	}
-	parameters := buildMultiPfctlCmdParameters(r, AUTHPF_DEACTIVATE)
+	parameters := buildPfctlDeactivateCmdParameters(r)
 	return executePfctlCommands(parameters)
 }
 

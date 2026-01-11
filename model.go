@@ -113,8 +113,6 @@ const (
 	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"
 	RBAC_GET_STATUS_OWN_RULE   = "view_own_rules"
 	RBAC_GET_STATUS_OTHER_RULE = "view_other_rules"
-	AUTHPF_ACTIVATE            = "activate"
-	AUTHPF_DEACTIVATE          = "deactivate"
 )
 
 // Global variables

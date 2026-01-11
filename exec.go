@@ -127,35 +127,28 @@ func buildAuthPFRulePath(username string) (string, error) {
 	return rulePath, nil
 }
 
-func buildPfctlCmdParameters(r *AuthPFRule, mode string) []string {
+func buildPfctlActivateCmdParameters(r *AuthPFRule) []string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
-	switch mode {
-	case AUTHPF_ACTIVATE:
-		userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
-		userID := fmt.Sprintf("user_id=%d", r.UserID)
-		rulePath, err := buildAuthPFRulePath(r.Username)
-		if err != nil {
-			log.Errorf(err.Error())
-			return []string{}
-		}
-		return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
-
-	case AUTHPF_DEACTIVATE:
-		return []string{"-a", anchor, "-Fa"}
+	userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
+	if valErr := ValidateUserIP(r.UserIP); valErr != nil {
+		log.Errorf(valErr.Error())
+		return []string{}
 	}
-	return nil
+	userID := fmt.Sprintf("user_id=%d", r.UserID)
+	rulePath, err := buildAuthPFRulePath(r.Username)
+	if err != nil {
+		log.Errorf(err.Error())
+		return []string{}
+	}
+	return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
 }
 
-func buildMultiPfctlCmdParameters(r *AuthPFRule, mode string) [][]string {
+func buildPfctlDeactivateCmdParameters(r *AuthPFRule) [][]string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
-	switch mode {
-	case AUTHPF_DEACTIVATE:
-		filter := []string{"nat", "queue", "ethernet", "rules", "states", "info", "Sources", "Reset"}
-		commands := make([][]string, len(filter))
-		for i, f := range filter {
-			commands[i] = []string{"-a", anchor, "-F", f}
-		}
-		return commands
+	filter := []string{"nat", "queue", "ethernet", "rules", "states", "info", "Sources", "Reset"}
+	commands := make([][]string, len(filter))
+	for i, f := range filter {
+		commands[i] = []string{"-a", anchor, "-F", f}
 	}
-	return nil
+	return commands
 }
