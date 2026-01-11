@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
+	"golang.org/x/term"
 )
 
 var logger zerolog.Logger
@@ -53,10 +55,19 @@ func bootstrap() error {
 func parseFlags() error {
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
 	version := flag.Bool("version", false, "Show version and exit")
+	genUserPassword := flag.Bool("gen-user-password", false, "Generate a bcrypt password hash (reads password from stdin)")
 	flag.Parse()
 
 	if *version {
 		fmt.Printf("authpf-api version %s\n", Version)
+		os.Exit(0)
+	}
+
+	if *genUserPassword {
+		if err := generateUserPasswordHash(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
@@ -154,3 +165,68 @@ func validateSSLFiles(certPath, keyPath string) error {
 
 // Global flag storage for logger initialization
 var globalForeground bool
+
+// generateUserPasswordHash reads a password from stdin and generates a bcrypt hash
+func generateUserPasswordHash() error {
+	// Check if stdin is a terminal or piped
+	isTerminal := term.IsTerminal(int(os.Stdin.Fd()))
+
+	var password string
+	var err error
+
+	if isTerminal {
+		// Interactive mode: prompt and read without echo
+		fmt.Fprint(os.Stderr, "Enter password: ")
+		password, err = readPasswordNoEcho()
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+		fmt.Fprint(os.Stderr, "\n")
+	} else {
+		// Piped mode: read from stdin
+		password, err = readPasswordFromStdin()
+		if err != nil {
+			return fmt.Errorf("failed to read password: %w", err)
+		}
+	}
+
+	if password == "" {
+		return fmt.Errorf("password cannot be empty")
+	}
+
+	hash, err := GeneratePasswordHash(password)
+	if err != nil {
+		return fmt.Errorf("failed to generate password hash: %w", err)
+	}
+
+	fmt.Println(hash)
+	return nil
+}
+
+// readPasswordNoEcho reads a password from terminal without echoing it
+func readPasswordNoEcho() (string, error) {
+	// Disable terminal echo
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", err
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	// Read password
+	password, err := term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", err
+	}
+
+	return string(password), nil
+}
+
+// readPasswordFromStdin reads a password from stdin (for piped input)
+func readPasswordFromStdin() (string, error) {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return "", err
+	}
+	password := strings.TrimSpace(string(data))
+	return password, nil
+}
