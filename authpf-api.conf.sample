@@ -1,0 +1,82 @@
+# Default configuration settings applied globally
+defaults:
+  # Maximum timeout for operations (e.g., 30m, 1h)
+  timeout: 30m
+
+  # Path to the pfctl binary executable
+  pfctlBinary: /sbin/pfctl
+
+# AuthPF-specific configuration
+authpf:
+  # Root directory where user-specific rule files are stored
+  userRulesRootfolder: /etc/authpf/users
+
+  # Filename for user rules within the userRulesRootfolder
+  userRulesFile: authpf.rules
+
+  # Name of the PF anchor to use for rule management
+  anchorName: authpf
+
+# Server configuration
+server:
+  # IP address to bind the server to (127.0.0.1 for localhost only)
+  bind: 127.0.0.1
+
+  # Port number for the HTTP/HTTPS server
+  port: 8080
+
+  # SSL/TLS configuration
+  ssl:
+    # Path to SSL certificate file (leave empty to disable SSL)
+    certificate: 
+    # Path to SSL private key file
+    key: key.pem
+
+  # JWT secret key for token signing - MUST be changed before production deployment
+  jwtSecret: your-secret-key-change-in-production
+
+  # Elevator mode for privilege escalation (none, sudo, or doas)
+  # Required when running server as non-root user
+  # sudo:   user	ALL = (root) NOPASSWD:/sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
+  # doas:   permit nopass as root cmd /sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
+  elevatorMode: none
+
+  # Path to the server logfile
+  logfile: /var/log/authpf-api.log
+
+# Role-Based Access Control (RBAC) configuration
+rbac:
+  # Role definitions with associated permissions
+  roles:
+    # Administrator role with full permissions
+    admin:
+      permissions:
+        - delete_other_rules  # Allow user to activate their own rules
+        - delete_own_rules    # Allow user to activate rules from other users
+        - view_other_rules    # Allow user to view the status of their own loaded rules
+        - view_own_rules      # Allow user to view the status of loaded rules from all users
+        - set_other_rules     # Allow user to unload/deactivate their own rules
+        - set_own_rules       # Allow user to unload/deactivate rules from other users
+    # Regular user role with limited permissions
+    user:
+      permissions:
+        - delete_own_rules
+        - view_own_rules
+        - set_own_rules
+  # User account definitions with credentials and role assignments
+  users:
+    # Administrator test account
+    authpf-admin:
+      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
+      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      # Role assigned to this user
+      role: admin
+      # Numeric user ID
+      userId: 1000
+    authpf-user1:
+      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
+      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      # Role assigned to this user
+      role: user
+      # Numeric user ID (optional - defaults to 0 if not set)
+      # userId: 1001

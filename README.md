@@ -1,10 +1,12 @@
 # Authpf-API
 
-A RESTful API for managing FreeBSD/OpenBSD authpf rules via HTTP/S.
+A RESTful HTTP API for pf user rules.
 
 ## Overview
 
-**Authpf-API** is a Go-based REST API that provides a secure interface for managing packet filter (pf) authentication rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate authpf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
+**Authpf-API** is a Go-based REST API that provides a secure interface for managing packet filter (pf) user rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate pf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
+The original authpf is "_a user shell for authenticating gateways_" -- [openbsd.org](https://man.openbsd.org/authpf) and is based on SSH logins.
+Authpf-API is an alternative by using HTTP/S to load/unload pf user rules.
 
 ## Features
 
@@ -26,12 +28,10 @@ A RESTful API for managing FreeBSD/OpenBSD authpf rules via HTTP/S.
 ### Architectures
 - amd64 (x86-64)
 - arm64 (ARM 64-bit)
-- riscv64 (RISC-V 64-bit)
 
 ## Requirements
 
 - Go 1.24 or higher
-- FreeBSD or OpenBSD system
 - pfctl binary (usually pre-installed on BSD systems)
 - Optional: sudo or doas for privilege escalation
 
@@ -72,52 +72,91 @@ make coverage-html
 
 ## Configuration
 
-The application is configured via a YAML configuration file. By default, it looks for `/usr/local/etc/authpf-api-config.yaml`.
+The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api-config.yaml`.
 
 ### Configuration File Example
 
 ```yaml
+# Default configuration settings applied globally
 defaults:
-  timeout: 30m                          # Default rule timeout
-  userRulesrootfolder: /etc/authpf/users
-  userrulesfile: authpf.rules
+  # Maximum timeout for operations (e.g., 30m, 1h)
+  timeout: 30m
+
+  # Path to the pfctl binary executable
   pfctlBinary: /sbin/pfctl
 
+# AuthPF-specific configuration
 authpf:
-  anchorName: authpf                    # pf anchor name
-  tableName: authpf-users               # pf table name
-  multiClientIP: false                  # Allow multiple IPs per user ()
+  # Root directory where user-specific rule files are stored
+  userRulesRootfolder: /etc/authpf/users
 
+  # Filename for user rules within the userRulesRootfolder
+  userRulesFile: authpf.rules
+
+  # Name of the PF anchor to use for rule management
+  anchorName: authpf
+
+  # Allow login the same user from different IP's
+  multiUserIP: false    
+
+# Server configuration
 server:
-  bind: 0.0.0.0
+  # IP address to bind the server to (127.0.0.1 for localhost only)
+  bind: 127.0.0.1
+
+  # Port number for the HTTP/HTTPS server
   port: 8080
+
+  # SSL/TLS configuration
   ssl:
-    certificate: cert.pem               # Leave empty to disable SSL
+    # Path to SSL certificate file (leave empty to disable SSL)
+    certificate: 
+    # Path to SSL private key file
     key: key.pem
-  elevatorMode: none                    # Options: none, sudo, doas
+
+  # JWT secret key for token signing - MUST be changed before production deployment
+  jwtSecret: your-secret-key-change-in-production
+
+  # Elevator mode for privilege escalation (none, sudo, or doas)
+  # Required when running server as non-root user
+  # sudo:   user	ALL = (root) NOPASSWD:/sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
+  # doas:   permit nopass as root cmd /sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
+  elevatorMode: none
+
+  # Path to the server logfile
   logfile: /var/log/authpf-api.log
 
+# Role-Based Access Control (RBAC) configuration
 rbac:
+  # Role definitions with associated permissions
   roles:
+    # Administrator role with full permissions
     admin:
       permissions:
-        - set_other_rules
-        - delete_own_rules
-        - delete_other_rules
-        - view_own_rules
-        - view_other_rules
+        - delete_other_rules  # Allow user to activate their own rules
+        - delete_own_rules    # Allow user to activate rules from other users
+        - view_other_rules    # Allow user to view the status of their own loaded rules
+        - view_own_rules      # Allow user to view the status of loaded rules from all users
+        - set_other_rules     # Allow user to unload/deactivate their own rules
+        - set_own_rules       # Allow user to unload/deactivate rules from other users
+
+    # Regular user role with limited permissions
     user:
       permissions:
-        - set_own_rules
         - delete_own_rules
         - view_own_rules
+        - set_own_rules
+  
+  # User account definitions with credentials and role assignments
   users:
-    authpf-user1:
+    # Name of the user
+    username:
+      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
       password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
-      role: user
-    authpf-admin:
-      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      # Role assigned to this user
       role: admin
+      # Numeric user ID (default 0 if not defined)
+      userId: 1000
 ```
 
 ### Environment Variables
@@ -261,20 +300,6 @@ Authorization: Bearer <token>
 | `view_own_rules` | Allow user to view their own rules |
 | `view_other_rules` | Allow user to view rules from other users |
 
-### Default Roles
-
-**Admin Role:**
-- set_other_rules
-- delete_own_rules
-- delete_other_rules
-- view_own_rules
-- view_other_rules
-
-**User Role:**
-- set_own_rules
-- delete_own_rules
-- view_own_rules
-
 ## Development
 
 ### Running Tests
@@ -359,8 +384,8 @@ Copy the generated hash and add it to your configuration file (`/usr/local/etc/a
 ```yaml
 rbac:
   users:
-    authpf-user1:
-      password: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36gZvQOm
+    authpf-userX:
+      password: $2a$10$abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQR
       role: user
     authpf-admin:
       password: $2a$10$abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQR
@@ -369,7 +394,7 @@ rbac:
 
 #### User Management with authpf-api-cli
 
-For comprehensive user and rule management, use the **authpf-api-cli** tool. Refer to the [authpf-api-cli documentation](https://github.com/scd-systems/authpf-api-cli/README.md) for detailed instructions on managing users, roles, and permissions.
+For comprehensive user and rule management, use the **authpf-api-cli** tool. Refer to the [authpf-api-cli documentation](https://github.com/scd-systems/authpf-api-cli) for detailed instructions on managing users, roles, and permissions.
 
 ## Troubleshooting
 

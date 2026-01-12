@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - More unittests
-- Multiple activate/deactivate support for different UserIP
-- PF Tables support
-- Clear AuthPF anchors on startup
-- Import existing AuthPF anchors states on startup 
+- Support PF Tables 
+- Support option for no-ip (authpf-noip)
+- Clear pf anchors on startup
+- Import existing pf anchors on startup 
+- Add user defined pf macros
 
 ### Changed
 
@@ -22,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-01-12
 
 ### Added
-- Activate/Deactivate other user rules option
+- Activate/Deactivate other users pf rules option
 - Automated GitHub Actions workflow for releases
 - Configureable JWT Secret, set a random if not defined 
 - UserID in anchors name "authpf/user($UserID)"
