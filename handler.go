@@ -58,7 +58,7 @@ func activateAuthPFRule(c echo.Context) error {
 	SetUserID(r)
 
 	// Check if session already exists
-	if valErr := CheckSessionExists(r.Username, logger); valErr != nil {
+	if valErr := CheckSessionExists(r, logger, "activate"); valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
@@ -170,7 +170,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 	r.Username = targetUser
 
 	// Check if session exists
-	if valErr := CheckSessionNotExists(r.Username, logger); valErr != nil {
+	if valErr := CheckSessionExists(r, logger, "deactivate"); valErr == nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
@@ -252,13 +252,7 @@ func addToRulesDB(r *AuthPFRule) error {
 func removeFromRulesDB(username string, user_ip string) error {
 	for idx, v := range rulesdb {
 		if v.Username == username {
-			if config.AuthPF.MultiUserIP {
-				if v.UserIP == user_ip {
-					delete(rulesdb, idx)
-				}
-			} else {
-				delete(rulesdb, idx)
-			}
+			delete(rulesdb, idx)
 		}
 	}
 	return nil

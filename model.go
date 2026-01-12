@@ -56,18 +56,14 @@ type ConfigFile struct {
 }
 
 type ConfigFileDefaults struct {
-	Timeout             string `yaml:"timeout"`
-	UserRulesRootFolder string `yaml:"userRulesRootFolder"`
-	UserRulesFile       string `yaml:"userRulesFile"`
-	PfctlBinary         string `yaml:"pfctlBinary"`
+	Timeout     string `yaml:"timeout"`
+	PfctlBinary string `yaml:"pfctlBinary"`
 }
 
 type ConfigFileAuthPF struct {
-	UserID       string `yaml:"userID"`
-	AnchorName   string `yaml:"anchorName"`
-	TableName    string `yaml:"tableName"`
-	MultiUserIP  bool   `yaml:"multiUserIP"`
-	ClearOnStart bool   `yaml:"clearOnStart"`
+	UserRulesRootFolder string `yaml:"userRulesRootFolder"`
+	UserRulesFile       string `yaml:"userRulesFile"`
+	AnchorName          string `yaml:"anchorName"`
 }
 
 type ConfigFileServer struct {

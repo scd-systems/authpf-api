@@ -107,8 +107,8 @@ func buildAuthPFRulePath(username string) (string, error) {
 		return "", err
 	}
 
-	basePath := config.Defaults.UserRulesRootFolder
-	rulePath := filepath.Join(basePath, username, config.Defaults.UserRulesFile)
+	basePath := config.AuthPF.UserRulesRootFolder
+	rulePath := filepath.Join(basePath, username, config.AuthPF.UserRulesFile)
 
 	absBase, err := filepath.Abs(basePath)
 	if err != nil {

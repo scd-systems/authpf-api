@@ -144,29 +144,26 @@ func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requir
 
 // CheckSessionExists checks if an active session already exists for the user
 // Returns a ValidationError if a session already exists
-func CheckSessionExists(username string, logger zerolog.Logger) *ValidationError {
-	if _, exists := rulesdb[username]; exists {
-		msg := "authpf rule for user already activated"
-		logger.Info().Str("user", username).Msg(msg)
-		return &ValidationError{
-			StatusCode: http.StatusMethodNotAllowed,
-			Message:    msg,
-			Details:    fmt.Sprintf("user %q already has an active authpf rule", username),
+func CheckSessionExists(r *AuthPFRule, logger zerolog.Logger, mode string) *ValidationError {
+	var msg, detail string
+	if _, exists := rulesdb[r.Username]; exists {
+		switch mode {
+		case "activate":
+			msg = "authpf rule for user already activated"
+			detail = fmt.Sprintf("user %q already has an active authpf rule", r.Username)
+		case "deactivate":
+			msg = "authpf rule for user not activated"
+			detail = fmt.Sprintf("user %q does not have an active authpf rule", r.Username)
+		default:
+			msg = "unknown mode"
+			detail = fmt.Sprintf("Wrong CheckSessionMode provide: %s", mode)
 		}
-	}
-	return nil
-}
 
-// CheckSessionNotExists checks if NO active session exists for the user
-// Returns a ValidationError if no session exists (opposite of CheckSessionExists)
-func CheckSessionNotExists(username string, logger zerolog.Logger) *ValidationError {
-	if _, exists := rulesdb[username]; !exists {
-		msg := "authpf rule for user not activated"
-		logger.Info().Str("status", "failed").Str("user", username).Msg(msg)
+		logger.Info().Str("user", r.Username).Msg(msg)
 		return &ValidationError{
 			StatusCode: http.StatusMethodNotAllowed,
 			Message:    msg,
-			Details:    fmt.Sprintf("user %q does not have an active authpf rule", username),
+			Details:    detail,
 		}
 	}
 	return nil

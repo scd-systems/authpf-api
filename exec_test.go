@@ -128,8 +128,8 @@ func TestBuildAuthPFRulePath(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -204,8 +204,8 @@ func TestBuildAuthPFRulePathTraversal(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -262,8 +262,8 @@ func TestBuildAuthPFRulePathSymlinkAttack(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -302,8 +302,8 @@ func TestBuildAuthPFRulePathBoundaryCheck(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"validuser": {
 			Password: "test",
@@ -333,8 +333,8 @@ func TestBuildPfctlActivateCmdParameters(t *testing.T) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf"
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -383,8 +383,8 @@ func TestBuildPfctlCmdParametersCommandInjection(t *testing.T) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf"
-	config.Defaults.UserRulesRootFolder = "/tmp/rules"
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = "/tmp/rules"
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -482,8 +482,8 @@ func TestBuildAuthPFRulePathWithSpecialCharacters(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -559,8 +559,8 @@ func TestBuildAuthPFRulePathRaceCondition(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -596,8 +596,8 @@ func TestBuildAuthPFRulePathDoubleEncoding(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -642,8 +642,8 @@ func TestBuildAuthPFRulePathCaseInsensitivity(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -677,8 +677,8 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf"
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -690,18 +690,22 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 	tests := []struct {
 		name   string
 		userIP string
+		want   string
 	}{
 		{
 			name:   "valid IPv4",
 			userIP: "192.168.1.100",
+			want:   "user_ip=192.168.1.100",
 		},
 		{
 			name:   "valid IPv6",
 			userIP: "2001:db8::1",
+			want:   "user_ip=2001:db8::1",
 		},
 		{
 			name:   "IP with command injection attempt",
 			userIP: "192.168.1.100; cat /etc/passwd",
+			want:   "",
 		},
 	}
 
@@ -717,12 +721,16 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 
 			// Verify that the IP is passed as a parameter, not executed
 			found := false
-			for _, param := range result {
-				if strings.Contains(param, "user_ip=") {
+
+			if len(result) == 0 && tt.want == "" {
+				found = true
+			}
+
+			if len(result) > 3 && tt.want != "" {
+				if strings.Contains(result[3], tt.want) {
 					found = true
-					// The parameter should contain the IP but not execute it
-					if strings.Contains(param, ";") && !strings.HasPrefix(param, "user_ip=") {
-						t.Logf("warning: potential injection in IP parameter: %s", param)
+					if strings.Contains(result[3], ";") && !strings.HasPrefix(result[3], "user_ip=") {
+						t.Logf("warning: potential injection in IP parameter: %s", result[3])
 					}
 				}
 			}
@@ -740,8 +748,8 @@ func TestBuildAuthPFRulePathNullByteInjection(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -769,8 +777,8 @@ func TestBuildAuthPFRulePathBacktrackingLimit(t *testing.T) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -799,8 +807,8 @@ func TestBuildPfctlCmdParametersAnchorNameInjection(t *testing.T) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf; rm -rf /"
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -837,8 +845,8 @@ func BenchmarkBuildAuthPFRulePath(b *testing.B) {
 	originalConfig := config
 	defer func() { config = originalConfig }()
 
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
@@ -860,8 +868,8 @@ func BenchmarkBuildPfctlCmdParameters(b *testing.B) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf"
-	config.Defaults.UserRulesRootFolder = tmpDir
-	config.Defaults.UserRulesFile = "rules"
+	config.AuthPF.UserRulesRootFolder = tmpDir
+	config.AuthPF.UserRulesFile = "rules"
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {
 			Password: "test",
