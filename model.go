@@ -109,6 +109,8 @@ const (
 	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"
 	RBAC_GET_STATUS_OWN_RULE   = "view_own_rules"
 	RBAC_GET_STATUS_OTHER_RULE = "view_other_rules"
+	SESSION_REGISTER           = "activate"
+	SESSION_UNREGISTER         = "deactivate"
 )
 
 // Global variables

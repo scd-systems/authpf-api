@@ -144,29 +144,39 @@ func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requir
 
 // CheckSessionExists checks if an active session already exists for the user
 // Returns a ValidationError if a session already exists
-func CheckSessionExists(r *AuthPFRule, logger zerolog.Logger, mode string) *ValidationError {
-	var msg, detail string
-	if _, exists := rulesdb[r.Username]; exists {
-		switch mode {
-		case "activate":
-			msg = "authpf rule for user already activated"
-			detail = fmt.Sprintf("user %q already has an active authpf rule", r.Username)
-		case "deactivate":
-			msg = "authpf rule for user not activated"
-			detail = fmt.Sprintf("user %q does not have an active authpf rule", r.Username)
-		default:
-			msg = "unknown mode"
-			detail = fmt.Sprintf("Wrong CheckSessionMode provide: %s", mode)
-		}
+func CheckSessionExists(username string, logger zerolog.Logger, mode string) *ValidationError {
+	_, exists := rulesdb[username]
 
-		logger.Info().Str("user", r.Username).Msg(msg)
-		return &ValidationError{
-			StatusCode: http.StatusMethodNotAllowed,
-			Message:    msg,
-			Details:    detail,
-		}
+	// Check if the current state matches the expected state for the mode
+	isError := (mode == "activate" && exists) || (mode == "deactivate" && !exists) || (mode != "activate" && mode != "deactivate")
+
+	if !isError {
+		return nil
 	}
-	return nil
+
+	// Determine error message based on mode
+	var msg, detail string
+	statusCode := http.StatusMethodNotAllowed
+
+	switch mode {
+	case "activate":
+		msg = "authpf rule for user already activated"
+		detail = fmt.Sprintf("user %q already has an active authpf rule", username)
+	case "deactivate":
+		msg = "authpf rule for user not activated"
+		detail = fmt.Sprintf("user %q does not have an active authpf rule", username)
+	default:
+		msg = "internal server error"
+		detail = fmt.Sprintf("invalid CheckSessionExists mode: %s", mode)
+		statusCode = http.StatusInternalServerError
+	}
+
+	logger.Info().Str("user", username).Msg(msg)
+	return &ValidationError{
+		StatusCode: statusCode,
+		Message:    msg,
+		Details:    detail,
+	}
 }
 
 // SetUserID sets the UserID from config if available

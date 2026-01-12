@@ -58,7 +58,7 @@ func activateAuthPFRule(c echo.Context) error {
 	SetUserID(r)
 
 	// Check if session already exists
-	if valErr := CheckSessionExists(r, logger, "activate"); valErr != nil {
+	if valErr := CheckSessionExists(r.Username, logger, SESSION_REGISTER); valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
@@ -170,7 +170,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 	r.Username = targetUser
 
 	// Check if session exists
-	if valErr := CheckSessionExists(r, logger, "deactivate"); valErr != nil {
+	if valErr := CheckSessionExists(r.Username, logger, SESSION_UNREGISTER); valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
