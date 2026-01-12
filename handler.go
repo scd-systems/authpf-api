@@ -170,7 +170,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 	r.Username = targetUser
 
 	// Check if session exists
-	if valErr := CheckSessionExists(r, logger, "deactivate"); valErr == nil {
+	if valErr := CheckSessionExists(r, logger, "deactivate"); valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
