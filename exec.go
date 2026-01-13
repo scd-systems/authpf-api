@@ -155,3 +155,16 @@ func buildPfctlDeactivateCmdParameters(r *AuthPFRule) [][]string {
 	}
 	return commands
 }
+
+func buildPfctlDeactivateAllCmdParameters() [][]string {
+	anchor := fmt.Sprintf("%s/*", config.AuthPF.AnchorName)
+	filter := config.AuthPF.FlushFilter
+	if len(filter) < 1 {
+		filter = []string{"rules", "nat"}
+	}
+	commands := make([][]string, len(filter))
+	for i, f := range filter {
+		commands[i] = []string{"-a", anchor, "-F", f}
+	}
+	return commands
+}

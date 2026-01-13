@@ -155,6 +155,12 @@ func unloadAuthPFRule(r *AuthPFRule) *MultiCommandResult {
 	return executePfctlCommands(parameters)
 }
 
+// Run Unload ALL AuthPF Rules
+func unloadAllAuthPFRule() *MultiCommandResult {
+	parameters := buildPfctlDeactivateAllCmdParameters()
+	return executePfctlCommands(parameters)
+}
+
 // deleteAllAuthPFRules handles DELETE /api/v1/authpf/all
 func deactivateAllAuthPFRules(c echo.Context) error {
 	lock.Lock()
@@ -172,7 +178,22 @@ func deactivateAllAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	//TODO: pfctl -a "authpf/*" -Fa
+	multiResult := unloadAllAuthPFRule()
+
+	// Log all commands
+	for i, result := range multiResult.Results {
+		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
+			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
+			result.ExitCode, result.Stdout, result.Stderr)
+		logger.Debug().Str("user", username).Msg(msg)
+	}
+
+	if multiResult.Error != nil {
+		msg := "authpf rules not unloaded"
+		logger.Info().Str("user", username).Msg(msg)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
+	}
+
 	rulesdb = make(map[string]*AuthPFRule)
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }
