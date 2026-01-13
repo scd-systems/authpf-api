@@ -26,7 +26,7 @@ func startRuleCleaner(logger zerolog.Logger) {
 				if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
 					logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
 				}
-				multiResult := unloadAuthPFRule(r.Username)
+				multiResult := unloadAuthPFRule(r)
 				for i, result := range multiResult.Results {
 					msg = fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
 						i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
