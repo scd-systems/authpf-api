@@ -62,13 +62,17 @@ func getLoadAuthPFRules(c echo.Context) error {
 		return RespondWithValidationError(c, valErr)
 	}
 
-	// Check permission to view own rules
-	if valErr := CheckPermission(username, RBAC_GET_STATUS_OWN_RULE, logger); valErr != nil {
+	// Get optional authpf_username parameter
+	requestedUser := c.QueryParam("authpf_username")
+
+	// Resolve target user with proper validation and permission checks
+	reqUser, valErr := ResolveTargetUser(c, username, requestedUser, RBAC_GET_STATUS_OTHER_RULE, logger)
+	if valErr != nil {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
 	response := &AuthPFRulesResponse{
-		Rules:      map[string]*AuthPFRule{username: rulesdb[username]},
+		Rules:      map[string]*AuthPFRule{reqUser: rulesdb[reqUser]},
 		ServerTime: time.Now().UTC(),
 	}
 	return c.JSON(http.StatusOK, response)
