@@ -10,60 +10,20 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// loadAuthPFRule handles POST /api/v1/authpf/activate
+// activateAuthPFRule handles POST /api/v1/authpf/activate
 func activateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 	logger := c.Get("logger").(zerolog.Logger)
 
-	r := &AuthPFRule{}
-
-	// Get and validate session username
-	username, valErr := ValidateSessionUsername(c)
+	// Build and validate the AuthPFRule
+	r, valErr := SetAuthPFRule(c, logger, SESSION_REGISTER)
 	if valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
-	r.Username = username
 
-	if valErr := ValidateUserIP(c.RealIP()); valErr != nil {
-		return RespondWithValidationErrorStatus(c, valErr)
-	}
-	r.UserIP = c.RealIP()
-
-	// Get query parameters
-	reqTimeout := c.QueryParam("timeout")
-	reqUser := c.QueryParam("authpf_username")
-
-	// Validate and resolve target user
-	targetUser, valErr := ResolveTargetUser(c, username, reqUser, RBAC_ACTIVATE_OTHER_RULE, logger)
-	if valErr != nil {
-		return RespondWithValidationErrorStatus(c, valErr)
-	}
-	r.Username = targetUser
-
-	// Validate timeout
-	timeout, expiresAt, valErr := ValidateTimeout(reqTimeout)
-	if valErr != nil {
-		return RespondWithValidationError(c, valErr)
-	}
-	r.Timeout = timeout
-	r.ExpiresAt = expiresAt
-
-	// Validate payload
-	if valErr := ValidatePayload(c, r); valErr != nil {
-		return RespondWithValidationError(c, valErr)
-	}
-
-	// Set UserID if available
-	SetUserID(r)
-
-	// Check if session already exists
-	if valErr := CheckSessionExists(r.Username, logger, SESSION_REGISTER); valErr != nil {
-		return RespondWithValidationError(c, valErr)
-	}
-
-	// Check permission to activate own rules
-	if valErr := CheckPermission(r.Username, RBAC_ACTIVATE_OWN_RULE, logger); valErr != nil {
+	// Perform additional activation-specific validations
+	if valErr := ValidateAuthPFRule(r, logger, SESSION_REGISTER); valErr != nil {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
@@ -138,47 +98,20 @@ func getAllLoadAuthPFRules(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-// deleteOwnAuthPFRules handles DELETE /api/v1/authpf/activate
+// deactivateAuthPFRule handles DELETE /api/v1/authpf/activate
 func deactivateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 	logger := c.Get("logger").(zerolog.Logger)
 
-	r := &AuthPFRule{}
-
-	// Get and validate session username
-	username, valErr := ValidateSessionUsername(c)
+	// Build and validate the AuthPFRule
+	r, valErr := SetAuthPFRule(c, logger, SESSION_UNREGISTER)
 	if valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
-	r.Username = username
-	r.UserIP = c.RealIP()
 
-	// Set UserID if available
-	SetUserID(r)
-
-	// Get query parameters
-	reqUser := c.QueryParam("authpf_username")
-
-	// Validate payload
-	if valErr := ValidatePayload(c, r); valErr != nil {
-		return RespondWithValidationError(c, valErr)
-	}
-
-	// Validate and resolve target user
-	targetUser, valErr := ResolveTargetUser(c, username, reqUser, RBAC_DEACTIVATE_OTHER_RULE, logger)
-	if valErr != nil {
-		return RespondWithValidationErrorStatus(c, valErr)
-	}
-	r.Username = targetUser
-
-	// Check if session exists
-	if valErr := CheckSessionExists(r.Username, logger, SESSION_UNREGISTER); valErr != nil {
-		return RespondWithValidationError(c, valErr)
-	}
-
-	// Check permission to deactivate own rules
-	if valErr := CheckPermission(r.Username, RBAC_DEACTIVATE_OWN_RULE, logger); valErr != nil {
+	// Perform additional deactivation-specific validations
+	if valErr := ValidateAuthPFRule(r, logger, SESSION_UNREGISTER); valErr != nil {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
