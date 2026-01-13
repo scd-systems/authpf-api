@@ -179,7 +179,7 @@ func deactivateAuthPFRule(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	multiResult := unloadAuthPFRule(r.Username)
+	multiResult := unloadAuthPFRule(r)
 
 	// Log all commands
 	for i, result := range multiResult.Results {
@@ -214,10 +214,7 @@ func loadAuthPFRule(r *AuthPFRule) *SystemCommandResult {
 }
 
 // Run Unload AuthPF Rule
-func unloadAuthPFRule(username string) *MultiCommandResult {
-	r := &AuthPFRule{
-		Username: username,
-	}
+func unloadAuthPFRule(r *AuthPFRule) *MultiCommandResult {
 	parameters := buildPfctlDeactivateCmdParameters(r)
 	return executePfctlCommands(parameters)
 }
