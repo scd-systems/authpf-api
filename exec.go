@@ -165,14 +165,12 @@ func buildPfctlDeactivateAllCmdParameters() [][]string {
 	commands := make([][]string, 0)
 
 	// Iterate over all users in rulesdb
-	lock.Lock()
 	for _, v := range rulesdb {
 		anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, v.Username, v.UserID)
 		for _, f := range filter {
 			commands = append(commands, []string{"-a", anchor, "-F", f})
 		}
 	}
-	lock.Unlock()
 
 	return commands
 }
