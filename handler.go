@@ -154,6 +154,9 @@ func deactivateAuthPFRule(c echo.Context) error {
 	r.Username = username
 	r.UserIP = c.RealIP()
 
+	// Set UserID if available
+	SetUserID(r)
+
 	// Get query parameters
 	reqUser := c.QueryParam("authpf_username")
 
