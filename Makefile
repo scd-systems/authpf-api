@@ -11,7 +11,7 @@ GOARCH ?= $(shell go env GOARCH)
 
 # Supported OS and architectures
 SUPPORTED_OS := freebsd openbsd
-SUPPORTED_ARCH := amd64 arm64 riscv64
+SUPPORTED_ARCH := amd64 arm64
 
 # Build flags
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
