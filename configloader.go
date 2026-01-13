@@ -76,6 +76,9 @@ func (config *ConfigFile) validateRequiredSections() error {
 	if config.AuthPF.AnchorName == "" {
 		missingFields = append(missingFields, "authpf.anchorName")
 	}
+	if len(config.AuthPF.FlushFilter) == 0 {
+		missingFields = append(missingFields, "authpf.flushFilter")
+	}
 
 	if len(missingFields) > 0 {
 		return fmt.Errorf("missing required configuration fields:\n  - %s", strings.Join(missingFields, "\n  - "))

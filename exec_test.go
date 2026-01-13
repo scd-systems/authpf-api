@@ -448,6 +448,7 @@ func TestBuildPfctlDeactivateCmdParameters(t *testing.T) {
 	defer func() { config = originalConfig }()
 
 	config.AuthPF.AnchorName = "authpf"
+	config.AuthPF.FlushFilter = []string{"nat", "queue", "ethernet", "rules", "states", "info", "Sources", "Reset"}
 
 	tests := []struct {
 		name          string

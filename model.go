@@ -61,9 +61,10 @@ type ConfigFileDefaults struct {
 }
 
 type ConfigFileAuthPF struct {
-	UserRulesRootFolder string `yaml:"userRulesRootFolder"`
-	UserRulesFile       string `yaml:"userRulesFile"`
-	AnchorName          string `yaml:"anchorName"`
+	UserRulesRootFolder string   `yaml:"userRulesRootFolder"`
+	UserRulesFile       string   `yaml:"userRulesFile"`
+	AnchorName          string   `yaml:"anchorName"`
+	FlushFilter         []string `yaml:"flushFilter"`
 }
 
 type ConfigFileServer struct {
