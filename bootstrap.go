@@ -17,19 +17,9 @@ var logger zerolog.Logger
 
 // bootstrap initializes the application: flags, config, JWT secret, SSL validation, and logger
 func bootstrap() error {
-	// Parse command-line flags
+	// Parse command-line flags (includes config loading)
 	if err := parseFlags(); err != nil {
 		return err
-	}
-
-	// Load configuration
-	configFile := os.Getenv("CONFIG_FILE")
-	if configFile == "" {
-		configFile = CONFIG_FILE
-	}
-
-	if err := config.loadConfig(configFile); err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Initialize JWT secret
@@ -56,6 +46,9 @@ func parseFlags() error {
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
 	version := flag.Bool("version", false, "Show version and exit")
 	genUserPassword := flag.Bool("gen-user-password", false, "Generate a bcrypt password hash (reads password from stdin)")
+	cfgFile := flag.String("configFile", "", "Filepath to the authpf-api.conf file")
+	cfgFileShort := flag.String("c", "", "Filepath to the authpf-api.conf file (short form)")
+	logLevel := flag.String("v", "", "Log level (debug, info, warn, error, fatal)")
 	flag.Parse()
 
 	if *version {
@@ -71,8 +64,27 @@ func parseFlags() error {
 		os.Exit(0)
 	}
 
-	// Store foreground flag for logger initialization
+	// Handle config file: -c takes precedence, then -configFile, then CONFIG_FILE env var, then default
+	configFilePath := ""
+	if *cfgFileShort != "" {
+		configFilePath = *cfgFileShort
+	} else if *cfgFile != "" {
+		configFilePath = *cfgFile
+	} else if envCfg := os.Getenv("CONFIG_FILE"); envCfg != "" {
+		configFilePath = envCfg
+	} else {
+		configFilePath = CONFIG_FILE
+	}
+
+	if configFilePath != "" {
+		if err := config.loadConfig(configFilePath); err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+	}
+
+	// Store flags for logger initialization
 	globalForeground = *foreground
+	globalLogLevel = *logLevel
 	return nil
 }
 
@@ -96,7 +108,11 @@ func initializeJWTSecret() error {
 
 // initializeLogger sets up the zerolog logger based on configuration
 func initializeLogger() error {
-	logLevel := os.Getenv("LOG_LEVEL")
+	// Priority: -v flag > LOG_LEVEL env var > default "info"
+	logLevel := globalLogLevel
+	if logLevel == "" {
+		logLevel = os.Getenv("LOG_LEVEL")
+	}
 	if logLevel == "" {
 		logLevel = "info"
 	}
@@ -165,6 +181,7 @@ func validateSSLFiles(certPath, keyPath string) error {
 
 // Global flag storage for logger initialization
 var globalForeground bool
+var globalLogLevel string
 
 // generateUserPasswordHash reads a password from stdin and generates a bcrypt hash
 func generateUserPasswordHash() error {
