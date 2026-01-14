@@ -1,12 +1,55 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
+
+// parseJwtTokenTimeout parses the JWT token timeout string and returns a time.Duration
+// Supported formats: "30m", "1h", "2d" (maximal 30d)
+// Returns error if format is invalid or exceeds 30 days
+func parseJwtTokenTimeout(timeout string) (time.Duration, error) {
+	if timeout == "" {
+		return 0, fmt.Errorf("timeout cannot be empty")
+	}
+
+	// Regex pattern to match number + unit (m, h, d)
+	pattern := `^(\d+)([mhd])$`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(strings.TrimSpace(timeout))
+
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid timeout format: %s (expected format: 30m, 1h, or 2d)", timeout)
+	}
+
+	value, _ := strconv.Atoi(matches[1])
+	unit := matches[2]
+
+	var duration time.Duration
+	switch unit {
+	case "m":
+		duration = time.Duration(value) * time.Minute
+	case "h":
+		duration = time.Duration(value) * time.Hour
+	case "d":
+		duration = time.Duration(value) * 24 * time.Hour
+	}
+
+	// Check if duration exceeds 30 days
+	maxDuration := 30 * 24 * time.Hour
+	if duration > maxDuration {
+		return 0, fmt.Errorf("timeout exceeds maximum allowed duration of 30 days: %s", timeout)
+	}
+
+	return duration, nil
+}
 
 // login handles POST /login with username and password
 func login(c echo.Context) error {
@@ -24,10 +67,23 @@ func login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username or password"})
 	}
 
+	// Parse JWT token timeout from config
+	timeoutStr := fmt.Sprintf("%dh", config.Server.JwtTokenTimeout)
+	if config.Server.JwtTokenTimeout == 0 {
+		// Default to 8 hours if not configured
+		timeoutStr = "8h"
+	}
+
+	tokenDuration, err := parseJwtTokenTimeout(timeoutStr)
+	if err != nil {
+		c.Logger().Errorf("Invalid JWT token timeout configuration: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
+	}
+
 	claims := &JWTClaims{
 		Username: req.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 8)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

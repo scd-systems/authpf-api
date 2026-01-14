@@ -200,7 +200,7 @@ func TestValidateActivateAuthPFRule_Success(t *testing.T) {
 		"testuser": {Role: "user"},
 	}
 	config.Rbac.Roles = map[string]ConfigFileRbacRoles{
-		"user": {Permissions: []string{"set_own_rules"}},
+		"user": {Permissions: []string{RBAC_ACTIVATE_OWN_RULE}},
 	}
 
 	// Execute
@@ -353,7 +353,7 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 		"testuser": {Role: "user"},
 	}
 	config.Rbac.Roles = map[string]ConfigFileRbacRoles{
-		"user": {Permissions: []string{"delete_own_rules"}},
+		"user": {Permissions: []string{RBAC_DEACTIVATE_OWN_RULE}},
 	}
 
 	// Execute

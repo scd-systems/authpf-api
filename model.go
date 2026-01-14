@@ -68,12 +68,13 @@ type ConfigFileAuthPF struct {
 }
 
 type ConfigFileServer struct {
-	Bind         string              `yaml:"bind"`
-	Port         uint16              `yaml:"port"`
-	SSL          ConfigFileServerSSL `yaml:"ssl"`
-	ElevatorMode string              `yaml:"elevatorMode"`
-	Logfile      string              `yaml:"logfile"`
-	JwtSecret    string              `yaml:"jwtSecret"`
+	Bind            string              `yaml:"bind"`
+	Port            uint16              `yaml:"port"`
+	SSL             ConfigFileServerSSL `yaml:"ssl"`
+	ElevatorMode    string              `yaml:"elevatorMode"`
+	Logfile         string              `yaml:"logfile"`
+	JwtTokenTimeout int                 `yaml:"jwtTokenTimeout"`
+	JwtSecret       string              `yaml:"jwtSecret"`
 }
 
 type ConfigFileServerSSL struct {
@@ -104,10 +105,10 @@ type MultiCommandResult struct {
 
 const (
 	CONFIG_FILE                = "/usr/local/etc/authpf-api.conf"
-	RBAC_ACTIVATE_OWN_RULE     = "set_own_rules"
-	RBAC_ACTIVATE_OTHER_RULE   = "set_other_rules"
-	RBAC_DEACTIVATE_OWN_RULE   = "delete_own_rules"
-	RBAC_DEACTIVATE_OTHER_RULE = "delete_other_rules"
+	RBAC_ACTIVATE_OWN_RULE     = "activate_own_rules"
+	RBAC_ACTIVATE_OTHER_RULE   = "activate_other_rules"
+	RBAC_DEACTIVATE_OWN_RULE   = "deactivate_own_rules"
+	RBAC_DEACTIVATE_OTHER_RULE = "deactivate_other_rules"
 	RBAC_GET_STATUS_OWN_RULE   = "view_own_rules"
 	RBAC_GET_STATUS_OTHER_RULE = "view_other_rules"
 	SESSION_REGISTER           = "activate"

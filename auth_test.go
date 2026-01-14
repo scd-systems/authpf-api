@@ -361,3 +361,163 @@ func TestJWTMiddleware_ExpiredToken(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "invalid token", response["error"])
 }
+
+// TestParseJwtTokenTimeout_ValidMinutes tests parsing valid minutes format
+func TestParseJwtTokenTimeout_ValidMinutes(t *testing.T) {
+	duration, err := parseJwtTokenTimeout("30m")
+	assert.NoError(t, err)
+	assert.Equal(t, 30*time.Minute, duration)
+}
+
+// TestParseJwtTokenTimeout_ValidHours tests parsing valid hours format
+func TestParseJwtTokenTimeout_ValidHours(t *testing.T) {
+	duration, err := parseJwtTokenTimeout("8h")
+	assert.NoError(t, err)
+	assert.Equal(t, 8*time.Hour, duration)
+}
+
+// TestParseJwtTokenTimeout_ValidDays tests parsing valid days format
+func TestParseJwtTokenTimeout_ValidDays(t *testing.T) {
+	duration, err := parseJwtTokenTimeout("7d")
+	assert.NoError(t, err)
+	assert.Equal(t, 7*24*time.Hour, duration)
+}
+
+// TestParseJwtTokenTimeout_MaxDays tests parsing maximum allowed days (30d)
+func TestParseJwtTokenTimeout_MaxDays(t *testing.T) {
+	duration, err := parseJwtTokenTimeout("30d")
+	assert.NoError(t, err)
+	assert.Equal(t, 30*24*time.Hour, duration)
+}
+
+// TestParseJwtTokenTimeout_ExceedsMaxDays tests that timeout exceeding 30 days is rejected
+func TestParseJwtTokenTimeout_ExceedsMaxDays(t *testing.T) {
+	_, err := parseJwtTokenTimeout("31d")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed duration of 30 days")
+}
+
+// TestParseJwtTokenTimeout_InvalidFormat tests invalid timeout format
+func TestParseJwtTokenTimeout_InvalidFormat(t *testing.T) {
+	testCases := []string{
+		"30",           // Missing unit
+		"30x",          // Invalid unit
+		"m30",          // Wrong order
+		"30 m",         // Space in format
+		"",             // Empty string
+		"invalid",      // Non-numeric
+		"30mm",         // Double unit
+	}
+
+	for _, tc := range testCases {
+		_, err := parseJwtTokenTimeout(tc)
+		assert.Error(t, err, "Expected error for format: %s", tc)
+	}
+}
+
+// TestParseJwtTokenTimeout_WithWhitespace tests parsing with leading/trailing whitespace
+func TestParseJwtTokenTimeout_WithWhitespace(t *testing.T) {
+	duration, err := parseJwtTokenTimeout("  15m  ")
+	assert.NoError(t, err)
+	assert.Equal(t, 15*time.Minute, duration)
+}
+
+// TestLogin_WithConfiguredTimeout tests login with configured JWT token timeout
+func TestLogin_WithConfiguredTimeout(t *testing.T) {
+	// Setup
+	e := echo.New()
+	config.Rbac.Users = map[string]ConfigFileRbacUsers{
+		"testuser": {
+			Password: "cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90", // "testing"
+			Role:     "user",
+		},
+	}
+	config.Server.JwtTokenTimeout = 2 // 2 hours
+
+	body := LoginRequest{
+		Username: "testuser",
+		Password: "testing",
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Execute
+	err := login(c)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response LoginResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response.Token)
+
+	// Verify token expiration is set correctly
+	claims := &JWTClaims{}
+	token, err := jwt.ParseWithClaims(response.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+	require.NoError(t, err)
+	assert.True(t, token.Valid)
+
+	// Check that expiration is approximately 2 hours from now
+	expectedExpiration := time.Now().Add(2 * time.Hour)
+	actualExpiration := claims.ExpiresAt.Time
+	timeDiff := expectedExpiration.Sub(actualExpiration).Abs()
+	assert.Less(t, timeDiff, 5*time.Second, "Token expiration should be approximately 2 hours from now")
+}
+
+// TestLogin_WithDefaultTimeout tests login with default timeout when not configured
+func TestLogin_WithDefaultTimeout(t *testing.T) {
+	// Setup
+	e := echo.New()
+	config.Rbac.Users = map[string]ConfigFileRbacUsers{
+		"testuser": {
+			Password: "cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90", // "testing"
+			Role:     "user",
+		},
+	}
+	config.Server.JwtTokenTimeout = 0 // Use default (8 hours)
+
+	body := LoginRequest{
+		Username: "testuser",
+		Password: "testing",
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Execute
+	err := login(c)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response LoginResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response.Token)
+
+	// Verify token expiration is set to default (8 hours)
+	claims := &JWTClaims{}
+	token, err := jwt.ParseWithClaims(response.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+	require.NoError(t, err)
+	assert.True(t, token.Valid)
+
+	// Check that expiration is approximately 8 hours from now
+	expectedExpiration := time.Now().Add(8 * time.Hour)
+	actualExpiration := claims.ExpiresAt.Time
+	timeDiff := expectedExpiration.Sub(actualExpiration).Abs()
+	assert.Less(t, timeDiff, 5*time.Second, "Token expiration should be approximately 8 hours from now")
+}
