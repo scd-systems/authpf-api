@@ -1,0 +1,13 @@
+# doas configuration example for pfctl_wrapper
+# 
+# This file shows how to configure doas to allow the authpf-api service
+# to execute pfctl commands through the secure pfctl_wrapper.
+#
+# Place this in /etc/doas.conf (or append to existing configuration)
+# Adjust the user/group and path according to your setup.
+
+# Allow authpf user to run pfctl_wrapper without password
+permit nopass authpf as root cmd /usr/local/bin/pfctl_wrapper
+
+# Alternative: Allow specific group to run pfctl_wrapper
+# permit nopass :authpf as root cmd /usr/local/bin/pfctl_wrapper
