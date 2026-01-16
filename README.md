@@ -246,10 +246,10 @@ Authorization: Bearer <token>
 
 | Permission | Description |
 |-----------|-------------|
-| `set_own_rules` | Allow user to activate authpf rules |
-| `set_other_rules` | Allow user to activate rules from other users |
-| `delete_own_rules` | Allow user to deactivate their own rules |
-| `delete_other_rules` | Allow user to deactivate rules from other users |
+| `activate_own_rules` | Allow user to activate authpf rules |
+| `activate_other_rules` | Allow user to activate rules from other users |
+| `deactivate_own_rules` | Allow user to deactivate their own rules |
+| `deactivate_other_rules` | Allow user to deactivate rules from other users |
 | `view_own_rules` | Allow user to view their own rules |
 | `view_other_rules` | Allow user to view rules from other users |
 
