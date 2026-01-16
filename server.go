@@ -16,6 +16,8 @@ func setupServer(e *echo.Echo) error {
 	// Suppress Echo's startup banner
 	e.HideBanner = true
 
+	checkSSL()
+
 	// Add logger middleware to context
 	e.Use(loggerMiddleware())
 
@@ -25,10 +27,33 @@ func setupServer(e *echo.Echo) error {
 	// Set Echo's logger level
 	e.Logger.SetLevel(getEchoLogLevel())
 
+	// Add HSTS Headers
+	e.Use(hstsMiddleWare())
+
 	// Register routes
 	registerRoutes(e)
 
 	return nil
+}
+
+func checkSSL() {
+	if config.Server.SSL.Certificate == "" {
+		logger.Warn().Msg("⚠️ WARNING: Running without HTTPS. This is INSECURE!")
+	}
+}
+
+// Set HSTS-Header
+func hstsMiddleWare() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Set("Strict-Transport-Security",
+				"max-age=31536000; includeSubDomains; preload")
+			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+			c.Response().Header().Set("X-Frame-Options", "DENY")
+			c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
+			return next(c)
+		}
+	}
 }
 
 // loggerMiddleware adds the zerolog logger to the Echo context
