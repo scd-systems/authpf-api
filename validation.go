@@ -179,13 +179,6 @@ func CheckSessionExists(username string, logger zerolog.Logger, mode string) *Va
 	}
 }
 
-// SetUserID sets the UserID from config if available
-func SetUserID(r *AuthPFRule) {
-	if user, ok := config.Rbac.Users[r.Username]; ok && user.UserID > 0 {
-		r.UserID = user.UserID
-	}
-}
-
 // RespondWithValidationError sends a JSON error response based on ValidationError
 func RespondWithValidationError(c echo.Context, valErr *ValidationError) error {
 	if valErr == nil {

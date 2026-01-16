@@ -88,3 +88,10 @@ func ValidateAuthPFRule(r *AuthPFRule, logger zerolog.Logger, action string) *Va
 
 	return nil
 }
+
+// SetUserID sets the UserID from config if available
+func SetUserID(r *AuthPFRule) {
+	if user, ok := config.Rbac.Users[r.Username]; ok && user.UserID > 0 {
+		r.UserID = user.UserID
+	}
+}
