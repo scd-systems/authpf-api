@@ -400,13 +400,13 @@ func TestParseJwtTokenTimeout_ExceedsMaxDays(t *testing.T) {
 // TestParseJwtTokenTimeout_InvalidFormat tests invalid timeout format
 func TestParseJwtTokenTimeout_InvalidFormat(t *testing.T) {
 	testCases := []string{
-		"30",           // Missing unit
-		"30x",          // Invalid unit
-		"m30",          // Wrong order
-		"30 m",         // Space in format
-		"",             // Empty string
-		"invalid",      // Non-numeric
-		"30mm",         // Double unit
+		"30",      // Missing unit
+		"30x",     // Invalid unit
+		"m30",     // Wrong order
+		"30 m",    // Space in format
+		"",        // Empty string
+		"invalid", // Non-numeric
+		"30mm",    // Double unit
 	}
 
 	for _, tc := range testCases {
@@ -432,7 +432,7 @@ func TestLogin_WithConfiguredTimeout(t *testing.T) {
 			Role:     "user",
 		},
 	}
-	config.Server.JwtTokenTimeout = 2 // 2 hours
+	config.Server.JwtTokenTimeout = "2h" // 2 hours
 
 	body := LoginRequest{
 		Username: "testuser",
@@ -482,7 +482,7 @@ func TestLogin_WithDefaultTimeout(t *testing.T) {
 			Role:     "user",
 		},
 	}
-	config.Server.JwtTokenTimeout = 0 // Use default (8 hours)
+	config.Server.JwtTokenTimeout = "" // Use default (8 hours)
 
 	body := LoginRequest{
 		Username: "testuser",
