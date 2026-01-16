@@ -250,8 +250,8 @@ Authorization: Bearer <token>
 | `activate_other_rules` | Allow user to activate rules from other users |
 | `deactivate_own_rules` | Allow user to deactivate their own rules |
 | `deactivate_other_rules` | Allow user to deactivate rules from other users |
-| `view_own_rules` | Allow user to view their own rules |
-| `view_other_rules` | Allow user to view rules from other users |
+| `view_own_rules` | Allow user to view their own rules status |
+| `view_other_rules` | Allow user to view rules status from other users |
 
 ## Setup SSL for AuthPF-API
 
