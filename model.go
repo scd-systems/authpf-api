@@ -73,7 +73,7 @@ type ConfigFileServer struct {
 	SSL             ConfigFileServerSSL `yaml:"ssl"`
 	ElevatorMode    string              `yaml:"elevatorMode"`
 	Logfile         string              `yaml:"logfile"`
-	JwtTokenTimeout int                 `yaml:"jwtTokenTimeout"`
+	JwtTokenTimeout string              `yaml:"jwtTokenTimeout"`
 	JwtSecret       string              `yaml:"jwtSecret"`
 }
 
