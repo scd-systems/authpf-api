@@ -1,12 +1,12 @@
-# Authpf-API
+# AuthPF-API
 
 A RESTful HTTP API for pf user rules.
 
 ## Overview
 
-**Authpf-API** is a Go-based REST API that provides a secure interface for managing packet filter (pf) user rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate pf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
+**AuthPF-API** is a Go-based REST API that provides a secure interface for managing pf user rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate pf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
 The original authpf is "_a user shell for authenticating gateways_" -- [openbsd.org](https://man.openbsd.org/authpf) and is based on SSH logins.
-Authpf-API is an alternative by using HTTP/S to load/unload pf user rules.
+AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 
 ## Features
 
@@ -74,90 +74,43 @@ make coverage-html
 
 The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api-config.yaml`.
 
-### Configuration File Example
+### Configuration Parameters
 
-```yaml
-# Default configuration settings applied globally
-defaults:
-  # Maximum timeout for operations (e.g., 30m, 1h)
-  timeout: 30m
+#### Defaults Section
 
-  # Path to the pfctl binary executable
-  pfctlBinary: /sbin/pfctl
+| Parameter | Description |
+|-----------|-------------|
+| `defaults.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. |
+| `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). Must be accessible by the user running the API. |
 
-# AuthPF-specific configuration
-authpf:
-  # Root directory where user-specific rule files are stored
-  userRulesRootfolder: /etc/authpf/users
+#### AuthPF Section
 
-  # Filename for user rules within the userRulesRootfolder
-  userRulesFile: authpf.rules
+| Parameter | Description |
+|-----------|-------------|
+| `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. |
+| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their rules. |
+| `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
+| `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. |
 
-  # Name of the PF anchor to use for rule management
-  anchorName: authpf
+#### Server Section
 
-  # Allow login the same user from different IP's
-  multiUserIP: false    
+| Parameter | Description |
+|-----------|-------------|
+| `server.bind` | IP address to bind the server to (e.g., 127.0.0.1 for localhost only). Use 0.0.0.0 to listen on all interfaces. |
+| `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. |
+| `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. |
+| `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. |
+| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. |
+| `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. |
+| `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). |
+| `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. |
 
-# Server configuration
-server:
-  # IP address to bind the server to (127.0.0.1 for localhost only)
-  bind: 127.0.0.1
+#### RBAC Section
 
-  # Port number for the HTTP/HTTPS server
-  port: 8080
-
-  # SSL/TLS configuration
-  ssl:
-    # Path to SSL certificate file (leave empty to disable SSL)
-    certificate: 
-    # Path to SSL private key file
-    key: key.pem
-
-  # JWT secret key for token signing - MUST be changed before production deployment
-  jwtSecret: your-secret-key-change-in-production
-
-  # Elevator mode for privilege escalation (none, sudo, or doas)
-  # Required when running server as non-root user
-  # sudo:   user	ALL = (root) NOPASSWD:/sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
-  # doas:   permit nopass as root cmd /sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
-  elevatorMode: none
-
-  # Path to the server logfile
-  logfile: /var/log/authpf-api.log
-
-# Role-Based Access Control (RBAC) configuration
-rbac:
-  # Role definitions with associated permissions
-  roles:
-    # Administrator role with full permissions
-    admin:
-      permissions:
-        - delete_other_rules  # Allow user to activate their own rules
-        - delete_own_rules    # Allow user to activate rules from other users
-        - view_other_rules    # Allow user to view the status of their own loaded rules
-        - view_own_rules      # Allow user to view the status of loaded rules from all users
-        - set_other_rules     # Allow user to unload/deactivate their own rules
-        - set_own_rules       # Allow user to unload/deactivate rules from other users
-
-    # Regular user role with limited permissions
-    user:
-      permissions:
-        - delete_own_rules
-        - view_own_rules
-        - set_own_rules
-  
-  # User account definitions with credentials and role assignments
-  users:
-    # Name of the user
-    username:
-      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
-      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
-      # Role assigned to this user
-      role: admin
-      # Numeric user ID (default 0 if not defined)
-      userId: 1000
-```
+| Parameter | Description |
+|-----------|-------------|
+| `rbac.roles` | Role definitions with associated permissions (e.g., admin, user). Each role defines what actions users with that role can perform. |
+| `rbac.users` | User account definitions with credentials and role assignments. Each user entry includes password hash, assigned role, and numeric user ID. |
 
 ### Environment Variables
 
@@ -299,6 +252,104 @@ Authorization: Bearer <token>
 | `delete_other_rules` | Allow user to deactivate rules from other users |
 | `view_own_rules` | Allow user to view their own rules |
 | `view_other_rules` | Allow user to view rules from other users |
+
+## Setup SSL for AuthPF-API
+
+### Create a Self-Signed CA Root and SSL Certificate
+
+Create CA Root Key
+
+```sh
+openssl ecparam -genkey -name secp384r1 | openssl ec -aes256 -out rootCA.key
+```
+
+Self-Sign CA Root
+
+```sh
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 -out rootCA.crt
+```
+
+Create Server Certificate and sign by the CA Root certificate
+
+```sh
+openssl ecparam -genkey -name prime256v1 -noout -out mydomain.com.key
+openssl req -new -key mydomain.com.key -out mydomain.com.csr
+
+cat > ./mydomain.com.ext << _EOF
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = mydomain.com
+DNS.2 = www.mydomain.com
+_EOF
+
+openssl x509 -req -in mydomain.com.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out mydomain.com.crt -days 397 -sha256 -extfile mydomain.com.ext
+```
+### Configure authpf-api.conf
+
+```yaml
+server:
+  ssl: 
+    certificate: mydomain.com.crt
+    key: mydomain.com.key
+```
+
+Restart authpf-api.
+
+Copy over the rootCA.key to the clients to verify the server.
+
+## Elevator Setup
+
+When running authpf-api as non-root user, an elevator setup is required.
+AuthPF-API currently supports sudo and doas.
+
+### Sudo Setup
+
+Sudoers File:
+```
+  Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -D user_ip=[0-9.]* -D user_id=[0-9]* -f /etc/authpf/users/[a-zA-Z0-9_-]*/authpf.rules
+              /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F nat, \
+              /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F rules \
+              /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F queue \
+              /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F states
+              # add other filters if requires
+  %authpf ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
+```
+
+Configure authpf-api.conf
+
+```yaml
+server:
+  elevatorMode: sudo
+```
+
+### Doas Setup
+
+doas.conf:
+```
+permit nopass :authpf as root cmd /sbin/pfctl
+```
+
+Configure authpf-api.conf
+
+```yaml
+server:
+  elevatorMode: doas
+```
+
+#### Security Considerations
+
+- The doas setup is similar to sudo, but with some restrictions.
+Doas does not support regular expressions for command arguments yet.
+A solution can be to use the pfctl_wrapper (found under scripts/).
+
+- Why not use flush all (pfctl -a "authpf/user" -Fa) and run each filter flushing separately?
+The flush all under FreeBSD 15.0 RELEASE results in an error (pfctl: Operation not supported by device) with ExitCode 1.
+It's related to a NETLINK change: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=291981
 
 ## Development
 

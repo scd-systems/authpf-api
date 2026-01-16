@@ -17,6 +17,17 @@ authpf:
   # Name of the PF anchor to use for rule management
   anchorName: authpf
 
+  # Set flush targets for pfctl command
+  flushFilter:
+    - nat
+    - queue
+    - ethernet
+    - rules
+    - info
+    - Sources
+    - Reset
+
+
 # Server configuration
 server:
   # IP address to bind the server to (127.0.0.1 for localhost only)
@@ -35,11 +46,36 @@ server:
   # JWT secret key for token signing - MUST be changed before production deployment
   jwtSecret: your-secret-key-change-in-production
 
+  # JWT token timeout in hours (default: 8 hours if not set)
+  # Supported formats when used in code: 30m, 1h, 2d (maximal 30 days)
+  # Configuration value is in hours (integer)
+  jwtTokenTimeout: 8
+
   # Elevator mode for privilege escalation (none, sudo, or doas)
-  # Required when running server as non-root user
-  # sudo:   user	ALL = (root) NOPASSWD:/sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
-  # doas:   permit nopass as root cmd /sbin/pfctl -a "authpf" -D "client_ip=*" -D "client_id=*" -f "/etc/authpf/users/*"
-  elevatorMode: none
+  # Required when running server as non-root user (recommended)
+  # 
+  # Examples:
+  #
+  # sudo: 
+  #   Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -D user_ip=[0-9.]* -D user_id=[0-9]* -f /etc/authpf/users/[a-zA-Z0-9_-]*/authpf.rules
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F nat, \
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F rules \
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F queue \
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F states \
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F Tables \
+                                       /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F all
+                                       # and other filters
+  #   %authpf ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
+  #
+  # doas:
+  #   # No regular expression for arguments available
+  #   permit nopass :authpf as root cmd /sbin/pfctl 
+  #
+  #   # More secure, use wrapper script for pfctl (see scripts/pfctl_wrapper.go)
+  #   # in authpf-api.conf set: defaults.pfctlBinary to /usr/local/sbin/pfctl_wrapper
+  #   permit nopass :authpf as root cmd /usr/local/sbin/pfctl_wrapper
+  #
+  elevatorMode: node
 
   # Path to the server logfile
   logfile: /var/log/authpf-api.log
@@ -51,18 +87,18 @@ rbac:
     # Administrator role with full permissions
     admin:
       permissions:
-        - delete_other_rules  # Allow user to activate their own rules
-        - delete_own_rules    # Allow user to activate rules from other users
-        - view_other_rules    # Allow user to view the status of their own loaded rules
-        - view_own_rules      # Allow user to view the status of loaded rules from all users
-        - set_other_rules     # Allow user to unload/deactivate their own rules
-        - set_own_rules       # Allow user to unload/deactivate rules from other users
+        - deactivate_other_rules  # Allow user to activate their own rules
+        - deactivate_own_rules    # Allow user to activate rules from other users
+        - view_other_rules        # Allow user to view the status of their own loaded rules
+        - view_own_rules          # Allow user to view the status of loaded rules from all users
+        - activate_other_rules    # Allow user to unload/deactivate their own rules
+        - activate_own_rules      # Allow user to unload/deactivate rules from other users
     # Regular user role with limited permissions
     user:
       permissions:
-        - delete_own_rules
+        - activate_own_rules
+        - deactivate_own_rules
         - view_own_rules
-        - set_own_rules
   # User account definitions with credentials and role assignments
   users:
     # Administrator test account

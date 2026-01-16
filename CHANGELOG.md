@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add user defined pf macros
 
 ### Changed
+- Use syscalls to modify pf anchors instead wrap pfctl command
 
 ### Fixed
 - Bug fixes

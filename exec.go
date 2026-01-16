@@ -145,6 +145,7 @@ func buildPfctlActivateCmdParameters(r *AuthPFRule) []string {
 
 func buildPfctlDeactivateCmdParameters(r *AuthPFRule) [][]string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
+
 	filter := config.AuthPF.FlushFilter
 	if len(filter) < 1 {
 		filter = []string{"rules", "nat"}
