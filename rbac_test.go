@@ -290,12 +290,6 @@ func TestGeneratePasswordHash(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// Verify the hash is valid by comparing it with the password
-				err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(tt.password))
-				if err != nil {
-					t.Errorf("GeneratePasswordHash() produced invalid hash: %v", err)
-				}
-
 				// Verify hash is not empty
 				if hash == "" {
 					t.Errorf("GeneratePasswordHash() returned empty hash")
@@ -304,6 +298,15 @@ func TestGeneratePasswordHash(t *testing.T) {
 				// Verify hash is a bcrypt hash (starts with $2a$, $2b$, or $2y$)
 				if len(hash) < 4 || (hash[:4] != "$2a$" && hash[:4] != "$2b$" && hash[:4] != "$2y$") {
 					t.Errorf("GeneratePasswordHash() returned invalid bcrypt hash format: %s", hash)
+				}
+
+				// Verify the hash is valid by comparing it with the SHA256 hex string of the password
+				// GeneratePasswordHash creates SHA256(password) and then bcrypt(hex(SHA256(password)))
+				sha256Hash := sha256.Sum256([]byte(tt.password))
+				sha256HexString := hex.EncodeToString(sha256Hash[:])
+				err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(sha256HexString))
+				if err != nil {
+					t.Errorf("GeneratePasswordHash() produced invalid hash: %v", err)
 				}
 			}
 		})
