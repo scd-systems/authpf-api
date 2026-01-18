@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 
-	log "github.com/labstack/gommon/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -48,7 +47,7 @@ func (c *ConfigFile) checkUserAndPassword(username string, clearTextPassword str
 		if err == nil {
 			requestPassword := sha256.Sum256([]byte(clearTextPassword))
 			if ret := subtle.ConstantTimeCompare(requestPassword[:], userPassword); ret == 1 {
-				log.Infof("User %q using legacy SHA256 password - please update to bcrypt", username)
+				logger.Info().Msgf("User %q using legacy SHA256 password - please update to bcrypt", username)
 				return nil
 			}
 		}

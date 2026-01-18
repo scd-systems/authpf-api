@@ -108,7 +108,7 @@ func ValidateUsername(username string) *ValidationError {
 // Returns a ValidationError if the user doesn't have the permission
 func CheckPermission(username string, permission string, logger zerolog.Logger) *ValidationError {
 	if err := config.validateUserPermissions(username, permission); err != nil {
-		logger.Info().Str("status", "rejected").Str("user", username).Str("permission", permission).Msg(err.Error())
+		// logger.Info().Str("status", "rejected").Str("user", username).Str("permission", permission).Msg(err.Error())
 		return &ValidationError{
 			StatusCode: http.StatusForbidden,
 			Message:    "permission denied",
@@ -171,7 +171,6 @@ func CheckSessionExists(username string, logger zerolog.Logger, mode string) *Va
 		statusCode = http.StatusInternalServerError
 	}
 
-	logger.Info().Str("user", username).Msg(msg)
 	return &ValidationError{
 		StatusCode: statusCode,
 		Message:    msg,
@@ -184,6 +183,7 @@ func RespondWithValidationError(c echo.Context, valErr *ValidationError) error {
 	if valErr == nil {
 		return nil
 	}
+	c.Set("auth", valErr.Details)
 
 	return c.JSON(valErr.StatusCode, echo.Map{
 		"error":   valErr.Message,
@@ -196,6 +196,7 @@ func RespondWithValidationErrorStatus(c echo.Context, valErr *ValidationError) e
 	if valErr == nil {
 		return nil
 	}
+	c.Set("auth", valErr.Details)
 
 	return c.JSON(valErr.StatusCode, echo.Map{
 		"status":  "rejected",

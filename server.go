@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -15,7 +16,6 @@ import (
 func setupServer(e *echo.Echo) error {
 	// Suppress Echo's startup banner
 	e.HideBanner = true
-
 	checkSSL()
 
 	// Add logger middleware to context
@@ -24,8 +24,9 @@ func setupServer(e *echo.Echo) error {
 	// Add request logging middleware
 	e.Use(requestLoggerMiddleware())
 
-	// Set Echo's logger level
-	e.Logger.SetLevel(getEchoLogLevel())
+	// Disable Echo's default logger (we use our own zerolog)
+	e.Logger.SetLevel(log.OFF)
+	e.Logger.SetOutput(io.Discard)
 
 	// Add HSTS Headers
 	e.Use(hstsMiddleWare())
@@ -76,6 +77,8 @@ func requestLoggerMiddleware() echo.MiddlewareFunc {
 		LogLatency:   true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			username, _ := c.Get("username").(string)
+			authStatus, _ := c.Get("auth").(string)
+			authpfStatus, _ := c.Get("authpf").(string)
 			logEntry := logger.Info().
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
@@ -83,6 +86,12 @@ func requestLoggerMiddleware() echo.MiddlewareFunc {
 				Int("status", v.Status)
 			if username != "" {
 				logEntry.Str("user", username)
+			}
+			if authStatus != "" {
+				logEntry.Str("auth", authStatus)
+			}
+			if authpfStatus != "" {
+				logEntry.Str("authpf", authpfStatus)
 			}
 			logEntry.Msg("request")
 			return nil
@@ -114,6 +123,15 @@ func registerRoutes(e *echo.Echo) {
 // startServer starts the Echo server with or without TLS
 func startServer(e *echo.Echo) error {
 	addr := fmt.Sprintf("%s:%d", config.Server.Bind, config.Server.Port)
+
+	protocol := "HTTP"
+	if config.Server.SSL.Certificate != "" {
+		protocol = "HTTPS"
+	}
+	logger.Info().
+		Str("protocol", protocol).
+		Str("address", addr).
+		Msg("server started")
 
 	if config.Server.SSL.Certificate != "" {
 		return e.StartTLS(addr, config.Server.SSL.Certificate, config.Server.SSL.Key)

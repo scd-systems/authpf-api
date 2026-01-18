@@ -12,7 +12,6 @@ import (
 func startRuleCleaner(logger zerolog.Logger) {
 	logger.Debug().Msgf("Authpf scheduler starting")
 	ticker := time.NewTicker(time.Second * 60)
-	var msg string
 	defer ticker.Stop()
 	for {
 		<-ticker.C
@@ -28,13 +27,12 @@ func startRuleCleaner(logger zerolog.Logger) {
 				}
 				multiResult := unloadAuthPFRule(r)
 				for i, result := range multiResult.Results {
-					msg = fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
+					logger.Debug().Msg(fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
 						i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-						result.ExitCode, result.Stdout, result.Stderr)
-					logger.Debug().Msg(msg)
+						result.ExitCode, result.Stdout, result.Stderr))
 				}
 				if multiResult.Error != nil {
-					logger.Error().Msgf("Unloading authpf rules failed for user: %s", r.Username)
+					logger.Error().Msgf("Failed to unload authpf rules from user: %s", r.Username)
 				}
 
 			}

@@ -7,14 +7,12 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/rs/zerolog"
 )
 
 // activateAuthPFRule handles POST /api/v1/authpf/activate
 func activateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	logger := c.Get("logger").(zerolog.Logger)
 
 	// Build and validate the AuthPFRule
 	r, valErr := SetAuthPFRule(c, logger, SESSION_REGISTER)
@@ -34,19 +32,18 @@ func activateAuthPFRule(c echo.Context) error {
 
 	if result.Error != nil {
 		msg := "Loading authpf rules failed"
-		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
 	// Store status into DB
 	if err := addToRulesDB(r); err != nil {
 		msg := "Unable to store user into Session DB"
-		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	msg = fmt.Sprintf("Loading authpf rule: user=%s, user_ip=%s, user_id=%d, timeout=%s, expire_at=%s", r.Username, r.UserIP, r.UserID, r.Timeout, r.ExpiresAt)
-	logger.Info().Str("status", "activated").Str("user", r.Username).Msg(msg)
+	c.Set("authpf", fmt.Sprintf("Activated authpf rule: user=%s, user_ip=%s, user_id=%d, timeout=%s, expire_at=%s", r.Username, r.UserIP, r.UserID, r.Timeout, r.ExpiresAt))
 	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "message": "authpf rule is being loaded"})
 }
 
@@ -54,7 +51,6 @@ func activateAuthPFRule(c echo.Context) error {
 func getLoadAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	logger := c.Get("logger").(zerolog.Logger)
 
 	// Get and validate session username
 	username, valErr := ValidateSessionUsername(c)
@@ -82,7 +78,6 @@ func getLoadAuthPFRules(c echo.Context) error {
 func getAllLoadAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	logger := c.Get("logger").(zerolog.Logger)
 
 	// Get and validate session username
 	username, valErr := ValidateSessionUsername(c)
@@ -106,7 +101,6 @@ func getAllLoadAuthPFRules(c echo.Context) error {
 func deactivateAuthPFRule(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	logger := c.Get("logger").(zerolog.Logger)
 
 	// Build and validate the AuthPFRule
 	r, valErr := SetAuthPFRule(c, logger, SESSION_UNREGISTER)
@@ -130,20 +124,20 @@ func deactivateAuthPFRule(c echo.Context) error {
 	}
 
 	if multiResult.Error != nil {
-		msg := "authpf rule not unloaded"
-		logger.Info().Str("user", r.Username).Msg(msg)
+		msg := "unload authpf rules failed"
+		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
 	// Remove User from db
 	if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
 		msg := "Unable to remove user from Session DB"
-		logger.Info().Str("status", "failed").Str("user", r.Username).Msg(msg)
+		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
 	msg := "authpf rule is being unloaded"
-	logger.Info().Str("status", "queued").Str("user", r.Username).Msg(msg)
+	c.Set("authpf", msg)
 	return c.JSON(http.StatusAccepted, echo.Map{"status": "queued", "user": r.Username, "message": msg})
 }
 
@@ -169,7 +163,6 @@ func unloadAllAuthPFRule() *MultiCommandResult {
 func deactivateAllAuthPFRules(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
-	logger := c.Get("logger").(zerolog.Logger)
 
 	// Get and validate session username
 	username, valErr := ValidateSessionUsername(c)
@@ -193,8 +186,8 @@ func deactivateAllAuthPFRules(c echo.Context) error {
 	}
 
 	if multiResult.Error != nil {
-		msg := "authpf rules not unloaded"
-		logger.Info().Str("user", username).Msg(msg)
+		msg := "unload all authpf rules failed"
+		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 

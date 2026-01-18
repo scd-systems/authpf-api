@@ -8,18 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- More unit tests
-- Support PF Tables
-- Support option for no-ip (authpf-noip)
-- Clear pf anchors on startup
-- Import existing pf anchors on startup
-- Add user defined pf macros
 
 ### Changed
-- Use syscalls to modify pf anchors instead of wrapping the pfctl command
+- removed clear-text password exchange for user login process
+- improved logging
 
 ### Fixed
-- Bug fixes
+- documentation: sudo examples
 
 ## [0.2.0] - 2026-01-16
 
@@ -49,3 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWT authentication
 - RBAC support
 - AuthPF rule management
+
+[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...HEAD
+[0.2.1]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/scd-systems/authpf-api/compare/v0.1.9...v0.2.0

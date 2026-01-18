@@ -55,28 +55,29 @@ func parseJwtTokenTimeout(timeout string) (time.Duration, error) {
 func login(c echo.Context) error {
 	req := new(LoginRequest)
 	if err := c.Bind(req); err != nil {
+		c.Set("auth", "invalid request")
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
 	}
 
 	if req.Username == "" || req.Password == "" {
+		c.Set("auth", "no username or password")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid credentials"})
 	}
 
 	if err := config.checkUserAndPassword(req.Username, req.Password); err != nil {
-		c.Logger().Infof(err.Error())
+		c.Set("auth", fmt.Sprintf("Failed login request [user: %s]: %s", req.Username, err))
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid username or password"})
 	}
 
 	// Parse JWT token timeout from config
 	timeoutStr := fmt.Sprintf("%s", config.Server.JwtTokenTimeout)
 	if config.Server.JwtTokenTimeout == "" {
-		// Default to 8 hours if not configured
 		timeoutStr = "8h"
 	}
 
 	tokenDuration, err := parseJwtTokenTimeout(timeoutStr)
 	if err != nil {
-		c.Logger().Errorf("Invalid JWT token timeout configuration: %v", err)
+		logger.Error().Msg(fmt.Sprintf("Invalid JWT token timeout configuration: %v", err))
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}
 
@@ -91,9 +92,10 @@ func login(c echo.Context) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
+		c.Set("auth", fmt.Sprintf("Token generation failed: %v", err))
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}
-	c.Logger().Infof("User %s has been successfully authenticated", req.Username)
+	c.Set("auth", fmt.Sprintf("User %s has been successfully authenticated", req.Username))
 	return c.JSON(http.StatusOK, LoginResponse{Token: tokenString})
 }
 

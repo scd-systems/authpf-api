@@ -127,7 +127,29 @@ func initializeLogger() error {
 		return err
 	}
 
-	logger = zerolog.New(logWriter).
+	consoleWriter := zerolog.ConsoleWriter{
+		Out:        logWriter,
+		TimeFormat: "2006-01-02 15:04:05",
+		FormatLevel: func(i interface{}) string {
+			level := strings.ToUpper(fmt.Sprintf("%s", i))
+			switch level {
+			case "DBG":
+				return "DEBUG"
+			case "INF":
+				return "INFO"
+			case "WRN":
+				return "WARN"
+			case "ERR":
+				return "ERROR"
+			case "FTL":
+				return "FATAL"
+			default:
+				return level
+			}
+		},
+	}
+
+	logger = zerolog.New(consoleWriter).
 		With().
 		Timestamp().
 		Logger().
