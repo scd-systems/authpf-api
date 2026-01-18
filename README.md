@@ -311,7 +311,7 @@ AuthPF-API currently supports sudo and doas.
 
 Sudoers File:
 ```
-  Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -D user_ip=[0-9.]* -D user_id=[0-9]* -f /etc/authpf/users/[a-zA-Z0-9_-]*/authpf.rules
+  Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -D user_ip=[0-9.]* -D user_id=[0-9]* -f /etc/authpf/users/[a-zA-Z0-9_-]*/authpf.rules, \
               /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F nat, \
               /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F rules \
               /sbin/pfctl -a authpf/[a-zA-Z0-9_-]* -F queue \
