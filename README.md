@@ -80,13 +80,13 @@ The application is configured via a YAML configuration file. By default, it uses
 
 | Parameter | Description |
 |-----------|-------------|
-| `defaults.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. |
 | `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). Must be accessible by the user running the API. |
 
 #### AuthPF Section
 
 | Parameter | Description |
 |-----------|-------------|
+| `authpf.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. |
 | `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. |
 | `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their rules. |
 | `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
@@ -406,11 +406,11 @@ The application uses structured JSON logging with zerolog. Logs can be output to
 1. **Logfile** (default) - Configured in `server.logfile`
 2. **Stdout** - Use `-foreground` flag
 
-### User Password Generation
+## User Password Generation
 
-The authpf-api supports **Bcrypt** (recommended) and **SHA256** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
+The authpf-api use **Bcrypt** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
 
-#### Interactive Mode
+### Interactive Mode
 
 Generate a password hash interactively (password input is hidden):
 
@@ -420,16 +420,16 @@ Enter password:
 $2a$10$N9qo8uLOic.......
 ```
 
-#### Piped Mode
+### Piped Mode
 
 Generate a password hash by piping the password:
 
 ```bash
-echo "your-password" | ./authpf-api -gen-user-password
+echo -n "your-password" | ./authpf-api -gen-user-password
 $2a$10$N9qo8uLOickgx2ZM........
 ```
 
-#### Adding Users to Configuration
+### Adding Users to Configuration
 
 Copy the generated hash and add it to your configuration file (`/usr/local/etc/authpf-api.conf`):
 
@@ -444,7 +444,7 @@ rbac:
       role: admin
 ```
 
-#### User Management with authpf-api-cli
+### User Management with authpf-api-cli
 
 For comprehensive user and rule management, use the **authpf-api-cli** tool. Refer to the [authpf-api-cli documentation](https://github.com/scd-systems/authpf-api-cli) for detailed instructions on managing users, roles, and permissions.
 

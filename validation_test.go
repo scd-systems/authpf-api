@@ -217,7 +217,7 @@ func TestValidateTimeout_ValidTimeout(t *testing.T) {
 
 // TestValidateTimeout_EmptyTimeout tests empty timeout with default
 func TestValidateTimeout_EmptyTimeout(t *testing.T) {
-	config.Defaults.Timeout = "30m"
+	config.AuthPF.Timeout = "30m"
 
 	timeoutStr, expiresAt, err := ValidateTimeout("")
 
@@ -228,7 +228,7 @@ func TestValidateTimeout_EmptyTimeout(t *testing.T) {
 
 // TestValidateTimeout_EmptyTimeoutNoDefault tests empty timeout without default
 func TestValidateTimeout_EmptyTimeoutNoDefault(t *testing.T) {
-	config.Defaults.Timeout = ""
+	config.AuthPF.Timeout = ""
 
 	timeoutStr, expiresAt, err := ValidateTimeout("")
 
@@ -239,7 +239,7 @@ func TestValidateTimeout_EmptyTimeoutNoDefault(t *testing.T) {
 
 // TestValidateTimeout_InvalidFormat tests invalid timeout format
 func TestValidateTimeout_InvalidFormat(t *testing.T) {
-	config.Defaults.Timeout = ""
+	config.AuthPF.Timeout = ""
 
 	_, _, err := ValidateTimeout("invalid")
 
@@ -250,7 +250,7 @@ func TestValidateTimeout_InvalidFormat(t *testing.T) {
 
 // TestValidateTimeout_TooShort tests timeout less than 1 minute
 func TestValidateTimeout_TooShort(t *testing.T) {
-	config.Defaults.Timeout = ""
+	config.AuthPF.Timeout = ""
 
 	_, _, err := ValidateTimeout("30s")
 
@@ -261,7 +261,7 @@ func TestValidateTimeout_TooShort(t *testing.T) {
 
 // TestValidateTimeout_TooLong tests timeout exceeding 24 hours
 func TestValidateTimeout_TooLong(t *testing.T) {
-	config.Defaults.Timeout = ""
+	config.AuthPF.Timeout = ""
 
 	_, _, err := ValidateTimeout("25h")
 

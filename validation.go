@@ -55,7 +55,7 @@ func ValidatePayload(c echo.Context, r *AuthPFRule) *ValidationError {
 // If timeout is empty, uses the default from config
 func ValidateTimeout(timeoutStr string) (string, time.Time, *ValidationError) {
 	if timeoutStr == "" {
-		timeoutStr = config.Defaults.Timeout
+		timeoutStr = config.AuthPF.Timeout
 	}
 
 	if timeoutStr == "" {

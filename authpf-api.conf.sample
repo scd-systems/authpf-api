@@ -1,13 +1,13 @@
 # Default configuration settings applied globally
 defaults:
-  # Maximum timeout for operations (e.g., 30m, 1h)
-  timeout: 30m
-
   # Path to the pfctl binary executable
   pfctlBinary: /sbin/pfctl
 
 # AuthPF-specific configuration
 authpf:
+  # AuthPF rule activity timeout (e.g., 30m, 1h)
+  timeout: 30m
+
   # Root directory where user-specific rule files are stored
   userRulesRootfolder: /etc/authpf/users
 
@@ -26,7 +26,6 @@ authpf:
     - info
     - Sources
     - Reset
-
 
 # Server configuration
 server:
@@ -98,19 +97,21 @@ rbac:
         - activate_own_rules
         - deactivate_own_rules
         - view_own_rules
+  
   # User account definitions with credentials and role assignments
   users:
     # Administrator test account
     authpf-admin:
-      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
-      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      # password hash (generate: echo -n "testing" | authpf-api -gen-user-password)
+      password: $2a$10$abcdefg.....
       # Role assigned to this user
       role: admin
       # Numeric user ID
       userId: 1000
+    # Example User
     authpf-user1:
-      # password hash (can be bcrypt2 or sha256) (example: echo -n "testing" | sha256)
-      password: cf80cd8aed482d5d1527d7dc72fceff84e6326592848447d2dc0b0e87dfc9a90
+      # password hash (generate: echo -n "testing" | authpf-api -gen-user-password)
+      password: $2a$10$hijklmni.....
       # Role assigned to this user
       role: user
       # Numeric user ID (optional - defaults to 0 if not set)

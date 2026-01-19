@@ -56,11 +56,11 @@ type ConfigFile struct {
 }
 
 type ConfigFileDefaults struct {
-	Timeout     string `yaml:"timeout"`
 	PfctlBinary string `yaml:"pfctlBinary"`
 }
 
 type ConfigFileAuthPF struct {
+	Timeout             string   `yaml:"timeout"`
 	UserRulesRootFolder string   `yaml:"userRulesRootFolder"`
 	UserRulesFile       string   `yaml:"userRulesFile"`
 	AnchorName          string   `yaml:"anchorName"`

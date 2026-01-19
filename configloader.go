@@ -42,9 +42,6 @@ func (config *ConfigFile) validateRequiredSections() error {
 	var missingFields []string
 
 	// Check defaults section
-	if config.Defaults.Timeout == "" {
-		missingFields = append(missingFields, "defaults.timeout")
-	}
 	if config.Defaults.PfctlBinary == "" {
 		missingFields = append(missingFields, "defaults.pfctlBinary")
 	}
@@ -67,6 +64,9 @@ func (config *ConfigFile) validateRequiredSections() error {
 	}
 
 	// Check authpf section
+	if config.AuthPF.Timeout == "" {
+		missingFields = append(missingFields, "authpf.timeout")
+	}
 	if config.AuthPF.UserRulesRootFolder == "" {
 		missingFields = append(missingFields, "authpf.userRulesRootFolder")
 	}
