@@ -249,7 +249,11 @@ func readPasswordNoEcho() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() {
+		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
+			logger.Error().Msg("Cannot restore terminal")
+		}
+	}()
 
 	// Read password
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))

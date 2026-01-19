@@ -51,7 +51,9 @@ func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 			Error:    err,
 		}
 	case <-time.After(commandExecutionTimeout):
-		cmd.Process.Kill()
+		if err := cmd.Process.Kill(); err != nil {
+			logger.Error().Msg(fmt.Sprintf("Cannot kill process: %s", err))
+		}
 		return &SystemCommandResult{
 			Command:  command,
 			Args:     args,

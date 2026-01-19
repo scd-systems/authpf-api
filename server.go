@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -138,21 +136,4 @@ func startServer(e *echo.Echo) error {
 	}
 
 	return e.Start(addr)
-}
-
-// getEchoLogLevel converts LOG_LEVEL environment variable to Echo log level
-func getEchoLogLevel() log.Lvl {
-	levelStr := os.Getenv("LOG_LEVEL")
-	switch strings.ToLower(levelStr) {
-	case "debug":
-		return log.DEBUG
-	case "info":
-		return log.INFO
-	case "warn":
-		return log.WARN
-	case "error":
-		return log.ERROR
-	default:
-		return log.INFO
-	}
 }

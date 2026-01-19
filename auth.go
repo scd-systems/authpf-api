@@ -70,7 +70,7 @@ func login(c echo.Context) error {
 	}
 
 	// Parse JWT token timeout from config
-	timeoutStr := fmt.Sprintf("%s", config.Server.JwtTokenTimeout)
+	timeoutStr := config.Server.JwtTokenTimeout
 	if config.Server.JwtTokenTimeout == "" {
 		timeoutStr = "8h"
 	}

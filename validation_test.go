@@ -604,7 +604,8 @@ func TestRespondWithValidationError_WithError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid input", response["error"])
 	assert.Equal(t, "field is required", response["details"])
 }
@@ -640,7 +641,8 @@ func TestRespondWithValidationErrorStatus_WithError(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "rejected", response["status"])
 	assert.Equal(t, "permission denied", response["message"])
 	assert.Equal(t, "user lacks required permission", response["details"])

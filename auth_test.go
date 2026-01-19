@@ -88,7 +88,8 @@ func TestLogin_InvalidUsername(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid username or password", response["error"])
 }
 
@@ -122,7 +123,8 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid username or password", response["error"])
 }
 
@@ -150,7 +152,8 @@ func TestLogin_EmptyUsername(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid credentials", response["error"])
 }
 
@@ -178,7 +181,8 @@ func TestLogin_EmptyPassword(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid credentials", response["error"])
 }
 
@@ -200,7 +204,8 @@ func TestLogin_InvalidJSON(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid request", response["error"])
 }
 
@@ -266,7 +271,8 @@ func TestJWTMiddleware_MissingAuthHeader(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "missing authorization header", response["error"])
 }
 
@@ -293,7 +299,8 @@ func TestJWTMiddleware_InvalidAuthFormat(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid authorization format", response["error"])
 }
 
@@ -320,7 +327,8 @@ func TestJWTMiddleware_InvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid token", response["error"])
 }
 
@@ -358,7 +366,8 @@ func TestJWTMiddleware_ExpiredToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
 	assert.Equal(t, "invalid token", response["error"])
 }
 

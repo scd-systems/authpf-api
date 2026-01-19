@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // MockedExecuteSystemCommand stores the mock implementation
@@ -856,9 +858,9 @@ func BenchmarkBuildAuthPFRulePath(b *testing.B) {
 		},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		buildAuthPFRulePath("testuser")
+	for b.Loop() {
+		_, err := buildAuthPFRulePath("testuser")
+		assert.NoError(b, err)
 	}
 }
 
