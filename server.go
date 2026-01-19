@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -27,7 +30,13 @@ func setupServer(e *echo.Echo) error {
 	e.Logger.SetOutput(io.Discard)
 
 	// Add HSTS Headers
-	e.Use(hstsMiddleWare())
+	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+		XSSProtection:      "1; mode=block",
+		ContentTypeNosniff: "nosniff",
+		XFrameOptions:      "DENY",
+		HSTSMaxAge:         31536000,
+		HSTSPreloadEnabled: true,
+	}))
 
 	// Register routes
 	registerRoutes(e)
@@ -38,20 +47,6 @@ func setupServer(e *echo.Echo) error {
 func checkSSL() {
 	if config.Server.SSL.Certificate == "" {
 		logger.Warn().Msg("⚠️ WARNING: Running without HTTPS. This is INSECURE!")
-	}
-}
-
-// Set HSTS-Header
-func hstsMiddleWare() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			c.Response().Header().Set("Strict-Transport-Security",
-				"max-age=31536000; includeSubDomains; preload")
-			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-			c.Response().Header().Set("X-Frame-Options", "DENY")
-			c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
-			return next(c)
-		}
 	}
 }
 
@@ -116,6 +111,28 @@ func registerRoutes(e *echo.Echo) {
 
 	// Start background rule cleaner
 	go startRuleCleaner(logger)
+}
+
+// Start Graceful Server
+func startServerWithGracefulShutdown(e *echo.Echo) {
+	// Channel für OS-Signale
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Graceful shutdown in Goroutine
+	go func() {
+		<-quit
+		logger.Info().Msg("Graceful shutdown initiated...")
+		if err := gracefulShutdown(e); err != nil {
+			logger.Error().Err(err).Msg("Shutdown error")
+		}
+	}()
+
+	// Server starten
+	if err := startServer(e); err != nil {
+		logger.Error().Err(err).Msg("Server error")
+		os.Exit(1)
+	}
 }
 
 // startServer starts the Echo server with or without TLS
