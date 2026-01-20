@@ -20,10 +20,5 @@ func main() {
 		log.Errorf("%s", err.Error())
 		os.Exit(1)
 	}
-
 	startServerWithGracefulShutdown(e)
-	// if err := startServer(e); err != nil {
-	// 	log.Errorf("%s", err.Error())
-	// 	os.Exit(1)
-	// }
 }

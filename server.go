@@ -119,7 +119,7 @@ func startServerWithGracefulShutdown(e *echo.Echo) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Graceful shutdown in Goroutine
+	// Graceful shutdown as Goroutine
 	go func() {
 		<-quit
 		logger.Info().Msg("Graceful shutdown initiated...")
@@ -128,7 +128,6 @@ func startServerWithGracefulShutdown(e *echo.Echo) {
 		}
 	}()
 
-	// Server starten
 	if err := startServer(e); err != nil {
 		logger.Error().Err(err).Msg("Server error")
 		os.Exit(1)
