@@ -115,7 +115,7 @@ func registerRoutes(e *echo.Echo) {
 
 // Start Graceful Server
 func startServerWithGracefulShutdown(e *echo.Echo) {
-	// Channel für OS-Signale
+	// Channel for OS signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
