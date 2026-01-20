@@ -91,6 +91,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their rules. |
 | `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. |
+| `authpf.onShutdown` | Remove all activated user rules when api server get shutdown. |
 
 #### Server Section
 
@@ -146,7 +147,7 @@ Content-Type: application/json
 
 {
   "username": "authpf-user1",
-  "password": "testing"
+  "password": "SHA256"
 }
 ```
 
@@ -195,7 +196,7 @@ Content-Type: application/json
 }
 ```
 
-#### Get All Rules
+#### Get Status of all activated rules
 ```http
 GET /api/v1/authpf/all
 Authorization: Bearer <token>
@@ -240,7 +241,7 @@ POST /api/v1/authpf/activate?authpf_username=othername
 Authorization: Bearer <token>
 ```
 
-## Permissions
+## RBAC - Permissions
 
 ### Available Permissions
 
@@ -252,6 +253,20 @@ Authorization: Bearer <token>
 | `deactivate_other_rules` | Allow user to deactivate rules from other users |
 | `view_own_rules` | Allow user to view their own rules status |
 | `view_other_rules` | Allow user to view rules status from other users |
+
+## Setup PF
+
+Before you can use authpf-api, please verify that the authpf anchors are set in the pf.conf
+
+/etc/pfctl.conf
+```
+nat-anchor "authpf/*"
+rdr-anchor "authpf/*"
+binat-anchor "authpf/*"
+anchor "authpf/*"
+```
+
+Verify also that the anchor name is the same as in the configfile (`authpf.anchorName: authpf`)
 
 ## Setup SSL for AuthPF-API
 
@@ -307,7 +322,7 @@ Copy over the rootCA.key to the clients to verify the server.
 When running authpf-api as non-root user, an elevator setup is required.
 AuthPF-API currently supports sudo and doas.
 
-### Sudo Setup
+### Configure Sudo 
 
 Sudoers File:
 ```
@@ -328,7 +343,7 @@ server:
   elevatorMode: sudo
 ```
 
-### Doas Setup
+### Configure Doas
 
 doas.conf:
 ```
