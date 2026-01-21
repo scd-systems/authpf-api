@@ -32,9 +32,8 @@ func activateAuthPFRule(c echo.Context) error {
 
 	if result.Error != nil {
 		msg_response := "Loading authpf rules failed"
-		msg := fmt.Sprintf("%s: %s", msg, result.Stderr)
-		logger.Debug().Str("user", r.Username).Msg(msg)
-		c.Set("authpf", msg)
+		msg_log := fmt.Sprintf("%s", result.Stderr)
+		c.Set("authpf", msg_log)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg_response})
 	}
 
