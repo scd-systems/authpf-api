@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	pfctlBinary         = "/sbin/pfctl"
-	authpfRulesRoot     = "/etc/authpf"
-	authpfAnchorPrefix  = "authpf"
-	maxAnchorLength     = 256
-	maxDefineLength     = 256
-	maxFilterLength     = 64
-	maxFilePathLength   = 4096
+	pfctlBinary        = "/sbin/pfctl"
+	authpfRulesRoot    = "/etc/authpf"
+	authpfAnchorPrefix = "authpf"
+	maxAnchorLength    = 256
+	maxDefineLength    = 256
+	maxFilterLength    = 64
+	maxFilePathLength  = 4096
 )
 
 // validateAnchor validates anchor name format: authpf/username(uid)

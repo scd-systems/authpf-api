@@ -314,8 +314,7 @@ func TestCheckPermission_ValidPermission(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	err := CheckPermission("testuser", "activate_own_rules", logger)
+	err := CheckPermission("testuser", "activate_own_rules")
 
 	assert.Nil(t, err)
 }
@@ -334,8 +333,7 @@ func TestCheckPermission_InvalidPermission(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	err := CheckPermission("testuser", "activate_own_rules", logger)
+	err := CheckPermission("testuser", "activate_own_rules")
 
 	assert.Error(t, err)
 	assert.Equal(t, http.StatusForbidden, err.StatusCode)
@@ -356,8 +354,7 @@ func TestResolveTargetUser_SameUser(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	targetUser, err := ResolveTargetUser(c, "testuser", "testuser", "activate_own_rules", logger)
+	targetUser, err := ResolveTargetUser(c, "testuser", "testuser", "activate_own_rules")
 
 	assert.Nil(t, err)
 	assert.Equal(t, "testuser", targetUser)
@@ -377,8 +374,7 @@ func TestResolveTargetUser_EmptyRequestedUser(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	targetUser, err := ResolveTargetUser(c, "testuser", "", "activate_own_rules", logger)
+	targetUser, err := ResolveTargetUser(c, "testuser", "", "activate_own_rules")
 
 	assert.Nil(t, err)
 	assert.Equal(t, "testuser", targetUser)
@@ -407,8 +403,7 @@ func TestResolveTargetUser_DifferentUserWithPermission(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	targetUser, err := ResolveTargetUser(c, "admin", "testuser", "activate_other_rules", logger)
+	targetUser, err := ResolveTargetUser(c, "admin", "testuser", "activate_other_rules")
 
 	assert.Nil(t, err)
 	assert.Equal(t, "testuser", targetUser)
@@ -428,8 +423,7 @@ func TestResolveTargetUser_DifferentUserInvalidUsername(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	targetUser, err := ResolveTargetUser(c, "admin", "nonexistent", "activate_other_rules", logger)
+	targetUser, err := ResolveTargetUser(c, "admin", "nonexistent", "activate_other_rules")
 
 	assert.Error(t, err)
 	assert.Equal(t, "", targetUser)
@@ -459,8 +453,7 @@ func TestResolveTargetUser_DifferentUserNoPermission(t *testing.T) {
 		},
 	}
 
-	logger := zerolog.New(nil)
-	targetUser, err := ResolveTargetUser(c, "user1", "user2", "activate_other_rules", logger)
+	targetUser, err := ResolveTargetUser(c, "user1", "user2", "activate_other_rules")
 
 	assert.Error(t, err)
 	assert.Equal(t, "", targetUser)

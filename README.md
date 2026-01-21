@@ -91,6 +91,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their rules. |
 | `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. |
+| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). import just load existing anchors. importflush clear after import the anchors from pf |
 | `authpf.onShutdown` | Remove all activated user rules when api server get shutdown. |
 
 #### Server Section
@@ -326,7 +327,8 @@ AuthPF-API currently supports sudo and doas.
 
 Sudoers File:
 ```
-  Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
+  Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -sA, \
+      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F nat$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F rules$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
@@ -357,7 +359,7 @@ server:
   elevatorMode: doas
 ```
 
-#### Security Considerations
+#### Doas Security Considerations
 
 - The doas setup is similar to sudo, but with some restrictions.
 Doas does not support regular expressions for command arguments yet.
@@ -366,6 +368,31 @@ A solution can be to use the pfctl_wrapper (found under scripts/).
 - Why not use flush all (pfctl -a "authpf/user" -Fa) and run each filter flushing separately?
 The flush all under FreeBSD 15.0 RELEASE results in an error (pfctl: Operation not supported by device) with ExitCode 1.
 It's related to a NETLINK change: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=291981
+
+## Import existing Anchors
+
+Authpf-api is able to import existing authpf anchors.
+Three modes are configurable:
+- none
+- import
+- importflush
+
+If no import is required, set to none or empty.
+The "import" mode will parse the output of `pfctl -sA` and import all existing anchors (authpf/NAME(USERID)).
+Mode "importflush" will do the same as import, but will remove/flush the anchors directly after import. 
+
+### Configure import
+
+```yaml
+authpf:
+  onStartup: import # valid modes: none, importflush
+```
+
+### Limitations
+
+1. It is current not possible to detect the UserIP. The UserIP will set to "NaN/imported". It does not have any effect.
+   Deactivation works without IP Address.
+2. The Expire Datetime will calculate by the `authpf.timeout` and current server time.
 
 ## Development
 
