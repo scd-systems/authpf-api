@@ -9,8 +9,8 @@ import (
 )
 
 func importAuthPF() error {
-	args := "-sA"
-	return parseAuthpf(*executeSystemCommand(config.Defaults.PfctlBinary, args))
+	args := []string{"-sA"}
+	return parseAuthpf(*executePfctlCommand(args))
 }
 
 // parseExecOutput runs the given command, reads its output and builds a RulesDB.
