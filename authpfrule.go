@@ -2,13 +2,12 @@ package main
 
 import (
 	"github.com/labstack/echo/v4"
-	"github.com/rs/zerolog"
 )
 
 // SetAuthPFRule builds an AuthPFRule from the request context for either activation or deactivation
 // It performs all necessary validations and populates the rule with required data
 // action should be either "activate" or "deactivate"
-func SetAuthPFRule(c echo.Context, logger zerolog.Logger, action string) (*AuthPFRule, *ValidationError) {
+func SetAuthPFRule(c echo.Context, action string) (*AuthPFRule, *ValidationError) {
 	r := &AuthPFRule{}
 
 	// Get and validate session username
@@ -49,7 +48,7 @@ func SetAuthPFRule(c echo.Context, logger zerolog.Logger, action string) (*AuthP
 	}
 
 	// Validate and resolve target user
-	targetUser, valErr := ResolveTargetUser(c, sessionUsername, reqUser, rbacPermission, logger)
+	targetUser, valErr := ResolveTargetUser(c, sessionUsername, reqUser, rbacPermission)
 	if valErr != nil {
 		return nil, valErr
 	}
@@ -63,7 +62,7 @@ func SetAuthPFRule(c echo.Context, logger zerolog.Logger, action string) (*AuthP
 
 // ValidateAuthPFRule performs validations specific to the action (activate or deactivate)
 // action should be either "activate" or "deactivate"
-func ValidateAuthPFRule(r *AuthPFRule, logger zerolog.Logger, action string) *ValidationError {
+func ValidateAuthPFRule(r *AuthPFRule, action string) *ValidationError {
 	// Determine session operation and permission based on action
 	var sessionOp string
 	var rbacPermission string
@@ -82,7 +81,7 @@ func ValidateAuthPFRule(r *AuthPFRule, logger zerolog.Logger, action string) *Va
 	}
 
 	// Check permission
-	if valErr := CheckPermission(r.Username, rbacPermission, logger); valErr != nil {
+	if valErr := CheckPermission(r.Username, rbacPermission); valErr != nil {
 		return valErr
 	}
 

@@ -65,6 +65,7 @@ type ConfigFileAuthPF struct {
 	UserRulesFile       string   `yaml:"userRulesFile"`
 	AnchorName          string   `yaml:"anchorName"`
 	FlushFilter         []string `yaml:"flushFilter"`
+	OnStartup           string   `yaml:"onStartup"`
 }
 
 type ConfigFileServer struct {
