@@ -121,7 +121,9 @@ func startServerWithGracefulShutdown(e *echo.Echo) {
 
 	// Graceful shutdown as Goroutine
 	go func() {
-		<-quit
+		s := <-quit
+		msg_debug := fmt.Sprintf("Received signal: %s", s)
+		logger.Debug().Msg(msg_debug)
 		logger.Info().Msg("Graceful shutdown initiated...")
 		if err := gracefulShutdown(e); err != nil {
 			logger.Error().Err(err).Msg("Shutdown error")

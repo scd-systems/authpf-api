@@ -71,7 +71,6 @@ func parseAuthpf(result SystemCommandResult) error {
 			logger.Trace().Msg(msg)
 		}
 	}
-	msg := fmt.Sprintf("Imported %d anchor(s)", len(rulesdb))
-	logger.Debug().Msg(msg)
+	logger.Debug().Int("count", len(rulesdb)).Msg("Import anchor(s) done")
 	return nil
 }
