@@ -31,10 +31,11 @@ func activateAuthPFRule(c echo.Context) error {
 	logger.Trace().Str("user", r.Username).Msg(msg)
 
 	if result.Error != nil {
-		msg := "Loading authpf rules failed"
+		msg_response := "Loading authpf rules failed"
+		msg := fmt.Sprintf("%s: %s", msg, result.Stderr)
 		logger.Debug().Str("user", r.Username).Msg(msg)
 		c.Set("authpf", msg)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg_response})
 	}
 
 	// Store status into DB

@@ -60,7 +60,7 @@ func parseAuthpf(result SystemCommandResult) error {
 			return valErr
 		}
 
-		rulesdb[username] = &AuthPFRule{Username: username, UserID: uid, Timeout: timeout, ExpiresAt: expiresAt}
+		rulesdb[username] = &AuthPFRule{Username: username, UserID: uid, Timeout: timeout, ExpiresAt: expiresAt, UserIP: "NaN/imported"}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
