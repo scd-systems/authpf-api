@@ -27,6 +27,14 @@ authpf:
     - Sources
     - Reset
 
+  # Flush anchors on startup API. 
+  # Two options available: import and importflush.
+  # - import: only import existing anchors in authpf/ (default anchorbase, see: anchorName) 
+  #     Parse format is: rule(UserID)
+  #     Example: "authpf/user(2000)" will import, "authpf/user" will not import
+  # - importflush: same as import but in addition it remove all anchors to get a clean state for startup
+  onStartup: importflush # none, import, importflush
+
 # Server configuration
 server:
   # IP address to bind the server to (127.0.0.1 for localhost only)

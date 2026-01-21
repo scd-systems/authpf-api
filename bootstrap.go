@@ -37,6 +37,21 @@ func bootstrap() error {
 		return err
 	}
 
+	// Import Rules
+	if config.AuthPF.OnStartup == "import" {
+		if err := importAuthPF(); err != nil {
+			return err
+		}
+	}
+	if config.AuthPF.OnStartup == "importflush" {
+		if err := importAuthPF(); err != nil {
+			return err
+		}
+		if err := execUnloadAllAuthPFRules("API"); err != nil {
+			return err
+		}
+	}
+
 	logger.Info().Str("version", Version).Msg("authpf-api starting")
 	return nil
 }
