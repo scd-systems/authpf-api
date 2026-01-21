@@ -5,26 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - 20xx-xx-xx
 
 ### Added
+- Graceful-Shutdown to flush anchors when server get stopped
+- Import anchors on startup
 
 ### Changed
+- Improved logging
+- Removed clear-text password exchange for user login process
+- switch HSTS by use the secure middleware Handler from echo Framework
 
 ### Fixed
-- documentation
-
-
-## [0.2.1.1-dev]
-
-### Added
-
-### Changed
-- removed clear-text password exchange for user login process
-- improved logging
-
-### Fixed
-- documentation: sudo examples
+- Documentation
 
 ## [0.2.0] - 2026-01-16
 

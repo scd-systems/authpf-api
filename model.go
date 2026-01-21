@@ -65,6 +65,7 @@ type ConfigFileAuthPF struct {
 	UserRulesFile       string   `yaml:"userRulesFile"`
 	AnchorName          string   `yaml:"anchorName"`
 	FlushFilter         []string `yaml:"flushFilter"`
+	OnShutdown          string   `yaml:"onShutdown"`
 	OnStartup           string   `yaml:"onStartup"`
 }
 

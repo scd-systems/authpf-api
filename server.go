@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -27,7 +30,13 @@ func setupServer(e *echo.Echo) error {
 	e.Logger.SetOutput(io.Discard)
 
 	// Add HSTS Headers
-	e.Use(hstsMiddleWare())
+	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+		XSSProtection:      "1; mode=block",
+		ContentTypeNosniff: "nosniff",
+		XFrameOptions:      "DENY",
+		HSTSMaxAge:         31536000,
+		HSTSPreloadEnabled: true,
+	}))
 
 	// Register routes
 	registerRoutes(e)
@@ -38,20 +47,6 @@ func setupServer(e *echo.Echo) error {
 func checkSSL() {
 	if config.Server.SSL.Certificate == "" {
 		logger.Warn().Msg("⚠️ WARNING: Running without HTTPS. This is INSECURE!")
-	}
-}
-
-// Set HSTS-Header
-func hstsMiddleWare() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			c.Response().Header().Set("Strict-Transport-Security",
-				"max-age=31536000; includeSubDomains; preload")
-			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-			c.Response().Header().Set("X-Frame-Options", "DENY")
-			c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
-			return next(c)
-		}
 	}
 }
 
@@ -116,6 +111,29 @@ func registerRoutes(e *echo.Echo) {
 
 	// Start background rule cleaner
 	go startRuleCleaner(logger)
+}
+
+// Start Graceful Server
+func startServerWithGracefulShutdown(e *echo.Echo) {
+	// Channel for OS signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Graceful shutdown as Goroutine
+	go func() {
+		s := <-quit
+		msg_debug := fmt.Sprintf("Received signal: %s", s)
+		logger.Debug().Msg(msg_debug)
+		logger.Info().Msg("Graceful shutdown initiated...")
+		if err := gracefulShutdown(e); err != nil {
+			logger.Error().Err(err).Msg("Shutdown error")
+		}
+	}()
+
+	if err := startServer(e); err != nil {
+		logger.Error().Err(err).Msg("Server error")
+		os.Exit(1)
+	}
 }
 
 // startServer starts the Echo server with or without TLS

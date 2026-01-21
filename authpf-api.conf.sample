@@ -33,6 +33,11 @@ authpf:
   #     Parse format is: rule(UserID)
   #     Example: "authpf/user(2000)" will import, "authpf/user" will not import
   # - importflush: same as import but in addition it remove all anchors to get a clean state for startup
+  #
+  # Limitations with import:
+  #   1. It is current not possible to detect the UserIP. The UserIP will set to "NaN/imported". It does not have any effect.
+  #   2. The Expire Datetime will calculate by the `authpf.timeout` and current server time.
+  #
   onStartup: importflush # none, import, importflush
 
 # Server configuration
@@ -64,13 +69,14 @@ server:
   # Examples:
   #
   # sudo:
-  #   Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F nat$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F rules$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
-                                       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
+  #   Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -sA, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F nat$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F rules$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
+        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
   #   %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
   #
   # doas:
