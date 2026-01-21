@@ -88,7 +88,7 @@ The application is configured via a YAML configuration file. By default, it uses
 |-----------|-------------|
 | `authpf.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. |
 | `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. |
-| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their rules. |
+| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. |
 | `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. |
 | `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). import just load existing anchors. importflush clear after import the anchors from pf |
