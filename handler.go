@@ -28,7 +28,7 @@ func activateAuthPFRule(c echo.Context) error {
 	// Run pfctl command
 	result := loadAuthPFRule(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-	logger.Trace().Str("user", r.Username).Msg(msg)
+	logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
 	if result.Error != nil {
 		msg_response := "Loading authpf rules failed"
