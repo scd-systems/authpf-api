@@ -9,24 +9,24 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// activateAuthPFRule handles POST /api/v1/authpf/activate
-func activateAuthPFRule(c echo.Context) error {
+// activateAuthPFAnchor handles POST /api/v1/authpf/activate
+func activateAuthPFAnchor(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	// Build and validate the AuthPFRule
-	r, valErr := SetAuthPFRule(c, SESSION_REGISTER)
+	// Build and validate the AuthPFAnchor
+	r, valErr := SetAuthPFAnchor(c, SESSION_REGISTER)
 	if valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
 	// Perform additional activation-specific validations
-	if valErr := ValidateAuthPFRule(r, SESSION_REGISTER); valErr != nil {
+	if valErr := ValidateAuthPFAnchor(r, SESSION_REGISTER); valErr != nil {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
 	// Run pfctl command
-	result := loadAuthPFRule(r)
+	result := loadAuthPFAnchor(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
@@ -43,12 +43,12 @@ func activateAuthPFRule(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	c.Set("authpf", fmt.Sprintf("Activated authpf rule: user=%s, user_ip=%s, user_id=%d, timeout=%s, expire_at=%s", r.Username, r.UserIP, r.UserID, r.Timeout, r.ExpiresAt))
-	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "message": "authpf rule is being loaded"})
+	c.Set("authpf", fmt.Sprintf("Activated authpf anchor: user=%s, user_ip=%s, user_id=%d, timeout=%s, expire_at=%s", r.Username, r.UserIP, r.UserID, r.Timeout, r.ExpiresAt))
+	return c.JSON(http.StatusCreated, echo.Map{"status": "activated", "user": r.Username, "message": "authpf anchor is being loaded"})
 }
 
-// getLoadAuthPFRules handles GET /api/v1/authpf/activate
-func getLoadAuthPFRules(c echo.Context) error {
+// getLoadAuthPFAnchor handles GET /api/v1/authpf/activate
+func getLoadAuthPFAnchor(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -67,15 +67,15 @@ func getLoadAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	response := &AuthPFRulesResponse{
-		Rules:      map[string]*AuthPFRule{reqUser: anchorsDB[reqUser]},
+	response := &AuthPFAnchorResponse{
+		Anchors:    map[string]*AuthPFAnchor{reqUser: anchorsDB[reqUser]},
 		ServerTime: time.Now().UTC(),
 	}
 	return c.JSON(http.StatusOK, response)
 }
 
-// getAllLoadAuthPFRules handles GET /api/v1/authpf/all
-func getAllLoadAuthPFRules(c echo.Context) error {
+// getAllLoadAuthPFAnchors handles GET /api/v1/authpf/all
+func getAllLoadAuthPFAnchors(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -90,30 +90,30 @@ func getAllLoadAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	response := &AuthPFRulesResponse{
-		Rules:      anchorsDB,
+	response := &AuthPFAnchorResponse{
+		Anchors:    anchorsDB,
 		ServerTime: time.Now().UTC(),
 	}
 	return c.JSON(http.StatusOK, response)
 }
 
-// deactivateAuthPFRule handles DELETE /api/v1/authpf/activate
-func deactivateAuthPFRule(c echo.Context) error {
+// deactivateAuthPFAnchor handles DELETE /api/v1/authpf/activate
+func deactivateAuthPFAnchor(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	// Build and validate the AuthPFRule
-	r, valErr := SetAuthPFRule(c, SESSION_UNREGISTER)
+	// Build and validate the AuthPFAnchor
+	r, valErr := SetAuthPFAnchor(c, SESSION_UNREGISTER)
 	if valErr != nil {
 		return RespondWithValidationError(c, valErr)
 	}
 
 	// Perform additional deactivation-specific validations
-	if valErr := ValidateAuthPFRule(r, SESSION_UNREGISTER); valErr != nil {
+	if valErr := ValidateAuthPFAnchor(r, SESSION_UNREGISTER); valErr != nil {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	multiResult := unloadAuthPFRule(r)
+	multiResult := unloadAuthPFAnchor(r)
 
 	// Log all commands
 	for i, result := range multiResult.Results {
@@ -124,43 +124,43 @@ func deactivateAuthPFRule(c echo.Context) error {
 	}
 
 	if multiResult.Error != nil {
-		msg := "unload authpf rules failed"
+		msg := "unload authpf anchors failed"
 		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	// Remove User from db
-	if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
+	// Remove entry from db
+	if err := removeFromAnchorsDB(r.Username, r.UserIP); err != nil {
 		msg := "Unable to remove user from Session DB"
 		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 
-	msg := "authpf rule is being unloaded"
+	msg := "authpf anchor is being unloaded"
 	c.Set("authpf", msg)
 	return c.JSON(http.StatusAccepted, echo.Map{"status": "queued", "user": r.Username, "message": msg})
 }
 
-// Run Load AuthPF Rule
-func loadAuthPFRule(r *AuthPFRule) *SystemCommandResult {
+// Run Load AuthPF Anchor
+func loadAuthPFAnchor(r *AuthPFAnchor) *SystemCommandResult {
 	parameters := buildPfctlActivateCmdParameters(r)
 	return executePfctlCommand(parameters)
 }
 
-// Run Unload AuthPF Rule
-func unloadAuthPFRule(r *AuthPFRule) *MultiCommandResult {
+// Run Unload AuthPF Anchor
+func unloadAuthPFAnchor(r *AuthPFAnchor) *MultiCommandResult {
 	parameters := buildPfctlDeactivateCmdParameters(r)
 	return executePfctlCommands(parameters)
 }
 
 // Run Unload ALL AuthPF Rules
-func unloadAllAuthPFRule() *MultiCommandResult {
+func unloadAllAuthPFAnchors() *MultiCommandResult {
 	parameters := buildPfctlDeactivateAllCmdParameters()
 	return executePfctlCommands(parameters)
 }
 
-// deleteAllAuthPFRules handles DELETE /api/v1/authpf/all
-func deactivateAllAuthPFRules(c echo.Context) error {
+// deleteAllAuthPFAnchors handles DELETE /api/v1/authpf/all
+func deactivateAllAuthPFAnchors(c echo.Context) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -175,8 +175,8 @@ func deactivateAllAuthPFRules(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	if err := execUnloadAllAuthPFRules(username); err != nil {
-		msg := "unload all authpf rules failed"
+	if err := execUnloadAllAuthPFAnchors(username); err != nil {
+		msg := "unload all authpf anchors failed"
 		c.Set("authpf", msg)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
@@ -184,7 +184,7 @@ func deactivateAllAuthPFRules(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }
 
-func execUnloadAllAuthPFRules(username string) error {
+func execUnloadAllAuthPFAnchors(username string) error {
 	if len(anchorsDB) < 1 {
 		logger.Debug().Msg("No anchors to flush")
 		return nil
@@ -192,7 +192,7 @@ func execUnloadAllAuthPFRules(username string) error {
 
 	msg := fmt.Sprintf("Found %d user anchors to flush", len(anchorsDB))
 	logger.Debug().Msg(msg)
-	multiResult := unloadAllAuthPFRule()
+	multiResult := unloadAllAuthPFAnchors()
 
 	// Log all commands
 	for i, result := range multiResult.Results {
@@ -203,21 +203,21 @@ func execUnloadAllAuthPFRules(username string) error {
 	}
 
 	if multiResult.Error != nil {
-		msg := fmt.Sprintf("unload all authpf rules failed: %s", multiResult.Error)
+		msg := fmt.Sprintf("unload all authpf anchors failed: %s", multiResult.Error)
 		logger.Debug().Str("user", username).Msg(msg)
 		return multiResult.Error
 	}
-	anchorsDB = make(map[string]*AuthPFRule)
+	anchorsDB = make(map[string]*AuthPFAnchor)
 	logger.Debug().Msg("Flushing anchors succeed")
 	return nil
 }
 
-func addToRulesDB(r *AuthPFRule) error {
+func addToRulesDB(r *AuthPFAnchor) error {
 	anchorsDB[r.Username] = r
 	return nil
 }
 
-func removeFromRulesDB(username string, user_ip string) error {
+func removeFromAnchorsDB(username string, user_ip string) error {
 	for idx, v := range anchorsDB {
 		if v.Username == username {
 			delete(anchorsDB, idx)

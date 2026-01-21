@@ -119,7 +119,7 @@ func TestValidateSessionUsername_WrongType(t *testing.T) {
 // TestValidatePayload_ValidJSON tests successful JSON payload binding
 func TestValidatePayload_ValidJSON(t *testing.T) {
 	e := echo.New()
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		Timeout:  "1h",
@@ -131,7 +131,7 @@ func TestValidatePayload_ValidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	var result AuthPFRule
+	var result AuthPFAnchor
 	err := ValidatePayload(c, &result)
 
 	assert.Nil(t, err)
@@ -147,7 +147,7 @@ func TestValidatePayload_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	var result AuthPFRule
+	var result AuthPFAnchor
 	err := ValidatePayload(c, &result)
 
 	assert.Error(t, err)
@@ -163,7 +163,7 @@ func TestValidatePayload_EmptyBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	var result AuthPFRule
+	var result AuthPFAnchor
 	err := ValidatePayload(c, &result)
 
 	assert.Nil(t, err)
@@ -462,7 +462,7 @@ func TestResolveTargetUser_DifferentUserNoPermission(t *testing.T) {
 
 // TestCheckSessionExists_ActivateWithExistingSession tests activate mode with existing session
 func TestCheckSessionExists_ActivateWithExistingSession(t *testing.T) {
-	anchorsDB["testuser"] = &AuthPFRule{
+	anchorsDB["testuser"] = &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 	}
@@ -488,7 +488,7 @@ func TestCheckSessionExists_ActivateWithoutExistingSession(t *testing.T) {
 
 // TestCheckSessionExists_DeactivateWithExistingSession tests deactivate mode with existing session
 func TestCheckSessionExists_DeactivateWithExistingSession(t *testing.T) {
-	anchorsDB["testuser"] = &AuthPFRule{
+	anchorsDB["testuser"] = &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 	}
@@ -532,7 +532,7 @@ func TestSetUserID_WithUserID(t *testing.T) {
 		},
 	}
 
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 	}
@@ -552,7 +552,7 @@ func TestSetUserID_WithoutUserID(t *testing.T) {
 		},
 	}
 
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   0,
@@ -567,7 +567,7 @@ func TestSetUserID_WithoutUserID(t *testing.T) {
 func TestSetUserID_UserNotInConfig(t *testing.T) {
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{}
 
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   0,

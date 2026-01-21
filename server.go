@@ -103,11 +103,11 @@ func registerRoutes(e *echo.Echo) {
 	e.POST("/login", login)
 
 	// AuthPF API endpoints (JWT required)
-	e.GET("/api/v1/authpf/activate", getLoadAuthPFRules, jwtMiddleware)
-	e.GET("/api/v1/authpf/all", getAllLoadAuthPFRules, jwtMiddleware)
-	e.POST("/api/v1/authpf/activate", activateAuthPFRule, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFRule, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/all", deactivateAllAuthPFRules, jwtMiddleware)
+	e.GET("/api/v1/authpf/activate", getLoadAuthPFAnchor, jwtMiddleware)
+	e.GET("/api/v1/authpf/all", getAllLoadAuthPFAnchors, jwtMiddleware)
+	e.POST("/api/v1/authpf/activate", activateAuthPFAnchor, jwtMiddleware)
+	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFAnchor, jwtMiddleware)
+	e.DELETE("/api/v1/authpf/all", deactivateAllAuthPFAnchors, jwtMiddleware)
 
 	// Start background rule cleaner
 	go startRuleCleaner(logger)

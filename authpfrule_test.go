@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TestBuildActivateAuthPFRule_Success tests successful building of an activate rule
-func TestBuildActivateAuthPFRule_Success(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_Success tests successful building of an activate rule
+func TestBuildActivateAuthPFAnchor_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate?timeout=1h&authpf_username=testuser", strings.NewReader(`{}`))
@@ -34,7 +34,7 @@ func TestBuildActivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
 	if err != nil {
@@ -57,8 +57,8 @@ func TestBuildActivateAuthPFRule_Success(t *testing.T) {
 	}
 }
 
-// TestBuildActivateAuthPFRule_InvalidUsername tests with missing username in token
-func TestBuildActivateAuthPFRule_InvalidUsername(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_InvalidUsername tests with missing username in token
+func TestBuildActivateAuthPFAnchor_InvalidUsername(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate", strings.NewReader(`{}`))
@@ -68,7 +68,7 @@ func TestBuildActivateAuthPFRule_InvalidUsername(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -82,8 +82,8 @@ func TestBuildActivateAuthPFRule_InvalidUsername(t *testing.T) {
 	}
 }
 
-// TestBuildActivateAuthPFRule_InvalidTimeout tests with invalid timeout format
-func TestBuildActivateAuthPFRule_InvalidTimeout(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_InvalidTimeout tests with invalid timeout format
+func TestBuildActivateAuthPFAnchor_InvalidTimeout(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate?timeout=invalid", strings.NewReader(`{}`))
@@ -94,7 +94,7 @@ func TestBuildActivateAuthPFRule_InvalidTimeout(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -108,8 +108,8 @@ func TestBuildActivateAuthPFRule_InvalidTimeout(t *testing.T) {
 	}
 }
 
-// TestBuildActivateAuthPFRule_TimeoutTooShort tests with timeout less than 1 minute
-func TestBuildActivateAuthPFRule_TimeoutTooShort(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_TimeoutTooShort tests with timeout less than 1 minute
+func TestBuildActivateAuthPFAnchor_TimeoutTooShort(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate?timeout=30s", strings.NewReader(`{}`))
@@ -120,7 +120,7 @@ func TestBuildActivateAuthPFRule_TimeoutTooShort(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -131,8 +131,8 @@ func TestBuildActivateAuthPFRule_TimeoutTooShort(t *testing.T) {
 	}
 }
 
-// TestBuildActivateAuthPFRule_TimeoutTooLong tests with timeout exceeding 24 hours
-func TestBuildActivateAuthPFRule_TimeoutTooLong(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_TimeoutTooLong tests with timeout exceeding 24 hours
+func TestBuildActivateAuthPFAnchor_TimeoutTooLong(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate?timeout=48h", strings.NewReader(`{}`))
@@ -143,7 +143,7 @@ func TestBuildActivateAuthPFRule_TimeoutTooLong(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -154,8 +154,8 @@ func TestBuildActivateAuthPFRule_TimeoutTooLong(t *testing.T) {
 	}
 }
 
-// TestBuildActivateAuthPFRule_ExpiresAtCalculation tests that ExpiresAt is correctly calculated
-func TestBuildActivateAuthPFRule_ExpiresAtCalculation(t *testing.T) {
+// TestBuildActivateAuthPFAnchor_ExpiresAtCalculation tests that ExpiresAt is correctly calculated
+func TestBuildActivateAuthPFAnchor_ExpiresAtCalculation(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/authpf/activate?timeout=1h", strings.NewReader(`{}`))
@@ -172,7 +172,7 @@ func TestBuildActivateAuthPFRule_ExpiresAtCalculation(t *testing.T) {
 	beforeTime := time.Now().Add(1 * time.Hour)
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_REGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	afterTime := time.Now().Add(1 * time.Hour)
 
@@ -185,10 +185,10 @@ func TestBuildActivateAuthPFRule_ExpiresAtCalculation(t *testing.T) {
 	}
 }
 
-// TestValidateActivateAuthPFRule_Success tests successful validation
-func TestValidateActivateAuthPFRule_Success(t *testing.T) {
+// TestValidateActivateAuthPFAnchor_Success tests successful validation
+func TestValidateActivateAuthPFAnchor_Success(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username:  "testuser",
 		UserIP:    "192.168.1.1",
 		UserID:    1,
@@ -204,7 +204,7 @@ func TestValidateActivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_REGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_REGISTER)
 
 	// Assert
 	if err != nil {
@@ -212,10 +212,10 @@ func TestValidateActivateAuthPFRule_Success(t *testing.T) {
 	}
 }
 
-// TestValidateActivateAuthPFRule_SessionAlreadyExists tests when session already exists
-func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
+// TestValidateActivateAuthPFAnchor_SessionAlreadyExists tests when session already exists
+func TestValidateActivateAuthPFAnchor_SessionAlreadyExists(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   1,
@@ -232,7 +232,7 @@ func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_REGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -246,10 +246,10 @@ func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
 	delete(anchorsDB, "testuser")
 }
 
-// TestValidateActivateAuthPFRule_MissingPermission tests when user lacks permission
-func TestValidateActivateAuthPFRule_MissingPermission(t *testing.T) {
+// TestValidateActivateAuthPFAnchor_MissingPermission tests when user lacks permission
+func TestValidateActivateAuthPFAnchor_MissingPermission(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   1,
@@ -263,7 +263,7 @@ func TestValidateActivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_REGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -274,8 +274,8 @@ func TestValidateActivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 }
 
-// TestBuildDeactivateAuthPFRule_Success tests successful building of a deactivate rule
-func TestBuildDeactivateAuthPFRule_Success(t *testing.T) {
+// TestBuildDeactivateAuthPFAnchor_Success tests successful building of a deactivate rule
+func TestBuildDeactivateAuthPFAnchor_Success(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/authpf/activate?authpf_username=testuser", strings.NewReader(`{}`))
@@ -295,7 +295,7 @@ func TestBuildDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_UNREGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_UNREGISTER)
 
 	// Assert
 	if err != nil {
@@ -312,8 +312,8 @@ func TestBuildDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 }
 
-// TestBuildDeactivateAuthPFRule_InvalidUsername tests with missing username in token
-func TestBuildDeactivateAuthPFRule_InvalidUsername(t *testing.T) {
+// TestBuildDeactivateAuthPFAnchor_InvalidUsername tests with missing username in token
+func TestBuildDeactivateAuthPFAnchor_InvalidUsername(t *testing.T) {
 	// Setup
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/authpf/activate", strings.NewReader(`{}`))
@@ -323,7 +323,7 @@ func TestBuildDeactivateAuthPFRule_InvalidUsername(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, SESSION_UNREGISTER)
+	r, err := SetAuthPFAnchor(c, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {
@@ -337,10 +337,10 @@ func TestBuildDeactivateAuthPFRule_InvalidUsername(t *testing.T) {
 	}
 }
 
-// TestValidateDeactivateAuthPFRule_Success tests successful validation
-func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
+// TestValidateDeactivateAuthPFAnchor_Success tests successful validation
+func TestValidateDeactivateAuthPFAnchor_Success(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   1,
@@ -357,7 +357,7 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err != nil {
@@ -368,10 +368,10 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 	delete(anchorsDB, "testuser")
 }
 
-// TestValidateDeactivateAuthPFRule_SessionNotExists tests when session doesn't exist
-func TestValidateDeactivateAuthPFRule_SessionNotExists(t *testing.T) {
+// TestValidateDeactivateAuthPFAnchor_SessionNotExists tests when session doesn't exist
+func TestValidateDeactivateAuthPFAnchor_SessionNotExists(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   1,
@@ -385,7 +385,7 @@ func TestValidateDeactivateAuthPFRule_SessionNotExists(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {
@@ -396,10 +396,10 @@ func TestValidateDeactivateAuthPFRule_SessionNotExists(t *testing.T) {
 	}
 }
 
-// TestValidateDeactivateAuthPFRule_MissingPermission tests when user lacks permission
-func TestValidateDeactivateAuthPFRule_MissingPermission(t *testing.T) {
+// TestValidateDeactivateAuthPFAnchor_MissingPermission tests when user lacks permission
+func TestValidateDeactivateAuthPFAnchor_MissingPermission(t *testing.T) {
 	// Setup
-	r := &AuthPFRule{
+	r := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.1",
 		UserID:   1,
@@ -416,7 +416,7 @@ func TestValidateDeactivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
+	err := ValidateAuthPFAnchor(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {

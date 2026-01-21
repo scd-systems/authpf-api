@@ -124,8 +124,8 @@ func TestBuildPfctlCmd(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePath tests path building with security checks
-func TestBuildAuthPFRulePath(t *testing.T) {
+// TestBuildAuthPFAnchorPath tests path building with security checks
+func TestBuildAuthPFAnchorPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -179,7 +179,7 @@ func TestBuildAuthPFRulePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := buildAuthPFRulePath(tt.username)
+			result, err := buildAuthPFAnchorPath(tt.username)
 
 			if tt.expectError {
 				if err == nil {
@@ -200,8 +200,8 @@ func TestBuildAuthPFRulePath(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathTraversal tests path traversal attack prevention
-func TestBuildAuthPFRulePathTraversal(t *testing.T) {
+// TestBuildAuthPFAnchorPathTraversal tests path traversal attack prevention
+func TestBuildAuthPFAnchorPathTraversal(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -240,7 +240,7 @@ func TestBuildAuthPFRulePathTraversal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := buildAuthPFRulePath(tt.username)
+			result, err := buildAuthPFAnchorPath(tt.username)
 
 			// All path traversal attempts should fail validation
 			if err == nil {
@@ -258,8 +258,8 @@ func TestBuildAuthPFRulePathTraversal(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathSymlinkAttack tests symlink attack prevention
-func TestBuildAuthPFRulePathSymlinkAttack(t *testing.T) {
+// TestBuildAuthPFAnchorPathSymlinkAttack tests symlink attack prevention
+func TestBuildAuthPFAnchorPathSymlinkAttack(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -282,7 +282,7 @@ func TestBuildAuthPFRulePathSymlinkAttack(t *testing.T) {
 		t.Skipf("cannot create symlink: %v", err)
 	}
 
-	result, err := buildAuthPFRulePath("testuser")
+	result, err := buildAuthPFAnchorPath("testuser")
 
 	// The path should be within the base directory after resolution
 	if err != nil {
@@ -298,8 +298,8 @@ func TestBuildAuthPFRulePathSymlinkAttack(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathBoundaryCheck tests that paths are properly bounded
-func TestBuildAuthPFRulePathBoundaryCheck(t *testing.T) {
+// TestBuildAuthPFAnchorPathBoundaryCheck tests that paths are properly bounded
+func TestBuildAuthPFAnchorPathBoundaryCheck(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -314,7 +314,7 @@ func TestBuildAuthPFRulePathBoundaryCheck(t *testing.T) {
 		},
 	}
 
-	result, err := buildAuthPFRulePath("validuser")
+	result, err := buildAuthPFAnchorPath("validuser")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -347,13 +347,13 @@ func TestBuildPfctlActivateCmdParameters(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		rule           *AuthPFRule
+		rule           *AuthPFAnchor
 		mode           string
 		expectedParams int
 	}{
 		{
 			name: "activate mode",
-			rule: &AuthPFRule{
+			rule: &AuthPFAnchor{
 				Username: "testuser",
 				UserIP:   "192.168.1.100",
 				UserID:   1000,
@@ -423,7 +423,7 @@ func TestBuildPfctlCmdParametersCommandInjection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFRule{
+			rule := &AuthPFAnchor{
 				Username: tt.username,
 				UserIP:   tt.userIP,
 				UserID:   tt.userID,
@@ -465,7 +465,7 @@ func TestBuildPfctlDeactivateCmdParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFRule{
+			rule := &AuthPFAnchor{
 				Username: "testuser",
 				UserID:   1000,
 			}
@@ -479,8 +479,8 @@ func TestBuildPfctlDeactivateCmdParameters(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathWithSpecialCharacters tests handling of special characters
-func TestBuildAuthPFRulePathWithSpecialCharacters(t *testing.T) {
+// TestBuildAuthPFAnchorPathWithSpecialCharacters tests handling of special characters
+func TestBuildAuthPFAnchorPathWithSpecialCharacters(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -538,7 +538,7 @@ func TestBuildAuthPFRulePathWithSpecialCharacters(t *testing.T) {
 				}
 			}
 
-			result, err := buildAuthPFRulePath(tt.username)
+			result, err := buildAuthPFAnchorPath(tt.username)
 
 			if tt.valid {
 				if err != nil {
@@ -556,8 +556,8 @@ func TestBuildAuthPFRulePathWithSpecialCharacters(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathRaceCondition tests for race conditions
-func TestBuildAuthPFRulePathRaceCondition(t *testing.T) {
+// TestBuildAuthPFAnchorPathRaceCondition tests for race conditions
+func TestBuildAuthPFAnchorPathRaceCondition(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -576,7 +576,7 @@ func TestBuildAuthPFRulePathRaceCondition(t *testing.T) {
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
-			result, err := buildAuthPFRulePath("testuser")
+			result, err := buildAuthPFAnchorPath("testuser")
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -593,8 +593,8 @@ func TestBuildAuthPFRulePathRaceCondition(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathDoubleEncoding tests double encoding attacks
-func TestBuildAuthPFRulePathDoubleEncoding(t *testing.T) {
+// TestBuildAuthPFAnchorPathDoubleEncoding tests double encoding attacks
+func TestBuildAuthPFAnchorPathDoubleEncoding(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -625,7 +625,7 @@ func TestBuildAuthPFRulePathDoubleEncoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := buildAuthPFRulePath(tt.username)
+			result, err := buildAuthPFAnchorPath(tt.username)
 
 			// Should fail validation due to invalid characters
 			if err == nil {
@@ -639,8 +639,8 @@ func TestBuildAuthPFRulePathDoubleEncoding(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathCaseInsensitivity tests case handling
-func TestBuildAuthPFRulePathCaseInsensitivity(t *testing.T) {
+// TestBuildAuthPFAnchorPathCaseInsensitivity tests case handling
+func TestBuildAuthPFAnchorPathCaseInsensitivity(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -660,8 +660,8 @@ func TestBuildAuthPFRulePathCaseInsensitivity(t *testing.T) {
 		},
 	}
 
-	result1, err1 := buildAuthPFRulePath("testuser")
-	result2, err2 := buildAuthPFRulePath("TestUser")
+	result1, err1 := buildAuthPFAnchorPath("testuser")
+	result2, err2 := buildAuthPFAnchorPath("TestUser")
 
 	if err1 != nil || err2 != nil {
 		t.Fatalf("unexpected errors: %v, %v", err1, err2)
@@ -714,7 +714,7 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFRule{
+			rule := &AuthPFAnchor{
 				Username: "testuser",
 				UserIP:   tt.userIP,
 				UserID:   1000,
@@ -745,8 +745,8 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathNullByteInjection tests null byte injection prevention
-func TestBuildAuthPFRulePathNullByteInjection(t *testing.T) {
+// TestBuildAuthPFAnchorPathNullByteInjection tests null byte injection prevention
+func TestBuildAuthPFAnchorPathNullByteInjection(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -763,7 +763,7 @@ func TestBuildAuthPFRulePathNullByteInjection(t *testing.T) {
 
 	// Null byte injection attempt
 	username := "testuser\x00"
-	result, err := buildAuthPFRulePath(username)
+	result, err := buildAuthPFAnchorPath(username)
 
 	if err == nil {
 		t.Errorf("expected error for null byte injection")
@@ -774,8 +774,8 @@ func TestBuildAuthPFRulePathNullByteInjection(t *testing.T) {
 	}
 }
 
-// TestBuildAuthPFRulePathBacktrackingLimit tests excessive backtracking prevention
-func TestBuildAuthPFRulePathBacktrackingLimit(t *testing.T) {
+// TestBuildAuthPFAnchorPathBacktrackingLimit tests excessive backtracking prevention
+func TestBuildAuthPFAnchorPathBacktrackingLimit(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -792,7 +792,7 @@ func TestBuildAuthPFRulePathBacktrackingLimit(t *testing.T) {
 
 	// Create a username with many backtracking attempts
 	username := "testuser" + strings.Repeat("/../", 100)
-	result, err := buildAuthPFRulePath(username)
+	result, err := buildAuthPFAnchorPath(username)
 
 	if err == nil {
 		t.Errorf("expected error for excessive backtracking")
@@ -820,7 +820,7 @@ func TestBuildPfctlCmdParametersAnchorNameInjection(t *testing.T) {
 		},
 	}
 
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.100",
 		UserID:   1000,
@@ -842,8 +842,8 @@ func TestBuildPfctlCmdParametersAnchorNameInjection(t *testing.T) {
 	}
 }
 
-// BenchmarkBuildAuthPFRulePath benchmarks path building
-func BenchmarkBuildAuthPFRulePath(b *testing.B) {
+// BenchmarkBuildAuthPFAnchorPath benchmarks path building
+func BenchmarkBuildAuthPFAnchorPath(b *testing.B) {
 	tmpDir := b.TempDir()
 	originalConfig := config
 	defer func() { config = originalConfig }()
@@ -859,7 +859,7 @@ func BenchmarkBuildAuthPFRulePath(b *testing.B) {
 	}
 
 	for b.Loop() {
-		_, err := buildAuthPFRulePath("testuser")
+		_, err := buildAuthPFAnchorPath("testuser")
 		assert.NoError(b, err)
 	}
 }
@@ -881,7 +881,7 @@ func BenchmarkBuildPfctlCmdParameters(b *testing.B) {
 		},
 	}
 
-	rule := &AuthPFRule{
+	rule := &AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.100",
 		UserID:   1000,
