@@ -106,9 +106,8 @@ func ValidateUsername(username string) *ValidationError {
 
 // CheckPermission checks if a user has a specific permission
 // Returns a ValidationError if the user doesn't have the permission
-func CheckPermission(username string, permission string, logger zerolog.Logger) *ValidationError {
+func CheckPermission(username string, permission string) *ValidationError {
 	if err := config.validateUserPermissions(username, permission); err != nil {
-		// logger.Info().Str("status", "rejected").Str("user", username).Str("permission", permission).Msg(err.Error())
 		return &ValidationError{
 			StatusCode: http.StatusForbidden,
 			Message:    "permission denied",
@@ -122,7 +121,7 @@ func CheckPermission(username string, permission string, logger zerolog.Logger) 
 // If requestedUser is empty or equals the session user, returns the session user
 // If requestedUser differs from session user, checks if the session user has permission to operate on other users
 // Returns the resolved username or a ValidationError
-func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requiredPermission string, logger zerolog.Logger) (string, *ValidationError) {
+func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requiredPermission string) (string, *ValidationError) {
 	// If no specific user requested, use session user
 	if requestedUser == "" || requestedUser == sessionUser {
 		return sessionUser, nil
@@ -135,7 +134,7 @@ func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requir
 	}
 
 	// Check if session user has permission to operate on other users
-	if permErr := CheckPermission(sessionUser, requiredPermission, logger); permErr != nil {
+	if permErr := CheckPermission(sessionUser, requiredPermission); permErr != nil {
 		return "", permErr
 	}
 

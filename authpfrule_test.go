@@ -34,7 +34,7 @@ func TestBuildActivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	// Assert
 	if err != nil {
@@ -68,7 +68,7 @@ func TestBuildActivateAuthPFRule_InvalidUsername(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -94,7 +94,7 @@ func TestBuildActivateAuthPFRule_InvalidTimeout(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -120,7 +120,7 @@ func TestBuildActivateAuthPFRule_TimeoutTooShort(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -143,7 +143,7 @@ func TestBuildActivateAuthPFRule_TimeoutTooLong(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -172,7 +172,7 @@ func TestBuildActivateAuthPFRule_ExpiresAtCalculation(t *testing.T) {
 	beforeTime := time.Now().Add(1 * time.Hour)
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_REGISTER)
+	r, err := SetAuthPFRule(c, SESSION_REGISTER)
 
 	afterTime := time.Now().Add(1 * time.Hour)
 
@@ -204,7 +204,7 @@ func TestValidateActivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_REGISTER)
+	err := ValidateAuthPFRule(r, SESSION_REGISTER)
 
 	// Assert
 	if err != nil {
@@ -232,7 +232,7 @@ func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_REGISTER)
+	err := ValidateAuthPFRule(r, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -263,7 +263,7 @@ func TestValidateActivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_REGISTER)
+	err := ValidateAuthPFRule(r, SESSION_REGISTER)
 
 	// Assert
 	if err == nil {
@@ -295,7 +295,7 @@ func TestBuildDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_UNREGISTER)
+	r, err := SetAuthPFRule(c, SESSION_UNREGISTER)
 
 	// Assert
 	if err != nil {
@@ -323,7 +323,7 @@ func TestBuildDeactivateAuthPFRule_InvalidUsername(t *testing.T) {
 	c.Set("logger", zerolog.Logger{})
 
 	// Execute
-	r, err := SetAuthPFRule(c, zerolog.Logger{}, SESSION_UNREGISTER)
+	r, err := SetAuthPFRule(c, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {
@@ -357,7 +357,7 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_UNREGISTER)
+	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err != nil {
@@ -385,7 +385,7 @@ func TestValidateDeactivateAuthPFRule_SessionNotExists(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_UNREGISTER)
+	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {
@@ -416,7 +416,7 @@ func TestValidateDeactivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 
 	// Execute
-	err := ValidateAuthPFRule(r, zerolog.Logger{}, SESSION_UNREGISTER)
+	err := ValidateAuthPFRule(r, SESSION_UNREGISTER)
 
 	// Assert
 	if err == nil {
