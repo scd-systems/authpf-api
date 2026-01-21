@@ -55,7 +55,7 @@ func parseAuthpf(result SystemCommandResult) error {
 		if err != nil {
 			continue
 		}
-		rulesdb[username] = &AuthPFRule{UserID: uid}
+		rulesdb[username] = &AuthPFRule{UserID: uid, Timeout: config.AuthPF.Timeout}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
