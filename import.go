@@ -16,16 +16,16 @@ func importAuthPF() error {
 // parseExecOutput runs the given command, reads its output and builds a RulesDB.
 // Only lines that contain a user‑ID (anchor/username(userID)) are added.
 func parseAuthpf(result SystemCommandResult) error {
-	logger.Debug().Msg("Start import rules")
+	logger.Debug().Msg("Start import anchor(s)")
 	rulesdb = make(map[string]*AuthPFRule)
 
 	if result.Error != nil {
-		msg := fmt.Sprintf("Failed to import rules: %s", result.Error)
+		msg := fmt.Sprintf("Failed to import anchor(s): %s", result.Error)
 		logger.Error().Msg(msg)
 		return result.Error
 	}
 	if len(result.Stdout) <= 0 {
-		logger.Error().Msg("No rules found to import")
+		logger.Error().Msg("No anchor(s) found to import")
 		return nil
 	}
 
@@ -55,12 +55,17 @@ func parseAuthpf(result SystemCommandResult) error {
 		if err != nil {
 			continue
 		}
-		rulesdb[username] = &AuthPFRule{UserID: uid, Timeout: config.AuthPF.Timeout}
+		timeout, expiresAt, valErr := ValidateTimeout(config.AuthPF.Timeout)
+		if valErr != nil {
+			return valErr
+		}
+
+		rulesdb[username] = &AuthPFRule{Username: username, UserID: uid, Timeout: timeout, ExpiresAt: expiresAt}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("Imported %d rules", len(rulesdb))
+	msg := fmt.Sprintf("Imported %d anchor(s)", len(rulesdb))
 	logger.Debug().Msg(msg)
 	return nil
 }
