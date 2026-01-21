@@ -40,6 +40,11 @@ authpf:
   #
   onStartup: importflush # none, import, importflush
 
+  # Graceful-Shutdown
+  #  Options: none, flushall
+  #    flushall: Remove all activated user rules when api server get shutdown
+  onShutdown: flushall
+
 # Server configuration
 server:
   # IP address to bind the server to (127.0.0.1 for localhost only)
