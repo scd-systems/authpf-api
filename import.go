@@ -65,6 +65,12 @@ func parseAuthpf(result SystemCommandResult) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	if len(rulesdb) > 0 {
+		for _, v := range rulesdb {
+			msg := fmt.Sprintf("Anchor: %s/%s(%d) imported, ExpireAt: %s", config.AuthPF.AnchorName, v.Username, v.UserID, v.ExpiresAt)
+			logger.Trace().Msg(msg)
+		}
+	}
 	msg := fmt.Sprintf("Imported %d anchor(s)", len(rulesdb))
 	logger.Debug().Msg(msg)
 	return nil
