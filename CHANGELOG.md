@@ -8,23 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
-### Changed
-
-### Fixed
-- documentation
+- PF Table support
+- Ratelimiting
+- 
 
 
-## [0.2.1.1-dev]
+## [0.2.2] - 2026-01-21
 
 ### Added
+- Graceful-Shutdown to flush anchors when server get stopped
+- Import anchors on Startup
 
 ### Changed
-- removed clear-text password exchange for user login process
-- improved logging
+- Improved logging
+- Removed clear-text password exchange for user login process
+- switch HSTS by use the secure middleware Handler from echo Framework
 
 ### Fixed
-- documentation: sudo examples
+- Documentation
 
 ## [0.2.0] - 2026-01-16
 
