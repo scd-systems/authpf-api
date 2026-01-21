@@ -24,17 +24,17 @@ func gracefulShutdown(e *echo.Echo) error {
 	return e.Shutdown(ctx)
 }
 
-// deactivateAllActiveUsers removes all active rules from rulesdb and pfctl
+// deactivateAllActiveUsers removes all active rules from anchorsDB and pfctl
 func deactivateAllActiveUsers() error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if len(rulesdb) == 0 {
+	if len(anchorsDB) == 0 {
 		logger.Info().Msg("No active authpf rules found")
 		return nil
 	}
 
-	logger.Info().Int("count", len(rulesdb)).Msg("Deactivating authpf rules")
+	logger.Info().Int("count", len(anchorsDB)).Msg("Deactivating authpf rules")
 
 	// Create and exec pfctl flush for all authpf user rules
 	result := unloadAllAuthPFRule()

@@ -17,7 +17,7 @@ func importAuthPF() error {
 // Only lines that contain a user‑ID (anchor/username(userID)) are added.
 func parseAuthpf(result SystemCommandResult) error {
 	logger.Debug().Msg("Start import anchor(s)")
-	rulesdb = make(map[string]*AuthPFRule)
+	anchorsDB = make(map[string]*AuthPFRule)
 
 	if result.Error != nil {
 		msg := fmt.Sprintf("Failed to import anchor(s): %s", result.Error)
@@ -60,17 +60,17 @@ func parseAuthpf(result SystemCommandResult) error {
 			return valErr
 		}
 
-		rulesdb[username] = &AuthPFRule{Username: username, UserID: uid, Timeout: timeout, ExpiresAt: expiresAt, UserIP: "NaN/imported"}
+		anchorsDB[username] = &AuthPFRule{Username: username, UserID: uid, Timeout: timeout, ExpiresAt: expiresAt, UserIP: "NaN/imported"}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	if len(rulesdb) > 0 {
-		for _, v := range rulesdb {
+	if len(anchorsDB) > 0 {
+		for _, v := range anchorsDB {
 			msg := fmt.Sprintf("Anchor: %s/%s(%d) imported, ExpireAt: %s", config.AuthPF.AnchorName, v.Username, v.UserID, v.ExpiresAt)
 			logger.Trace().Msg(msg)
 		}
 	}
-	logger.Debug().Int("count", len(rulesdb)).Msg("Import anchor(s) done")
+	logger.Debug().Int("count", len(anchorsDB)).Msg("Import anchor(s) done")
 	return nil
 }

@@ -68,7 +68,7 @@ func getLoadAuthPFRules(c echo.Context) error {
 	}
 
 	response := &AuthPFRulesResponse{
-		Rules:      map[string]*AuthPFRule{reqUser: rulesdb[reqUser]},
+		Rules:      map[string]*AuthPFRule{reqUser: anchorsDB[reqUser]},
 		ServerTime: time.Now().UTC(),
 	}
 	return c.JSON(http.StatusOK, response)
@@ -91,7 +91,7 @@ func getAllLoadAuthPFRules(c echo.Context) error {
 	}
 
 	response := &AuthPFRulesResponse{
-		Rules:      rulesdb,
+		Rules:      anchorsDB,
 		ServerTime: time.Now().UTC(),
 	}
 	return c.JSON(http.StatusOK, response)
@@ -185,12 +185,12 @@ func deactivateAllAuthPFRules(c echo.Context) error {
 }
 
 func execUnloadAllAuthPFRules(username string) error {
-	if len(rulesdb) < 1 {
+	if len(anchorsDB) < 1 {
 		logger.Debug().Msg("No anchors to flush")
 		return nil
 	}
 
-	msg := fmt.Sprintf("Found %d user anchors to flush", len(rulesdb))
+	msg := fmt.Sprintf("Found %d user anchors to flush", len(anchorsDB))
 	logger.Debug().Msg(msg)
 	multiResult := unloadAllAuthPFRule()
 
@@ -207,20 +207,20 @@ func execUnloadAllAuthPFRules(username string) error {
 		logger.Debug().Str("user", username).Msg(msg)
 		return multiResult.Error
 	}
-	rulesdb = make(map[string]*AuthPFRule)
+	anchorsDB = make(map[string]*AuthPFRule)
 	logger.Debug().Msg("Flushing anchors succeed")
 	return nil
 }
 
 func addToRulesDB(r *AuthPFRule) error {
-	rulesdb[r.Username] = r
+	anchorsDB[r.Username] = r
 	return nil
 }
 
 func removeFromRulesDB(username string, user_ip string) error {
-	for idx, v := range rulesdb {
+	for idx, v := range anchorsDB {
 		if v.Username == username {
-			delete(rulesdb, idx)
+			delete(anchorsDB, idx)
 		}
 	}
 	return nil

@@ -44,12 +44,12 @@ Anchor 'authpf' not found.
 		"user5": 2222,
 	}
 
-	if len(rulesdb) != len(expected) {
-		t.Fatalf("expected %d entries, got %d", len(expected), len(rulesdb))
+	if len(anchorsDB) != len(expected) {
+		t.Fatalf("expected %d entries, got %d", len(expected), len(anchorsDB))
 	}
 
 	for user, expID := range expected {
-		rule, ok := rulesdb[user]
+		rule, ok := anchorsDB[user]
 		if !ok {
 			t.Fatalf("expected user %q to be present", user)
 		}
@@ -68,13 +68,13 @@ func TestParseAuthpfError(t *testing.T) {
 	assert.Equal(t, cmdErr, err)
 }
 
-// TestParseAuthpfEmptyOutput verifies that an empty stdout results in an empty rulesdb without error.
+// TestParseAuthpfEmptyOutput verifies that an empty stdout results in an empty anchorsDB without error.
 func TestParseAuthpfEmptyOutput(t *testing.T) {
 	testResult := SystemCommandResult{Stdout: ""}
 	err := parseAuthpf(testResult)
 	assert.NoError(t, err)
-	if len(rulesdb) != 0 {
-		t.Fatalf("expected rulesdb to be empty, got %d entries", len(rulesdb))
+	if len(anchorsDB) != 0 {
+		t.Fatalf("expected anchorsDB to be empty, got %d entries", len(anchorsDB))
 	}
 }
 
@@ -93,7 +93,7 @@ func TestParseAuthpfMalformedLines(t *testing.T) {
 	err := parseAuthpf(testResult)
 	assert.NoError(t, err)
 	// Only valid lines should be added; in this sample none are valid.
-	if len(rulesdb) != 0 {
-		t.Fatalf("expected no valid entries, got %d", len(rulesdb))
+	if len(anchorsDB) != 0 {
+		t.Fatalf("expected no valid entries, got %d", len(anchorsDB))
 	}
 }

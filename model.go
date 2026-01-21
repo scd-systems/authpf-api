@@ -120,7 +120,7 @@ const (
 // Global variables
 var (
 	Version   = "dev"
-	rulesdb   = map[string]*AuthPFRule{}
+	anchorsDB = map[string]*AuthPFRule{}
 	lock      = sync.Mutex{}
 	jwtSecret = []byte("your-secret-key-change-in-production")
 	config    ConfigFile

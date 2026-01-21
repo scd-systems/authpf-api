@@ -221,8 +221,8 @@ func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
 		UserID:   1,
 	}
 
-	// Pre-populate rulesdb to simulate existing session
-	rulesdb["testuser"] = r
+	// Pre-populate anchorsDB to simulate existing session
+	anchorsDB["testuser"] = r
 
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {Role: "user"},
@@ -243,7 +243,7 @@ func TestValidateActivateAuthPFRule_SessionAlreadyExists(t *testing.T) {
 	}
 
 	// Cleanup
-	delete(rulesdb, "testuser")
+	delete(anchorsDB, "testuser")
 }
 
 // TestValidateActivateAuthPFRule_MissingPermission tests when user lacks permission
@@ -346,8 +346,8 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 		UserID:   1,
 	}
 
-	// Pre-populate rulesdb to simulate existing session
-	rulesdb["testuser"] = r
+	// Pre-populate anchorsDB to simulate existing session
+	anchorsDB["testuser"] = r
 
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {Role: "user"},
@@ -365,7 +365,7 @@ func TestValidateDeactivateAuthPFRule_Success(t *testing.T) {
 	}
 
 	// Cleanup
-	delete(rulesdb, "testuser")
+	delete(anchorsDB, "testuser")
 }
 
 // TestValidateDeactivateAuthPFRule_SessionNotExists tests when session doesn't exist
@@ -405,8 +405,8 @@ func TestValidateDeactivateAuthPFRule_MissingPermission(t *testing.T) {
 		UserID:   1,
 	}
 
-	// Pre-populate rulesdb to simulate existing session
-	rulesdb["testuser"] = r
+	// Pre-populate anchorsDB to simulate existing session
+	anchorsDB["testuser"] = r
 
 	config.Rbac.Users = map[string]ConfigFileRbacUsers{
 		"testuser": {Role: "user"},
@@ -427,5 +427,5 @@ func TestValidateDeactivateAuthPFRule_MissingPermission(t *testing.T) {
 	}
 
 	// Cleanup
-	delete(rulesdb, "testuser")
+	delete(anchorsDB, "testuser")
 }
