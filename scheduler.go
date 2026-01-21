@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// startRuleCleaner runs a periodic cleanup of expired authpf rules.
+// startRuleCleaner runs a periodic cleanup of expired authpf anchors.
 func startRuleCleaner(logger zerolog.Logger) {
 	logger.Debug().Msgf("Authpf scheduler starting")
 	ticker := time.NewTicker(time.Second * 60)
@@ -17,22 +17,22 @@ func startRuleCleaner(logger zerolog.Logger) {
 		<-ticker.C
 		lock.Lock()
 		now := time.Now()
-		logger.Debug().Msgf("Run recurrent authpf rules expire check")
+		logger.Trace().Msgf("Run recurrent authpf anchors expire check")
 		for _, r := range rulesdb {
-			logger.Debug().Msgf("Expire check user: %s, timeout: %s, ExpireAt: %s", r.Username, r.Timeout, r.ExpiresAt)
+			logger.Trace().Msgf("Expire check user: %s, timeout: %s, ExpireAt: %s", r.Username, r.Timeout, r.ExpiresAt)
 			if !r.ExpiresAt.IsZero() && now.After(r.ExpiresAt) {
-				logger.Info().Msgf("Rule timeout detected, removed authpf rules for user: %s", r.Username)
+				logger.Info().Msgf("Rule timeout detected, removed authpf anchors for user: %s", r.Username)
 				if err := removeFromRulesDB(r.Username, r.UserIP); err != nil {
 					logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
 				}
 				multiResult := unloadAuthPFRule(r)
 				for i, result := range multiResult.Results {
-					logger.Debug().Msg(fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
+					logger.Trace().Msg(fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
 						i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
 						result.ExitCode, result.Stdout, result.Stderr))
 				}
 				if multiResult.Error != nil {
-					logger.Error().Msgf("Failed to unload authpf rules from user: %s", r.Username)
+					logger.Error().Msgf("Failed to unload authpf anchors from user: %s", r.Username)
 				}
 
 			}

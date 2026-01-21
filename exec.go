@@ -14,6 +14,9 @@ import (
 func executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	const commandExecutionTimeout = 30 * time.Second
 
+	msg := fmt.Sprintf("Running command: %s %s", command, args)
+	logger.Trace().Msg(msg)
+
 	cmd := exec.Command(command, args...)
 
 	// Capture stdout and stderr
