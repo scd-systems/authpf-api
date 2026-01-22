@@ -5,7 +5,7 @@ defaults:
 
 # AuthPF-specific configuration
 authpf:
-  # AuthPF rule activity timeout (e.g., 30m, 1h)
+  # AuthPF anchor activity timeout (e.g., 30m, 1h)
   timeout: 30m
 
   # Root directory where user-specific rule files are stored
@@ -30,7 +30,7 @@ authpf:
   # Flush anchors on startup API. 
   # Two options available: import and importflush.
   # - import: only import existing anchors in authpf/ (default anchorbase, see: anchorName) 
-  #     Parse format is: rule(UserID)
+  #     Parse format is: user(UserID)
   #     Example: "authpf/user(2000)" will import, "authpf/user" will not import
   # - importflush: same as import but in addition it remove all anchors to get a clean state for startup
   #
@@ -39,6 +39,11 @@ authpf:
   #   2. The Expire Datetime will calculate by the `authpf.timeout` and current server time.
   #
   onStartup: importflush # none, import, importflush
+
+  # Graceful-Shutdown
+  #  Options: none, flushall
+  #    flushall: Remove all activated user rules when api server get shutdown
+  onShutdown: flushall
 
 # Server configuration
 server:

@@ -107,7 +107,7 @@ func executePfctlCommands(commands [][]string) *MultiCommandResult {
 	}
 }
 
-func buildAuthPFRulePath(username string) (string, error) {
+func buildAuthPFAnchorPath(username string) (string, error) {
 	if err := config.validateUsername(username); err != nil {
 		return "", err
 	}
@@ -132,7 +132,7 @@ func buildAuthPFRulePath(username string) (string, error) {
 	return rulePath, nil
 }
 
-func buildPfctlActivateCmdParameters(r *AuthPFRule) []string {
+func buildPfctlActivateCmdParameters(r *AuthPFAnchor) []string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 	userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
 	if valErr := ValidateUserIP(r.UserIP); valErr != nil {
@@ -140,7 +140,7 @@ func buildPfctlActivateCmdParameters(r *AuthPFRule) []string {
 		return []string{}
 	}
 	userID := fmt.Sprintf("user_id=%d", r.UserID)
-	rulePath, err := buildAuthPFRulePath(r.Username)
+	rulePath, err := buildAuthPFAnchorPath(r.Username)
 	if err != nil {
 		log.Errorf(err.Error())
 		return []string{}
@@ -148,7 +148,7 @@ func buildPfctlActivateCmdParameters(r *AuthPFRule) []string {
 	return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
 }
 
-func buildPfctlDeactivateCmdParameters(r *AuthPFRule) [][]string {
+func buildPfctlDeactivateCmdParameters(r *AuthPFAnchor) [][]string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 
 	filter := config.AuthPF.FlushFilter
@@ -170,8 +170,8 @@ func buildPfctlDeactivateAllCmdParameters() [][]string {
 
 	commands := make([][]string, 0)
 
-	// Iterate over all users in rulesdb
-	for _, v := range rulesdb {
+	// Iterate over all users in anchorsDB
+	for _, v := range anchorsDB {
 		anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, v.Username, v.UserID)
 		for _, f := range filter {
 			commands = append(commands, []string{"-a", anchor, "-F", f})

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved logging
 - Removed clear-text password exchange for user login process
 - switch HSTS by use the secure middleware Handler from echo Framework
+- Refactoring
 
 ### Fixed
 - Documentation

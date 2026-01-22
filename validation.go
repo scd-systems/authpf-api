@@ -39,8 +39,8 @@ func ValidateSessionUsername(c echo.Context) (string, *ValidationError) {
 	return username, nil
 }
 
-// ValidatePayload validates the JSON payload from the request and binds it to the AuthPFRule
-func ValidatePayload(c echo.Context, r *AuthPFRule) *ValidationError {
+// ValidatePayload validates the JSON payload from the request and binds it to the AuthPFAnchor
+func ValidatePayload(c echo.Context, r *AuthPFAnchor) *ValidationError {
 	if err := c.Bind(r); err != nil {
 		return &ValidationError{
 			StatusCode: http.StatusBadRequest,
@@ -144,7 +144,7 @@ func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requir
 // CheckSessionExists checks if an active session already exists for the user
 // Returns a ValidationError if a session already exists
 func CheckSessionExists(username string, logger zerolog.Logger, mode string) *ValidationError {
-	_, exists := rulesdb[username]
+	_, exists := anchorsDB[username]
 
 	// Check if the current state matches the expected state for the mode
 	isError := (mode == "activate" && exists) || (mode == "deactivate" && !exists) || (mode != "activate" && mode != "deactivate")

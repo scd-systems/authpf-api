@@ -7,8 +7,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// AuthPFRule represents a rule that can be loaded into FreeBSD authpf.
-type AuthPFRule struct {
+// AuthPFAnchor represents an anchor to store in anchorsDB
+type AuthPFAnchor struct {
 	Username  string    `json:"username"`
 	Timeout   string    `json:"timeout,omitempty"`
 	UserIP    string    `json:"user_ip"`
@@ -16,10 +16,10 @@ type AuthPFRule struct {
 	ExpiresAt time.Time `json:"expire_at"`
 }
 
-// AuthPFRulesResponse represents all rules with server time for client-side calculations
-type AuthPFRulesResponse struct {
-	Rules      map[string]*AuthPFRule `json:"rules"`
-	ServerTime time.Time              `json:"server_time"`
+// AuthPFAnchorResponse represents all rules with server time for client-side calculations
+type AuthPFAnchorResponse struct {
+	Anchors    map[string]*AuthPFAnchor `json:"anchors"`
+	ServerTime time.Time                `json:"server_time"`
 }
 
 // JWTClaims represents the JWT token claims
@@ -120,7 +120,7 @@ const (
 // Global variables
 var (
 	Version   = "dev"
-	rulesdb   = map[string]*AuthPFRule{}
+	anchorsDB = map[string]*AuthPFAnchor{}
 	lock      = sync.Mutex{}
 	jwtSecret = []byte("your-secret-key-change-in-production")
 	config    ConfigFile

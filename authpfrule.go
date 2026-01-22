@@ -4,11 +4,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// SetAuthPFRule builds an AuthPFRule from the request context for either activation or deactivation
-// It performs all necessary validations and populates the rule with required data
+// SetAuthPFAnchor builds an AuthPFAnchor entry from the request context for either activation or deactivation
+// It performs all necessary validations and populates the anchor with required data
 // action should be either "activate" or "deactivate"
-func SetAuthPFRule(c echo.Context, action string) (*AuthPFRule, *ValidationError) {
-	r := &AuthPFRule{}
+func SetAuthPFAnchor(c echo.Context, action string) (*AuthPFAnchor, *ValidationError) {
+	r := &AuthPFAnchor{}
 
 	// Get and validate session username
 	sessionUsername, valErr := ValidateSessionUsername(c)
@@ -60,9 +60,9 @@ func SetAuthPFRule(c echo.Context, action string) (*AuthPFRule, *ValidationError
 	return r, nil
 }
 
-// ValidateAuthPFRule performs validations specific to the action (activate or deactivate)
+// ValidateAuthPFAnchor performs validations specific to the action (activate or deactivate)
 // action should be either "activate" or "deactivate"
-func ValidateAuthPFRule(r *AuthPFRule, action string) *ValidationError {
+func ValidateAuthPFAnchor(r *AuthPFAnchor, action string) *ValidationError {
 	// Determine session operation and permission based on action
 	var sessionOp string
 	var rbacPermission string
@@ -89,7 +89,7 @@ func ValidateAuthPFRule(r *AuthPFRule, action string) *ValidationError {
 }
 
 // SetUserID sets the UserID from config if available
-func SetUserID(r *AuthPFRule) {
+func SetUserID(r *AuthPFAnchor) {
 	if user, ok := config.Rbac.Users[r.Username]; ok && user.UserID > 0 {
 		r.UserID = user.UserID
 	}

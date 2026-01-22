@@ -37,7 +37,7 @@ func bootstrap() error {
 		return err
 	}
 
-	// Import Rules
+	// Import existing Anchors
 	if config.AuthPF.OnStartup == "import" {
 		if err := importAuthPF(); err != nil {
 			return err
@@ -47,7 +47,7 @@ func bootstrap() error {
 		if err := importAuthPF(); err != nil {
 			return err
 		}
-		if err := execUnloadAllAuthPFRules("API"); err != nil {
+		if err := execUnloadAllAuthPFAnchors("API"); err != nil {
 			return err
 		}
 	}
