@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
 	"golang.org/x/term"
 )
@@ -22,6 +21,11 @@ func bootstrap() error {
 		return err
 	}
 
+	// Initialize logger
+	if err := initializeLogger(); err != nil {
+		return err
+	}
+
 	// Initialize JWT secret
 	if err := initializeJWTSecret(); err != nil {
 		return err
@@ -29,11 +33,6 @@ func bootstrap() error {
 
 	// Validate SSL files if enabled
 	if err := validateSSLFiles(config.Server.SSL.Certificate, config.Server.SSL.Key); err != nil {
-		return err
-	}
-
-	// Initialize logger
-	if err := initializeLogger(); err != nil {
 		return err
 	}
 
@@ -117,7 +116,7 @@ func initializeJWTSecret() error {
 	}
 
 	jwtSecret = randomSecret
-	log.Warnf("Generated random JWT secret (not persisted - configure jwtSecret in config file)")
+	logger.Warn().Msg("⚠️ Generated random JWT secret (not persisted - configure jwtSecret in config file)")
 	return nil
 }
 
@@ -182,8 +181,7 @@ func getLogWriter() (io.Writer, error) {
 	if config.Server.Logfile != "" {
 		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
-			log.Errorf("Failed to open logfile: %s", err.Error())
-			return os.Stdout, nil
+			return os.Stdout, fmt.Errorf("Failed to open file: %s", err.Error())
 		}
 		return file, nil
 	}

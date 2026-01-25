@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Graceful-Shutdown to flush anchors when server get stopped
 - Import anchors on startup
+- /info endpoint to get API version response
 
 ### Changed
 - Improved logging

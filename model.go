@@ -76,7 +76,7 @@ type ConfigFileServer struct {
 	ElevatorMode    string              `yaml:"elevatorMode"`
 	Logfile         string              `yaml:"logfile"`
 	JwtTokenTimeout string              `yaml:"jwtTokenTimeout"`
-	JwtSecret       string              `yaml:"jwtSecret"`
+	JwtSecret       string              `yaml:"jwtSecret,omitempty"`
 }
 
 type ConfigFileServerSSL struct {
@@ -94,7 +94,7 @@ type ConfigFileRbacRoles struct {
 }
 
 type ConfigFileRbacUsers struct {
-	UserRulesFile string `yaml:"userRulesFile,omitempty"`
+	UserRulesFile string `yaml:"userRulesFile"`
 	Password      string `yaml:"password"`
 	Role          string `yaml:"role"`
 	UserID        int    `yaml:"userId,omitempty"`

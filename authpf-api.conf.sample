@@ -9,7 +9,7 @@ authpf:
   timeout: 30m
 
   # Root directory where user-specific rule files are stored
-  userRulesRootfolder: /etc/authpf/users
+  userRulesRootFolder: /etc/authpf/users
 
   # Filename for user rules within the userRulesRootfolder
   userRulesFile: authpf.rules
@@ -61,6 +61,7 @@ server:
     key: key.pem
 
   # JWT secret key for token signing - MUST be changed before production deployment
+  # If empty or missing, a random Secret will be generated 
   jwtSecret: your-secret-key-change-in-production
 
   # JWT token timeout in hours (default: 8 hours if not set)
@@ -75,13 +76,13 @@ server:
   #
   # sudo:
   #   Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -sA, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F nat$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F rules$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
-        /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D user_ip=[0-9.]+ -D user_id=[0-9]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F nat$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F rules$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
+  #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
   #   %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
   #
   # doas:

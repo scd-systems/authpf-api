@@ -53,9 +53,6 @@ func (config *ConfigFile) validateRequiredSections() error {
 	if config.Server.Port == 0 {
 		missingFields = append(missingFields, "server.port")
 	}
-	if config.Server.JwtSecret == "" {
-		missingFields = append(missingFields, "server.jwtSecret")
-	}
 	if config.Server.Logfile == "" {
 		missingFields = append(missingFields, "server.logfile")
 	}

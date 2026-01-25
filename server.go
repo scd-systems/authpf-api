@@ -96,7 +96,7 @@ func requestLoggerMiddleware() echo.MiddlewareFunc {
 func registerRoutes(e *echo.Echo) {
 	// Health check endpoint
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Server running")
+		return c.JSON(http.StatusOK, echo.Map{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
@@ -108,6 +108,9 @@ func registerRoutes(e *echo.Echo) {
 	e.POST("/api/v1/authpf/activate", activateAuthPFAnchor, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFAnchor, jwtMiddleware)
 	e.DELETE("/api/v1/authpf/all", deactivateAllAuthPFAnchors, jwtMiddleware)
+
+	// Info Endpoint
+	e.GET("/info", info)
 
 	// Start background rule cleaner
 	go startRuleCleaner(logger)
