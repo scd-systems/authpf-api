@@ -347,13 +347,13 @@ func TestBuildPfctlActivateCmdParameters(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		rule           *AuthPFAnchor
+		rule           AuthPFAnchor
 		mode           string
 		expectedParams int
 	}{
 		{
 			name: "activate mode",
-			rule: &AuthPFAnchor{
+			rule: AuthPFAnchor{
 				Username: "testuser",
 				UserIP:   "192.168.1.100",
 				UserID:   1000,
@@ -423,7 +423,7 @@ func TestBuildPfctlCmdParametersCommandInjection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFAnchor{
+			rule := AuthPFAnchor{
 				Username: tt.username,
 				UserIP:   tt.userIP,
 				UserID:   tt.userID,
@@ -465,7 +465,7 @@ func TestBuildPfctlDeactivateCmdParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFAnchor{
+			rule := AuthPFAnchor{
 				Username: "testuser",
 				UserID:   1000,
 			}
@@ -714,7 +714,7 @@ func TestBuildPfctlCmdParametersIPValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := &AuthPFAnchor{
+			rule := AuthPFAnchor{
 				Username: "testuser",
 				UserIP:   tt.userIP,
 				UserID:   1000,
@@ -820,7 +820,7 @@ func TestBuildPfctlCmdParametersAnchorNameInjection(t *testing.T) {
 		},
 	}
 
-	rule := &AuthPFAnchor{
+	rule := AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.100",
 		UserID:   1000,
@@ -881,7 +881,7 @@ func BenchmarkBuildPfctlCmdParameters(b *testing.B) {
 		},
 	}
 
-	rule := &AuthPFAnchor{
+	rule := AuthPFAnchor{
 		Username: "testuser",
 		UserIP:   "192.168.1.100",
 		UserID:   1000,

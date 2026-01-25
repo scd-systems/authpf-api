@@ -132,7 +132,7 @@ func buildAuthPFAnchorPath(username string) (string, error) {
 	return rulePath, nil
 }
 
-func buildPfctlActivateCmdParameters(r *AuthPFAnchor) []string {
+func buildPfctlActivateCmdParameters(r AuthPFAnchor) []string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 	userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
 	if valErr := ValidateUserIP(r.UserIP); valErr != nil {
@@ -148,7 +148,7 @@ func buildPfctlActivateCmdParameters(r *AuthPFAnchor) []string {
 	return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
 }
 
-func buildPfctlDeactivateCmdParameters(r *AuthPFAnchor) [][]string {
+func buildPfctlDeactivateCmdParameters(r AuthPFAnchor) [][]string {
 	anchor := fmt.Sprintf("%s/%s(%d)", config.AuthPF.AnchorName, r.Username, r.UserID)
 
 	filter := config.AuthPF.FlushFilter

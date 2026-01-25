@@ -113,7 +113,7 @@ func deactivateAuthPFAnchor(c echo.Context) error {
 		return RespondWithValidationErrorStatus(c, valErr)
 	}
 
-	multiResult := unloadAuthPFAnchor(r)
+	multiResult := unloadAuthPFAnchor(*r)
 
 	// Log all commands
 	for i, result := range multiResult.Results {
@@ -143,12 +143,12 @@ func deactivateAuthPFAnchor(c echo.Context) error {
 
 // Run Load AuthPF Anchor
 func loadAuthPFAnchor(r *AuthPFAnchor) *SystemCommandResult {
-	parameters := buildPfctlActivateCmdParameters(r)
+	parameters := buildPfctlActivateCmdParameters(*r)
 	return executePfctlCommand(parameters)
 }
 
 // Run Unload AuthPF Anchor
-func unloadAuthPFAnchor(r *AuthPFAnchor) *MultiCommandResult {
+func unloadAuthPFAnchor(r AuthPFAnchor) *MultiCommandResult {
 	parameters := buildPfctlDeactivateCmdParameters(r)
 	return executePfctlCommands(parameters)
 }
