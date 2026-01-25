@@ -15,7 +15,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 - ⏱️ **Automatic Expiration** - Rules automatically expire after configured timeout
 - 🔄 **Scheduled Cleanup** - Periodic cleanup of expired rules
 - 🏗️ **Cross-Platform Build** - Support for FreeBSD and OpenBSD on multiple architectures
-- 🧑‍💼 **Runs as User** - API can run as user and use elevator tool (sudo/doas) to run pfctl subcommands
+- 🧑‍💼 **Runs as User** - Runs as Non-Root User - Elevator tool (sudo/doas) support for running pfctl commands
 
 ## Supported Platforms
 
@@ -86,13 +86,13 @@ The application is configured via a YAML configuration file. By default, it uses
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `authpf.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. | Yes |
+| `authpf.timeout` | Set the maximum timeout for authpf anchors (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. | Yes |
 | `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. | Yes |
 | `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. | Yes |
 | `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. | Yes |
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
-| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). import just load existing anchors. importflush clear after import the anchors from pf. Default `none` | No |
-| `authpf.onShutdown` | Remove all activated user rules when api server get shutdown. Default `none` | No |
+| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
+| `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
 
 #### Server Section
 
@@ -102,7 +102,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. | Yes |
 | `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. | No |
 | `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. | No |
-| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. If not set a random Secret will generated | No |
+| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. If not set, a random secret will be generated. | No |
 | `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. | No |
 | `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). | No |
 | `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. | Yes |
@@ -175,7 +175,7 @@ Content-Type: application/json
 {
   "status": "activated",
   "user": "authpf-user1",
-  "msg": "authpf rule is being loaded"
+  "msg": "authpf anchor is being loaded"
 }
 ```
 
@@ -193,7 +193,7 @@ Content-Type: application/json
 {
   "status": "queued",
   "user": "authpf-user1",
-  "msg": "authpf rule is being unloaded"
+  "msg": "authpf anchor is being unloaded"
 }
 ```
 
@@ -232,7 +232,7 @@ Authorization: Bearer <token>
 
 | Parameter | Description |
 |-----------|-------------|
-| `authpf_username` | Activate/Deactivate the authpf rules from another user (require set_other_rules/delete_other_rules permissions in role) |
+| `authpf_username` | Activate/Deactivate the authpf rules from another user (requires activate_other_rules/deactivate_other_rules permissions in role) |
 | `timeout` | Modify the authpf expire timeout (default 30m) |
 
 Example:
@@ -257,9 +257,9 @@ Authorization: Bearer <token>
 
 ## Setup PF
 
-Before you can use authpf-api, please verify that the authpf anchors are set in the pf.conf
+Before you can use authpf-api, please verify that the authpf anchors are set up in pf.conf
 
-/etc/pfctl.conf
+/etc/pf.conf
 ```
 nat-anchor "authpf/*"
 rdr-anchor "authpf/*"
@@ -267,7 +267,7 @@ binat-anchor "authpf/*"
 anchor "authpf/*"
 ```
 
-Verify also that the anchor name is the same as in the configfile (`authpf.anchorName: authpf`)
+Verify also that the anchor name is the same as in the config file (`authpf.anchorName: authpf`)
 
 ## Setup SSL for AuthPF-API
 
@@ -285,7 +285,7 @@ Self-Sign CA Root
 openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 -out rootCA.crt
 ```
 
-Create Server Certificate and sign by the CA Root certificate
+Create a Server Certificate and sign with the CA Root certificate
 
 ```sh
 openssl ecparam -genkey -name prime256v1 -noout -out mydomain.com.key
@@ -316,7 +316,7 @@ server:
 
 Restart authpf-api.
 
-Copy over the rootCA.key to the clients to verify the server.
+Copy the rootCA.crt to the clients to verify the server.
 
 ## Elevator Setup
 
@@ -379,7 +379,7 @@ Three modes are configurable:
 
 If no import is required, set to none or empty.
 The "import" mode will parse the output of `pfctl -sA` and import all existing anchors (authpf/NAME(USERID)).
-Mode "importflush" will do the same as import, but will remove/flush the anchors directly after import. 
+Mode "importflush" will do the same as import, but will remove/flush the anchors directly after importing. 
 
 ### Configure import
 
@@ -390,9 +390,9 @@ authpf:
 
 ### Limitations
 
-1. It is current not possible to detect the UserIP. The UserIP will set to "NaN/imported". It does not have any effect.
+1. It is currently not possible to detect the UserIP macro value. The UserIP will be set to "NaN/imported". It does not have any effect.
    Deactivation works without IP Address.
-2. The Expire Datetime will calculate by the `authpf.timeout` and current server time.
+2. The Expire datetime will be calculated by the `authpf.timeout` and current server time.
 
 ## Development
 
@@ -450,7 +450,10 @@ The application uses structured JSON logging with zerolog. Logs can be output to
 
 ## User Password Generation
 
-The authpf-api use **bcrypt** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
+The authpf-api uses **bcrypt** and **sha256** in combination for password hashing. 
+Use the `-gen-user-password` flag to generate a `bcrypt` hash for a new user password.
+In the first step, the password input by `-gen-user-password` will be hashed by `sha256` and afterwards hashed again with `bcrypt`. 
+The authentication against the API is only accepting the user password as a `sha256` hash.
 
 ### Interactive Mode
 
@@ -515,7 +518,7 @@ For comprehensive user and rule management, use the **authpf-api-cli** tool. Ref
 
 ## Contributing
 
-Contributions are welcome! 
+Contributions are welcome!
 
 Please ensure:
 
@@ -531,4 +534,4 @@ See LICENSE file for details.
 
 ## Support
 
-For issues, questions, or suggestions, please open an issue on the project repository.
+For issues, questions, or suggestions, please open an issue in the repository.
