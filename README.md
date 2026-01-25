@@ -78,34 +78,34 @@ The application is configured via a YAML configuration file. By default, it uses
 
 #### Defaults Section
 
-| Parameter | Description |
-|-----------|-------------|
-| `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). Must be accessible by the user running the API. |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). Must be accessible by the user running the API. | Yes |
 
 #### AuthPF Section
 
-| Parameter | Description |
-|-----------|-------------|
-| `authpf.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. |
-| `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. |
-| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. |
-| `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. |
-| `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. |
-| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). import just load existing anchors. importflush clear after import the anchors from pf |
-| `authpf.onShutdown` | Remove all activated user rules when api server get shutdown. |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| `authpf.timeout` | Schedule the maximum timeout for authpf rules (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. | Yes |
+| `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. | Yes |
+| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. | Yes |
+| `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. | Yes |
+| `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
+| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). import just load existing anchors. importflush clear after import the anchors from pf. Default `none` | No |
+| `authpf.onShutdown` | Remove all activated user rules when api server get shutdown. Default `none` | No |
 
 #### Server Section
 
-| Parameter | Description |
-|-----------|-------------|
-| `server.bind` | IP address to bind the server to (e.g., 127.0.0.1 for localhost only). Use 0.0.0.0 to listen on all interfaces. |
-| `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. |
-| `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. |
-| `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. |
-| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. |
-| `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. |
-| `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). |
-| `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| `server.bind` | IP address to bind the server to (e.g., 127.0.0.1 for localhost only). Use 0.0.0.0 to listen on all interfaces. | Yes |
+| `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. | Yes |
+| `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. | No |
+| `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. | No |
+| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. If not set a random Secret will generated | No |
+| `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. | No |
+| `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). | No |
+| `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. | Yes |
 
 #### RBAC Section
 
@@ -450,7 +450,7 @@ The application uses structured JSON logging with zerolog. Logs can be output to
 
 ## User Password Generation
 
-The authpf-api use **Bcrypt** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
+The authpf-api use **bcrypt** password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user password.
 
 ### Interactive Mode
 
