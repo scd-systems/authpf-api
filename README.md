@@ -443,7 +443,7 @@ make build-all
 
 ## Logging
 
-The application uses structured JSON logging with zerolog. Logs can be output to:
+The application uses structured logging with zerolog. Logs can be output to:
 
 1. **Logfile** (default) - Configured in `server.logfile`
 2. **Stdout** - Use `-foreground` flag
