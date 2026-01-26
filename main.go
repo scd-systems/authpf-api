@@ -7,6 +7,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+const API_VERSION = "1.1"
+
 func main() {
 	// Bootstrap: Flags, Config, Validierung
 	if err := bootstrap(); err != nil {
