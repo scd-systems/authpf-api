@@ -7,5 +7,5 @@ import (
 )
 
 func info(c echo.Context) error {
-	return c.JSON(http.StatusOK, echo.Map{"version": Version})
+	return c.JSON(http.StatusOK, echo.Map{"version": Version, "API": API_VERSION})
 }

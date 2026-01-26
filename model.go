@@ -119,9 +119,10 @@ const (
 
 // Global variables
 var (
-	Version   = "dev"
-	anchorsDB = map[string]*AuthPFAnchor{}
-	lock      = sync.Mutex{}
-	jwtSecret = []byte("your-secret-key-change-in-production")
-	config    ConfigFile
+	API_VERSION = "1.1"
+	Version     = "dev"
+	anchorsDB   = map[string]*AuthPFAnchor{}
+	lock        = sync.Mutex{}
+	jwtSecret   = []byte("your-secret-key-change-in-production")
+	config      ConfigFile
 )

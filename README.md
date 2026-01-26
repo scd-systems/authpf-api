@@ -39,7 +39,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 
 ### From Source
 
-```bash
+```sh
 # Clone the repository
 git clone https://github.com/scd-systems/authpf-api.git
 cd authpf-api
@@ -56,7 +56,7 @@ make build-all
 
 ### Using Make
 
-```bash
+```sh
 # Show available targets
 make help
 
@@ -116,7 +116,7 @@ The application is configured via a YAML configuration file. By default, it uses
 
 ### Environment Variables
 
-```bash
+```sh
 # Configuration file path
 export CONFIG_FILE=/path/to/config.yaml
 
@@ -126,7 +126,7 @@ export LOG_LEVEL=info
 
 ### Command-Line Flags
 
-```bash
+```sh
 # Show version and exit
 ./authpf-api -version
 
@@ -398,7 +398,7 @@ authpf:
 
 ### Running Tests
 
-```bash
+```sh
 # Run all tests
 make test
 
@@ -414,7 +414,7 @@ make coverage-html
 
 ### Code Quality
 
-```bash
+```sh
 # Format code
 make fmt
 
@@ -427,7 +427,7 @@ make vet
 
 ### Building
 
-```bash
+```sh
 # Build for current system
 make build
 
@@ -443,7 +443,7 @@ make build-all
 
 ## Logging
 
-The application uses structured JSON logging with zerolog. Logs can be output to:
+The application uses structured logging with zerolog. Logs can be output to:
 
 1. **Logfile** (default) - Configured in `server.logfile`
 2. **Stdout** - Use `-foreground` flag
@@ -459,7 +459,7 @@ The authentication against the API is only accepting the user password as a `sha
 
 Generate a password hash interactively (password input is hidden):
 
-```bash
+```sh
 ./authpf-api -gen-user-password
 Enter password:
 $2a$10$N9qo8uLOic.......
@@ -469,7 +469,7 @@ $2a$10$N9qo8uLOic.......
 
 Generate a password hash by piping the password:
 
-```bash
+```sh
 echo -n "your-password" | ./authpf-api -gen-user-password
 $2a$10$N9qo8uLOickgx2ZM........
 ```

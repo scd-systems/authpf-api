@@ -51,7 +51,7 @@ func bootstrap() error {
 		}
 	}
 
-	logger.Info().Str("version", Version).Msg("authpf-api starting")
+	logger.Info().Str("version", Version).Str("API_Version", API_VERSION).Msg("authpf-api starting")
 	return nil
 }
 
