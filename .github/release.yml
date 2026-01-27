@@ -5,7 +5,7 @@ changelog:
     authors:
       - octocat
   categories:
-    - title: ⚠️ Braking Changes
+    - title: ⚠️ Breaking Changes
       labels:
         - Semver-Major
         - breaking-change
