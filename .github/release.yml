@@ -13,11 +13,10 @@ changelog:
     - title: 🎉 New Features
       labels:
         - Semver-Minor
-        - enhancement
         - feature
     - title: 🔥 HotFix
       labels:
-        - fix
+        - hotfix
         - security
     - title: 🐞 Bug Fixes
       labels:
@@ -25,7 +24,7 @@ changelog:
         - fix
     - title: 📖 Documentation
       labels:
-        - "*"
+        - documentation
     - title: 🧐 Enhancements
       labels:
         - "*"
