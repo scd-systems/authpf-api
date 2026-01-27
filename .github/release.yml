@@ -1,0 +1,37 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - octocat
+  categories:
+    - title: ⚠️ Braking Changes
+      labels:
+        - Semver-Major
+        - breaking-change
+        - major
+    - title: 🎉 New Features
+      labels:
+        - Semver-Minor
+        - enhancement
+        - feature
+    - title: 🔥 HotFix
+      labels:
+        - fix
+        - security
+    - title: 🐞 Bug Fixes
+      labels:
+        - bug
+        - fix
+    - title: 📖 Documentation
+      labels:
+        - "*"
+    - title: 🧐 Enhancements
+      labels:
+        - "*"
+      exclude:
+        labels:
+          - dependencies
+    - title: 👒 Dependencies
+      labels:
+        - dependencies
