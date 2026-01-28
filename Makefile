@@ -8,6 +8,7 @@ DIST_DIR := ./dist
 GO := go
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
+GOPATH ?= $(shell go env GOPATH)
 
 # Supported OS and architectures
 SUPPORTED_OS := freebsd openbsd
@@ -135,8 +136,7 @@ vet:
 # Run linter (requires golangci-lint)
 lint:
 	@echo "Running linter..."
-	@which golangci-lint > /dev/null || (echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
-	@golangci-lint run ./...
+	@$(GOPATH)/bin/golangci-lint run ./...
 	@echo "✓ Linter passed"
 
 # Clean build artifacts
