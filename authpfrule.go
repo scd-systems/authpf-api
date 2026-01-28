@@ -75,13 +75,13 @@ func ValidateAuthPFAnchor(r *AuthPFAnchor, action string) *ValidationError {
 		rbacPermission = RBAC_DEACTIVATE_OWN_RULE
 	}
 
-	// Check if session exists (or doesn't exist for deactivate)
-	if valErr := CheckSessionExists(r.Username, logger, sessionOp); valErr != nil {
+	// Check permission
+	if valErr := CheckPermission(r.Username, rbacPermission); valErr != nil {
 		return valErr
 	}
 
-	// Check permission
-	if valErr := CheckPermission(r.Username, rbacPermission); valErr != nil {
+	// Check if session exists (or doesn't exist for deactivate)
+	if valErr := CheckSessionExists(r.Username, logger, sessionOp); valErr != nil {
 		return valErr
 	}
 
