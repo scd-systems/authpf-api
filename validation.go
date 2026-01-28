@@ -127,15 +127,15 @@ func ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requir
 		return sessionUser, nil
 	}
 
+	// Check if session user has permission to operate on other users
+	if permErr := CheckPermission(sessionUser, requiredPermission); permErr != nil {
+		return "", permErr
+	}
+
 	// Validate the requested username exists
 	if valErr := ValidateUsername(requestedUser); valErr != nil {
 		logger.Info().Str("status", "rejected").Str("user", sessionUser).Str("requested_user", requestedUser).Msg("invalid requested username")
 		return "", valErr
-	}
-
-	// Check if session user has permission to operate on other users
-	if permErr := CheckPermission(sessionUser, requiredPermission); permErr != nil {
-		return "", permErr
 	}
 
 	return requestedUser, nil
