@@ -25,7 +25,7 @@ func parseAuthpf(result SystemCommandResult) error {
 		return result.Error
 	}
 	if len(result.Stdout) <= 0 {
-		logger.Error().Msg("No anchor(s) found to import")
+		logger.Info().Msg("No anchor(s) found to import")
 		return nil
 	}
 
