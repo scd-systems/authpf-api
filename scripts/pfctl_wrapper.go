@@ -199,6 +199,7 @@ func main() {
 	define := flag.String("D", "", "Define variable (user_ip=... or user_id=...)")
 	filter := flag.String("F", "", "Flush filter (rules, nat, rdr, all)")
 	filePath := flag.String("f", "", "Load rules from file")
+	showAnchors := flag.Bool("sA", false, "Show all anchors (pfctl -sA)")
 
 	flag.Parse()
 
@@ -239,6 +240,11 @@ func main() {
 			os.Exit(1)
 		}
 		args = append(args, "-f", *filePath)
+	}
+
+	// Add show anchors flag if provided
+	if *showAnchors {
+		args = append(args, "-sA")
 	}
 
 	// At least one argument must be provided
