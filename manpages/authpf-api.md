@@ -6,9 +6,7 @@
 
 ## SYNOPSIS
 
-```
-authpf-api [-foreground] [-version] [-gen-user-password]
-```
+`authpf-api` [`-foreground`] [`-version`] [`-gen-user-password`]
 
 ## DESCRIPTION
 
@@ -18,22 +16,22 @@ The original `authpf(8)` is a user shell for authenticating gateways based on SS
 
 ## OPTIONS
 
-- `-foreground`
-  Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing.
+**-foreground**
+: Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing.
 
-- `-version`
-  Display the version information and exit.
+**-version**
+: Display the version information and exit.
 
-- `-gen-user-password`
-  Generate a bcrypt-hashed password for user authentication. The password is hashed using SHA256 first, then bcrypt. Can be used interactively or with piped input.
+**-gen-user-password**
+: Generate a bcrypt-hashed password for user authentication. The password is hashed using SHA256 first, then bcrypt. Can be used interactively or with piped input.
 
 ## ENVIRONMENT
 
-- `CONFIG_FILE`
-  Path to the configuration file. Defaults to `/usr/local/etc/authpf-api.conf` if not set.
+**CONFIG_FILE**
+: Path to the configuration file. Defaults to `/usr/local/etc/authpf-api.conf` if not set.
 
-- `LOG_LEVEL`
-  Set the logging level. Valid values are: `debug`, `info`, `warn`, `error`. Default is `info`.
+**LOG_LEVEL**
+: Set the logging level. Valid values are: `debug`, `info`, `warn`, `error`. Default is `info`.
 
 ## CONFIGURATION
 
@@ -70,9 +68,9 @@ All endpoints require JWT authentication via `Authorization: Bearer <token>` hea
 
 Activate pf rules for the authenticated user.
 
-**Query parameters:**
-- `authpf_username` — Activate rules for another user (requires appropriate permissions)
-- `timeout` — Override the default timeout (e.g., 30m, 1h)
+Query parameters:
+: `authpf_username` - Activate rules for another user (requires appropriate permissions)
+: `timeout` — Override the default timeout (e.g., 30m, 1h)
 
 **Response (201 Created):**
 ```json
@@ -87,8 +85,8 @@ Activate pf rules for the authenticated user.
 
 Deactivate pf rules for the authenticated user.
 
-**Query parameters:**
-- `authpf_username` — Deactivate rules for another user (requires appropriate permissions)
+Query parameters:
+: `authpf_username` - Deactivate rules for another user (requires appropriate permissions)
 
 **Response (202 Accepted):**
 ```json
@@ -130,7 +128,7 @@ Delete all activated rules (admin only).
 
 ### Generate a user password
 
-```bash
+```sh
 authpf-api -gen-user-password
 Enter password:
 $2a$10$N9qo8uLOickgx2ZM.......
@@ -138,20 +136,20 @@ $2a$10$N9qo8uLOickgx2ZM.......
 
 ### Generate password via pipe
 
-```bash
+```sh
 echo -n "your-password" | authpf-api -gen-user-password
 $2a$10$N9qo8uLOickgx2ZM.......
 ```
 
 ### Run in foreground with debug logging
 
-```bash
+```sh
 LOG_LEVEL=debug authpf-api -foreground
 ```
 
 ### Check version
 
-```bash
+```sh
 authpf-api -version
 ```
 
@@ -170,19 +168,21 @@ Verify that the anchor name in the configuration file matches the `anchorName` s
 
 ## FILES
 
-- `/usr/local/etc/authpf-api.conf` — Default configuration file
-- `/var/log/authpf-api.log` — Default logfile location
-- `/etc/authpf/users` — Default root directory for user-specific rule files
-- `/etc/pf.conf` — Packet filter configuration file
-
+```
+/usr/local/etc/authpf-api.conf — Default configuration file
+/var/log/authpf-api.log — Default logfile location
+/etc/authpf/users — Default root directory for user-specific rule files
+/etc/pf.conf — Packet filter configuration file
+```
 ## SEE ALSO
 
-- `authpf-api.conf(5)`
-- `authpf(8)`
-- `pfctl(8)`
-- `pf(4)`
-- `sudo(8)`
-- `doas(1)`
+authpf-api.conf(5),
+authpf(8),
+file(1),
+pfctl(8),
+pf(4),
+sudo(8),
+doas(1)
 
 ## HISTORY
 

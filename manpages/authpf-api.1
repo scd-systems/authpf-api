@@ -4,9 +4,7 @@
 \fBauthpf-api\fP — RESTful HTTP API for managing pf user rules
 
 .SH SYNOPSIS
-.EX
-authpf-api [-foreground] [-version] [-gen-user-password]
-.EE
+\fBauthpf-api\fR [\fB-foreground\fR] [\fB-version\fR] [\fB-gen-user-password\fR]
 
 .SH DESCRIPTION
 \fBauthpf-api\fP is a Go-based REST API that provides a secure interface for managing pf user rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate pf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
@@ -15,22 +13,25 @@ authpf-api [-foreground] [-version] [-gen-user-password]
 The original \fBauthpf(8)\fR is a user shell for authenticating gateways based on SSH logins. \fBauthpf-api\fP is an alternative implementation using HTTP/HTTPS to load and unload pf user rules.
 
 .SH OPTIONS
-.IP \(bu 2
-\fB-foreground\fR
+.TP
+\fB-foreground\fP
 Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing.
-.IP \(bu 2
-\fB-version\fR
+
+.TP
+\fB-version\fP
 Display the version information and exit.
-.IP \(bu 2
-\fB-gen-user-password\fR
+
+.TP
+\fB-gen-user-password\fP
 Generate a bcrypt-hashed password for user authentication. The password is hashed using SHA256 first, then bcrypt. Can be used interactively or with piped input.
 
 .SH ENVIRONMENT
-.IP \(bu 2
-\fBCONFIG_FILE\fR
+.TP
+\fBCONFIG_FILE\fP
 Path to the configuration file. Defaults to \fB/usr/local/etc/authpf-api.conf\fR if not set.
-.IP \(bu 2
-\fBLOG_LEVEL\fR
+
+.TP
+\fBLOG_LEVEL\fP
 Set the logging level. Valid values are: \fBdebug\fR, \fBinfo\fR, \fBwarn\fR, \fBerror\fR\&. Default is \fBinfo\fR\&.
 
 .SH CONFIGURATION
@@ -65,11 +66,11 @@ All endpoints require JWT authentication via \fBAuthorization: Bearer <token>\fR
 
 .SS POST /api/v1/authpf/activate
 Activate pf rules for the authenticated user.
+.TP
+Query parameters:
+\fBauthpf_username\fR - Activate rules for another user (requires appropriate permissions)
 
-.PP
-\fBQuery parameters:\fP
-- \fBauthpf_username\fR — Activate rules for another user (requires appropriate permissions)
-- \fBtimeout\fR — Override the default timeout (e.g., 30m, 1h)
+\fBtimeout\fR — Override the default timeout (e.g., 30m, 1h)
 
 .PP
 \fBResponse (201 Created):\fP
@@ -84,10 +85,9 @@ Activate pf rules for the authenticated user.
 
 .SS DELETE /api/v1/authpf/activate
 Deactivate pf rules for the authenticated user.
-
-.PP
-\fBQuery parameters:\fP
-- \fBauthpf_username\fR — Deactivate rules for another user (requires appropriate permissions)
+.TP
+Query parameters:
+\fBauthpf_username\fR - Deactivate rules for another user (requires appropriate permissions)
 
 .PP
 \fBResponse (202 Accepted):\fP
@@ -167,28 +167,21 @@ anchor "authpf/*"
 Verify that the anchor name in the configuration file matches the \fBanchorName\fR setting (default: authpf).
 
 .SH FILES
-.IP \(bu 2
-\fB/usr/local/etc/authpf-api.conf\fR — Default configuration file
-.IP \(bu 2
-\fB/var/log/authpf-api.log\fR — Default logfile location
-.IP \(bu 2
-\fB/etc/authpf/users\fR — Default root directory for user-specific rule files
-.IP \(bu 2
-\fB/etc/pf.conf\fR — Packet filter configuration file
+.EX
+/usr/local/etc/authpf-api.conf — Default configuration file
+/var/log/authpf-api.log — Default logfile location
+/etc/authpf/users — Default root directory for user-specific rule files
+/etc/pf.conf — Packet filter configuration file
+.EE
 
 .SH SEE ALSO
-.IP \(bu 2
-\fBauthpf-api.conf(5)\fR
-.IP \(bu 2
-\fBauthpf(8)\fR
-.IP \(bu 2
-\fBpfctl(8)\fR
-.IP \(bu 2
-\fBpf(4)\fR
-.IP \(bu 2
-\fBsudo(8)\fR
-.IP \(bu 2
-\fBdoas(1)\fR
+authpf-api.conf(5),
+authpf(8),
+file(1),
+pfctl(8),
+pf(4),
+sudo(8),
+doas(1)
 
 .SH HISTORY
 \fBauthpf-api\fP was created as an alternative to the traditional \fBauthpf(8)\fR shell, providing HTTP/HTTPS-based rule management instead of SSH-based authentication.
