@@ -6,7 +6,7 @@
 
 ## SYNOPSIS
 
-`authpf-api` [`-foreground`] [`-version`] [`-gen-user-password`]
+**authpf-api** [*OPTIONS*]
 
 ## DESCRIPTION
 
