@@ -39,21 +39,27 @@ func TestBuildActivateAuthPFAnchor_Success(t *testing.T) {
 	// Assert
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
+    return
 	}
 	if r == nil {
-		t.Fatal("Expected rule to be built, got nil")
+    t.Fatal("Expected rule to be built, got nil")
+    return
 	}
 	if r.Username != "testuser" {
-		t.Errorf("Expected username 'testuser', got '%s'", r.Username)
+    t.Errorf("Expected username 'testuser', got '%s'", r.Username)
+    return
 	}
 	if r.UserID != 2 {
-		t.Errorf("Expected UserID 2, got %d", r.UserID)
+    t.Errorf("Expected UserID 2, got %d", r.UserID)
+    return
 	}
 	if r.Timeout != "1h" {
-		t.Errorf("Expected timeout '1h', got '%s'", r.Timeout)
-	}
+    t.Errorf("Expected timeout '1h', got '%s'", r.Timeout)
+    return
+  }
 	if r.ExpiresAt.IsZero() {
-		t.Error("Expected ExpiresAt to be set")
+    t.Error("Expected ExpiresAt to be set")
+    return
 	}
 }
 
@@ -71,14 +77,15 @@ func TestBuildActivateAuthPFAnchor_InvalidUsername(t *testing.T) {
 	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
-	if err == nil {
-		t.Fatal("Expected validation error, got nil")
-	}
 	if r != nil {
 		t.Fatal("Expected rule to be nil on error")
 	}
-	if err.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status code %d, got %d", http.StatusUnauthorized, err.StatusCode)
+	if err != nil {
+		if err.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected status code %d, got %d", http.StatusUnauthorized, err.StatusCode)
+		}
+	} else {
+		t.Fatal("Expected validation error, got nil")
 	}
 }
 
@@ -97,14 +104,15 @@ func TestBuildActivateAuthPFAnchor_InvalidTimeout(t *testing.T) {
 	r, err := SetAuthPFAnchor(c, SESSION_REGISTER)
 
 	// Assert
-	if err == nil {
-		t.Fatal("Expected validation error for invalid timeout, got nil")
-	}
 	if r != nil {
 		t.Fatal("Expected rule to be nil on error")
 	}
-	if err.StatusCode != http.StatusBadRequest {
-		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, err.StatusCode)
+	if err != nil {
+		if err.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, err.StatusCode)
+		}
+	} else {
+		t.Fatal("Expected validation error for invalid timeout, got nil")
 	}
 }
 
@@ -228,18 +236,19 @@ func TestValidateActivateAuthPFAnchor_SessionAlreadyExists(t *testing.T) {
 		"testuser": {Role: "user"},
 	}
 	config.Rbac.Roles = map[string]ConfigFileRbacRoles{
-		"user": {Permissions: []string{"set_own_rules"}},
+		"user": {Permissions: []string{RBAC_ACTIVATE_OWN_RULE}},
 	}
 
 	// Execute
 	err := ValidateAuthPFAnchor(r, SESSION_REGISTER)
 
 	// Assert
-	if err == nil {
+	if err != nil {
+		if err.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected status code %d, got %d", http.StatusMethodNotAllowed, err.StatusCode)
+		}
+	} else {
 		t.Fatal("Expected validation error for existing session, got nil")
-	}
-	if err.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status code %d, got %d", http.StatusMethodNotAllowed, err.StatusCode)
 	}
 
 	// Cleanup
@@ -266,11 +275,12 @@ func TestValidateActivateAuthPFAnchor_MissingPermission(t *testing.T) {
 	err := ValidateAuthPFAnchor(r, SESSION_REGISTER)
 
 	// Assert
-	if err == nil {
+	if err != nil {
+		if err.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected status code %d, got %d", http.StatusForbidden, err.StatusCode)
+		}
+	} else {
 		t.Fatal("Expected validation error for missing permission, got nil")
-	}
-	if err.StatusCode != http.StatusForbidden {
-		t.Errorf("Expected status code %d, got %d", http.StatusForbidden, err.StatusCode)
 	}
 }
 
@@ -301,14 +311,15 @@ func TestBuildDeactivateAuthPFAnchor_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	if r == nil {
+	if r != nil {
+		if r.Username != "testuser" {
+			t.Errorf("Expected username 'testuser', got '%s'", r.Username)
+		}
+		if r.UserID != 2 {
+			t.Errorf("Expected UserID 2, got %d", r.UserID)
+		}
+	} else {
 		t.Fatal("Expected rule to be built, got nil")
-	}
-	if r.Username != "testuser" {
-		t.Errorf("Expected username 'testuser', got '%s'", r.Username)
-	}
-	if r.UserID != 2 {
-		t.Errorf("Expected UserID 2, got %d", r.UserID)
 	}
 }
 
@@ -326,14 +337,15 @@ func TestBuildDeactivateAuthPFAnchor_InvalidUsername(t *testing.T) {
 	r, err := SetAuthPFAnchor(c, SESSION_UNREGISTER)
 
 	// Assert
-	if err == nil {
-		t.Fatal("Expected validation error, got nil")
-	}
 	if r != nil {
 		t.Fatal("Expected rule to be nil on error")
 	}
-	if err.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status code %d, got %d", http.StatusUnauthorized, err.StatusCode)
+	if err != nil {
+		if err.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected status code %d, got %d", http.StatusUnauthorized, err.StatusCode)
+		}
+	} else {
+		t.Fatal("Expected validation error, got nil")
 	}
 }
 
@@ -381,18 +393,19 @@ func TestValidateDeactivateAuthPFAnchor_SessionNotExists(t *testing.T) {
 		"testuser": {Role: "user"},
 	}
 	config.Rbac.Roles = map[string]ConfigFileRbacRoles{
-		"user": {Permissions: []string{"delete_own_rules"}},
+		"user": {Permissions: []string{RBAC_DEACTIVATE_OWN_RULE}},
 	}
 
 	// Execute
 	err := ValidateAuthPFAnchor(r, SESSION_UNREGISTER)
 
 	// Assert
-	if err == nil {
+	if err != nil {
+		if err.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected status code %d, got %d", http.StatusMethodNotAllowed, err.StatusCode)
+		}
+	} else {
 		t.Fatal("Expected validation error for non-existing session, got nil")
-	}
-	if err.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status code %d, got %d", http.StatusMethodNotAllowed, err.StatusCode)
 	}
 }
 
@@ -419,11 +432,12 @@ func TestValidateDeactivateAuthPFAnchor_MissingPermission(t *testing.T) {
 	err := ValidateAuthPFAnchor(r, SESSION_UNREGISTER)
 
 	// Assert
-	if err == nil {
+	if err != nil {
+		if err.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected status code %d, got %d", http.StatusForbidden, err.StatusCode)
+		}
+	} else {
 		t.Fatal("Expected validation error for missing permission, got nil")
-	}
-	if err.StatusCode != http.StatusForbidden {
-		t.Errorf("Expected status code %d, got %d", http.StatusForbidden, err.StatusCode)
 	}
 
 	// Cleanup
