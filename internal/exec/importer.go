@@ -71,10 +71,9 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 
 		// TODO: Check if return error is OK, just skip and continue
 		// Validate if Username already activated
-		if !e.db.IsActivated(username) {
+		if e.db.IsActivated(username) {
 			e.logger.Debug().Msgf("Import: Anchor for user %s already activated", username)
 			continue
-			// return fmt.Errorf("User already activated")
 		}
 
 		// Check configure Timeout Variable
@@ -82,7 +81,7 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 			return err
 		}
 		// Calculate the ExpireAt Timeout
-		expiresAt, err := authpf.CalculateAnchorExpire(e.config.AuthPF.Timeout)
+		expiresAt, err := CalculateAnchorExpire(e.config.AuthPF.Timeout)
 		if err != nil {
 			return err
 		}
@@ -156,4 +155,13 @@ func ValidateUserInConfig(config config.ConfigFile, username string) bool {
 		}
 	}
 	return false
+}
+
+// Add timeout to current time from server as Expire Date
+func CalculateAnchorExpire(timeoutStr string) (time.Time, error) {
+	d, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Now().Add(d), nil
 }

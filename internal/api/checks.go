@@ -281,7 +281,7 @@ func (h *Handler) GetAnchorFromContext() (*authpf.AuthPFAnchor, *validation.Vali
 	userIp := h.ctx.RealIP()
 	userId := h.getUserID(authpf_username)
 
-	expireAt, err1 := authpf.CalculateAnchorExpire(timeout)
+	expireAt, err1 := exec.CalculateAnchorExpire(timeout)
 	if err1 != nil {
 		return nil, &validation.ValidationError{
 			HttpStatusCode: http.StatusInternalServerError,
