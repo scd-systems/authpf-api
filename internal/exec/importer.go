@@ -63,11 +63,10 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 
 		// Validate Username and UserID
 		if !validateUserAndIDConfig(*e.config, username, uid) {
-			e.logger.Debug().Msgf("Import: UserID %d from User %s mismatch, anchor ignored", uid, username)
+			e.logger.Debug().Msgf("Import: Username %s and/or UserID %d does not match configuration, anchor ignored", username, uid)
 			continue
 		}
 
-		// TODO: Check if return error is OK, just skip and continue
 		// Validate if Username already activated
 		if e.db.IsActivated(username) {
 			e.logger.Debug().Msgf("Import: Anchor for user %s already activated", username)
