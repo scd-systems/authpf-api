@@ -15,7 +15,7 @@ SUPPORTED_OS := freebsd openbsd
 SUPPORTED_ARCH := amd64 arm64
 
 # Build flags
-LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
+LDFLAGS := -ldflags "-X github.com/scd-systems/authpf-api/internal/server.Version=$(VERSION)"
 
 # Default target - show help
 help:
