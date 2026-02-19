@@ -7,15 +7,15 @@ import (
 	"strings"
 
 	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/internal/exec"
-	"github.com/scd-systems/authpf-api/internal/validation"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
-func (h *Handler) CheckAnchorIsActivated() (bool, *validation.ValidationError) {
+func (h *Handler) CheckAnchorIsActivated() (bool, *errors.APIError) {
 	sessionUsername, err := h.resolveAnchorUsername()
 	if err != nil {
-		return false, &validation.ValidationError{
+		return false, &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
 			Message:        "unable to lookup username",
@@ -23,7 +23,7 @@ func (h *Handler) CheckAnchorIsActivated() (bool, *validation.ValidationError) {
 		}
 	}
 	if h.db.IsActivated(sessionUsername) {
-		return true, &validation.ValidationError{
+		return true, &errors.APIError{
 			HttpStatusCode: http.StatusAlreadyReported,
 			StatusCode:     -1,
 			Message:        "Anchor already activated",
@@ -34,7 +34,7 @@ func (h *Handler) CheckAnchorIsActivated() (bool, *validation.ValidationError) {
 }
 
 // Check Username and JSON Payload
-func (h *Handler) CheckSessionUsername() *validation.ValidationError {
+func (h *Handler) CheckSessionUsername() *errors.APIError {
 	if _, err := h.sessionUsername(); err != nil {
 		return err
 	}
@@ -42,10 +42,10 @@ func (h *Handler) CheckSessionUsername() *validation.ValidationError {
 }
 
 // Get Username from request
-func (h *Handler) sessionUsername() (string, *validation.ValidationError) {
+func (h *Handler) sessionUsername() (string, *errors.APIError) {
 	username, ok := h.ctx.Get("username").(string)
 	if !ok || username == "" {
-		return "", &validation.ValidationError{
+		return "", &errors.APIError{
 			HttpStatusCode: http.StatusUnauthorized,
 			StatusCode:     -1,
 			Message:        "invalid username in token",
@@ -56,9 +56,9 @@ func (h *Handler) sessionUsername() (string, *validation.ValidationError) {
 }
 
 // Check if AuthPFAnchor can be bind to payload
-func (h *Handler) CheckJSONPayload(r *authpf.AuthPFAnchor) *validation.ValidationError {
+func (h *Handler) CheckJSONPayload(r *authpf.AuthPFAnchor) *errors.APIError {
 	if err := h.ctx.Bind(r); err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "invalid JSON payload",
@@ -69,7 +69,7 @@ func (h *Handler) CheckJSONPayload(r *authpf.AuthPFAnchor) *validation.Validatio
 }
 
 // Call Exec activate anchor
-func (h *Handler) CallExecActivateAnchor(r *authpf.AuthPFAnchor) *validation.ValidationError {
+func (h *Handler) CallExecActivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
 	e := exec.New(h.logger, h.config, h.db)
 
 	result := e.LoadAuthPFAnchor(r)
@@ -77,7 +77,7 @@ func (h *Handler) CallExecActivateAnchor(r *authpf.AuthPFAnchor) *validation.Val
 	h.logger.Trace().Str("user", h.ctx.Get("username").(string)).Msg(msg)
 
 	if result.ExitCode != 0 {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     result.ExitCode,
 			Message:        "failed to load anchor rules",
@@ -87,7 +87,7 @@ func (h *Handler) CallExecActivateAnchor(r *authpf.AuthPFAnchor) *validation.Val
 	return nil
 }
 
-func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *validation.ValidationError {
+func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
 	e := exec.New(h.logger, h.config, h.db)
 
 	multiResult := e.UnloadAuthPFAnchor(r)
@@ -100,7 +100,7 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *validation.V
 		h.logger.Debug().Str("user", r.Username).Msg(msg)
 	}
 	if multiResult.Error != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
 			Message:        "failed to unload anchor rules",
@@ -110,7 +110,7 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *validation.V
 	return nil
 }
 
-func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *validation.ValidationError {
+func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
 	e := exec.New(h.logger, h.config, h.db)
 
 	multiResult := e.UnloadAllAuthPFAnchors()
@@ -123,7 +123,7 @@ func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *validati
 		h.logger.Debug().Str("user", r.Username).Msg(msg)
 	}
 	if multiResult.Error != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
 			Message:        "failed to unload anchor rules",
@@ -134,11 +134,11 @@ func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *validati
 }
 
 // Validate User role permissions
-func (h *Handler) CheckSessionUserPermission(action string) *validation.ValidationError {
+func (h *Handler) CheckSessionUserPermission(action string) *errors.APIError {
 	var permission string
 	sessionUsername, err := h.sessionUsername()
 	if err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusForbidden,
 			StatusCode:     -1,
 			Message:        "permission denied",
@@ -148,7 +148,7 @@ func (h *Handler) CheckSessionUserPermission(action string) *validation.Validati
 
 	authpfUsername, err := h.resolveAnchorUsername()
 	if err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusForbidden,
 			StatusCode:     -1,
 			Message:        "permission denied",
@@ -165,7 +165,7 @@ func (h *Handler) CheckSessionUserPermission(action string) *validation.Validati
 	default:
 		result, err := resolvePermission(sessionUsername, authpfUsername, action)
 		if err != nil {
-			return &validation.ValidationError{
+			return &errors.APIError{
 				HttpStatusCode: http.StatusForbidden,
 				StatusCode:     -1,
 				Message:        "permission denied",
@@ -176,7 +176,7 @@ func (h *Handler) CheckSessionUserPermission(action string) *validation.Validati
 	}
 
 	if err := h.validateUserPermissions(sessionUsername, permission); err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusForbidden,
 			StatusCode:     -1,
 			Message:        "permission denied",
@@ -236,16 +236,16 @@ func (h *Handler) validateUserPermissions(username string, permission string) er
 	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
 }
 
-func (h *Handler) CheckSessionUserIP() *validation.ValidationError {
+func (h *Handler) CheckSessionUserIP() *errors.APIError {
 	if err := checkUserIP(h.ctx.RealIP()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkUserIP(ip string) *validation.ValidationError {
+func checkUserIP(ip string) *errors.APIError {
 	if ip == "" {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "invalid IP address",
@@ -256,7 +256,7 @@ func checkUserIP(ip string) *validation.ValidationError {
 	// Parse the IP address - net.ParseIP returns nil if the IP is invalid
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "invalid IP address",
@@ -266,7 +266,7 @@ func checkUserIP(ip string) *validation.ValidationError {
 	return nil
 }
 
-func (h *Handler) GetAnchorFromContext() (*authpf.AuthPFAnchor, *validation.ValidationError) {
+func (h *Handler) GetAnchorFromContext() (*authpf.AuthPFAnchor, *errors.APIError) {
 	anchor := &authpf.AuthPFAnchor{}
 
 	authpf_username, err := h.resolveAnchorUsername()
@@ -283,7 +283,7 @@ func (h *Handler) GetAnchorFromContext() (*authpf.AuthPFAnchor, *validation.Vali
 
 	expireAt, err1 := exec.CalculateAnchorExpire(timeout)
 	if err1 != nil {
-		return nil, &validation.ValidationError{
+		return nil, &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
 			Message:        "Unable to set Anchor for user",
@@ -302,7 +302,7 @@ func (h *Handler) GetAnchorFromContext() (*authpf.AuthPFAnchor, *validation.Vali
 }
 
 // Extract the Anchor Username from Request (query)
-func (h *Handler) resolveAnchorUsername() (string, *validation.ValidationError) {
+func (h *Handler) resolveAnchorUsername() (string, *errors.APIError) {
 	reqUser, err := h.sessionUsername()
 	if err != nil {
 		return "", err
@@ -314,7 +314,7 @@ func (h *Handler) resolveAnchorUsername() (string, *validation.ValidationError) 
 	return reqUser, nil
 }
 
-func (h *Handler) resolveAnchorTimeout() (string, *validation.ValidationError) {
+func (h *Handler) resolveAnchorTimeout() (string, *errors.APIError) {
 	reqTimeout := h.ctx.QueryParam("timeout")
 	if len(reqTimeout) > 0 {
 		if err := exec.ValidateTimeout(reqTimeout); err != nil {

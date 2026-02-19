@@ -14,7 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
-	"github.com/scd-systems/authpf-api/internal/validation"
+	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/pkg/config"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -226,9 +226,9 @@ func (a *Auth) validateUsername(username string) error {
 
 // CheckPermission checks if a user has a specific permission
 // Returns a ValidationError if the user doesn't have the permission
-func (a *Auth) checkPermission(username string, permission string) *validation.ValidationError {
+func (a *Auth) checkPermission(username string, permission string) *errors.APIError {
 	if err := a.validateUserPermissions(username, permission); err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			StatusCode: http.StatusForbidden,
 			Message:    "permission denied",
 			Details:    err.Error(),
@@ -241,7 +241,7 @@ func (a *Auth) checkPermission(username string, permission string) *validation.V
 // If requestedUser is empty or equals the session user, returns the session user
 // If requestedUser differs from session user, checks if the session user has permission to operate on other users
 // Returns the resolved username or a ValidationError
-func (a *Auth) ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requiredPermission string) (string, *validation.ValidationError) {
+func (a *Auth) ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requiredPermission string) (string, *errors.APIError) {
 	// If no specific user requested, use session user
 	if requestedUser == "" || requestedUser == sessionUser {
 		return sessionUser, nil
@@ -261,9 +261,9 @@ func (a *Auth) ResolveTargetUser(c echo.Context, sessionUser, requestedUser stri
 	return requestedUser, nil
 }
 
-func (a *Auth) validateUsernameWithResponse(username string) *validation.ValidationError {
+func (a *Auth) validateUsernameWithResponse(username string) *errors.APIError {
 	if err := a.validateUsername(username); err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			StatusCode: http.StatusBadRequest,
 			Message:    "invalid username",
 			Details:    err.Error(),

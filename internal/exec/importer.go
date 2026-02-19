@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/scd-systems/authpf-api/internal/authpf"
-	"github.com/scd-systems/authpf-api/internal/validation"
+	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
@@ -104,9 +104,9 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 }
 
 // Check for valid AuthPF Timeout string
-func ValidateTimeout(timeoutStr string) *validation.ValidationError {
+func ValidateTimeout(timeoutStr string) *errors.APIError {
 	if timeoutStr == "" {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "Missing timeout validation parameter",
@@ -116,7 +116,7 @@ func ValidateTimeout(timeoutStr string) *validation.ValidationError {
 
 	d, err := time.ParseDuration(timeoutStr)
 	if err != nil {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "invalid timeout format",
@@ -125,7 +125,7 @@ func ValidateTimeout(timeoutStr string) *validation.ValidationError {
 	}
 
 	if d < time.Minute {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "timeout must be at least 1 minute",
@@ -134,7 +134,7 @@ func ValidateTimeout(timeoutStr string) *validation.ValidationError {
 	}
 
 	if d > 24*time.Hour {
-		return &validation.ValidationError{
+		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,
 			Message:        "timeout cannot exceed 24 hours",
