@@ -14,7 +14,7 @@ func GeneratePasswordHash(clearTextPassword string) (string, error) {
 	sha256Hash := sha256.Sum256([]byte(clearTextPassword))
 
 	if len(sha256Hash) != 32 {
-		return "", fmt.Errorf("Something went wrong during password generation")
+		return "", fmt.Errorf("something went wrong during password generation")
 	}
 	pwHash := fmt.Sprintf("%x", sha256Hash)
 

@@ -191,12 +191,12 @@ func (a *Auth) checkUserAndPassword(username string, clearTextPassword string) e
 func (a *Auth) validateUserPermissions(username string, permission string) error {
 	user, ok := a.config.Rbac.Users[username]
 	if !ok {
-		return fmt.Errorf("User %q not found", username)
+		return fmt.Errorf("user %q not found", username)
 	}
 
 	role, ok := a.config.Rbac.Roles[user.Role]
 	if !ok {
-		return fmt.Errorf("Role %q for user %q does not exists", user.Role, username)
+		return fmt.Errorf("role %q for user %q does not exists", user.Role, username)
 	}
 
 	for _, p := range role.Permissions {
@@ -204,7 +204,7 @@ func (a *Auth) validateUserPermissions(username string, permission string) error
 			return nil
 		}
 	}
-	return fmt.Errorf("User %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
+	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
 }
 
 // validateUsername check for valid username

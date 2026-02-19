@@ -34,7 +34,7 @@ func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *
 
 func (h *Handler) AddToDB(r *authpf.AuthPFAnchor) error {
 	if h.db.IsActivated(r.Username) {
-		return fmt.Errorf("Anchor for user: %s already activated", r.Username)
+		return fmt.Errorf("anchor for user: %s already activated", r.Username)
 	}
 	h.db.Add(r)
 	return nil
@@ -206,7 +206,7 @@ func (h *Handler) HandleDeleteDeactivate(c echo.Context) error {
 	}
 
 	// Check if user/anchor already activated
-	check, err := h.CheckAnchorIsActivated()
+	check, _ := h.CheckAnchorIsActivated()
 	if !check {
 		msg := "User anchor not active"
 		h.ctx.Set("authpf", fmt.Sprintf("Deactivated authpf anchor: user=%s, user_ip=%s, user_id=%d", anchor.Username, anchor.UserIP, anchor.UserID))

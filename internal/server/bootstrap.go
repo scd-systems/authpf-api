@@ -220,7 +220,7 @@ func (s *Server) getLogWriter() (io.Writer, error) {
 	if s.config.Server.Logfile != "" {
 		file, err := os.OpenFile(s.config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
-			return os.Stdout, fmt.Errorf("Failed to open file: %s", err.Error())
+			return os.Stdout, fmt.Errorf("failed to open file: %s", err.Error())
 		}
 		return file, nil
 	}

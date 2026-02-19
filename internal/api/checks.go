@@ -210,7 +210,7 @@ func resolvePermission(sessionUsername, authpfUsername, action string) (string, 
 			permission = config.RBAC_GET_STATUS_OWN_RULE
 		}
 	default:
-		return permission, fmt.Errorf("Session action: %s cannot be used", action)
+		return permission, fmt.Errorf("session action: %s cannot be used", action)
 	}
 	return permission, nil
 }
@@ -219,12 +219,12 @@ func (h *Handler) validateUserPermissions(username string, permission string) er
 
 	user, ok := h.config.Rbac.Users[username]
 	if !ok {
-		return fmt.Errorf("User %q not found", username)
+		return fmt.Errorf("user %q not found", username)
 	}
 
 	role, ok := h.config.Rbac.Roles[user.Role]
 	if !ok {
-		return fmt.Errorf("Role %q for user %q does not exists", user.Role, username)
+		return fmt.Errorf("role %q for user %q does not exists", user.Role, username)
 	}
 
 	for _, p := range role.Permissions {
@@ -233,7 +233,7 @@ func (h *Handler) validateUserPermissions(username string, permission string) er
 		}
 	}
 
-	return fmt.Errorf("User %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
+	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
 }
 
 func (h *Handler) CheckSessionUserIP() *validation.ValidationError {

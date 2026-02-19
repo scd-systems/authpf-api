@@ -33,7 +33,7 @@ func (a *AnchorsDB) Remove(username string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Not found username in DB: %s", username)
+	return fmt.Errorf("username not found in DB: %s", username)
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
@@ -47,7 +47,7 @@ func (a *AnchorsDB) IsActivated(username string) bool {
 
 func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*AuthPFAnchor, error) {
 	if len(username) < 1 || len(timeout) < 1 || len(userIp) < 1 || userId < 0 || userId > 65535 {
-		return &AuthPFAnchor{}, fmt.Errorf("Missing or wrong parameter SetAnchor() func")
+		return &AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
 	}
 
 	return &AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
