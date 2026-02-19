@@ -5,11 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/api"
 	"github.com/scd-systems/authpf-api/internal/auth"
