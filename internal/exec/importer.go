@@ -61,14 +61,8 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 			continue
 		}
 
-		// Validate Username
-		if !ValidateUserInConfig(*e.config, username) {
-			e.logger.Debug().Msgf("Import: User %s is not configured, anchor ignored", username)
-			continue
-		}
-
-		// Validate UserID
-		if !ValidateUserIDInConfig(*e.config, username, uid) {
+		// Validate Username and UserID
+		if !validateUserAndIDConfig(*e.config, username, uid) {
 			e.logger.Debug().Msgf("Import: UserID %d from User %s mismatch, anchor ignored", uid, username)
 			continue
 		}
@@ -148,21 +142,8 @@ func ValidateTimeout(timeoutStr string) *errors.APIError {
 	return nil
 }
 
-// Check if user is Configured
-func ValidateUserInConfig(config config.ConfigFile, username string) bool {
-	if len(username) < 1 {
-		return false
-	}
-	for idx := range config.Rbac.Users {
-		if idx == username {
-			return true
-		}
-	}
-	return false
-}
-
 // Check UserID
-func ValidateUserIDInConfig(config config.ConfigFile, username string, userid int) bool {
+func validateUserAndIDConfig(config config.ConfigFile, username string, userid int) bool {
 	for idx, v := range config.Rbac.Users {
 		if idx == username && v.UserID == userid {
 			return true
