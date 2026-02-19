@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Project file structure, created packages
+- Import anchors: existing anchor with username and userid must match
 
 ### Fixed
 - Bugs
