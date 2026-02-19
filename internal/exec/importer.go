@@ -61,12 +61,16 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 			continue
 		}
 
-		// TODO: Check if return error is OK, just skip and continue
 		// Validate Username
 		if !ValidateUserInConfig(*e.config, username) {
 			e.logger.Debug().Msgf("Import: User %s is not configured, anchor ignored", username)
 			continue
-			// return fmt.Errorf("User already activated")
+		}
+
+		// Validate UserID
+		if !ValidateUserIDInConfig(*e.config, username, uid) {
+			e.logger.Debug().Msgf("Import: UserID %d from User %s mismatch, anchor ignored", uid, username)
+			continue
 		}
 
 		// TODO: Check if return error is OK, just skip and continue
@@ -151,6 +155,16 @@ func ValidateUserInConfig(config config.ConfigFile, username string) bool {
 	}
 	for idx := range config.Rbac.Users {
 		if idx == username {
+			return true
+		}
+	}
+	return false
+}
+
+// Check UserID
+func ValidateUserIDInConfig(config config.ConfigFile, username string, userid int) bool {
+	for idx, v := range config.Rbac.Users {
+		if idx == username && v.UserID == userid {
 			return true
 		}
 	}
