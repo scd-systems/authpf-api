@@ -40,9 +40,6 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 	// Process expired rules
 	for _, r := range expiredRules {
 		s.logger.Info().Msgf("Rule timeout detected, removed authpf anchors for user: %s", r.Username)
-		if err := s.db.Remove(r.Username); err != nil {
-			s.logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
-		}
 		e := exec.New(s.logger, &s.config, s.db)
 		multiResult := e.UnloadAuthPFAnchor(r)
 		for i, result := range multiResult.Results {
@@ -52,6 +49,9 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 		}
 		if multiResult.Error != nil {
 			s.logger.Error().Msgf("Failed to unload authpf anchors from user: %s", r.Username)
+		}
+		if err := s.db.Remove(r.Username); err != nil {
+			s.logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
 		}
 	}
 }
