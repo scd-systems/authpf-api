@@ -120,12 +120,15 @@ func (a *Auth) Login(c echo.Context) error {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "authpf-api",
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(a.jwtSecret)
 	if err != nil {
+		a.logger.Error().Str("user", req.Username).Msg("failed to generate JWT token")
 		c.Set("auth", fmt.Sprintf("Token generation failed: %v", err))
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}
@@ -138,27 +141,103 @@ func (a *Auth) JwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		auth := c.Request().Header.Get("Authorization")
 		if auth == "" {
+			a.logger.Debug().Str("ip", c.RealIP()).Msg("missing authorization header")
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "missing authorization header"})
 		}
 
 		if len(auth) < 7 || auth[:7] != "Bearer " {
+			a.logger.Debug().Str("ip", c.RealIP()).Msg("invalid authorization format")
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid authorization format"})
 		}
 
 		tokenString := auth[7:]
-		claims := &JWTClaims{}
-
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return a.jwtSecret, nil
-		})
-
-		if err != nil || !token.Valid {
+		if len(tokenString) > 4096 {
+			a.logger.Debug().Str("ip", c.RealIP()).Msg("token too long")
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid token"})
 		}
 
+		claims := &JWTClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				msg := fmt.Sprintf("invalid signing algorithm: %v", token.Header["alg"])
+				return nil, fmt.Errorf("%s", msg)
+			}
+
+			if token.Method.Alg() != "HS256" {
+				msg := fmt.Sprintf("unsupported algorithm: %s", token.Method.Alg())
+				return nil, fmt.Errorf("%s", msg)
+			}
+
+			return a.jwtSecret, nil
+		})
+		if err != nil {
+			a.logger.Debug().Str("ip", c.RealIP()).Msgf("token parsing failed: %s", err)
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid token"})
+		}
+
+		if !token.Valid {
+			a.logger.Debug().Str("ip", c.RealIP()).Msg("token is not valid")
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid token"})
+		}
+
+		if err := a.validateJWTClaims(claims, c.RealIP()); err != nil {
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+		}
+
 		c.Set("username", claims.Username)
+		a.logger.Debug().Str("user", claims.Username).Str("ip", c.RealIP()).Msg("JWT token validated successfully")
+
 		return next(c)
 	}
+}
+
+// validateJWTClaims performs comprehensive validation of JWT claims
+func (a *Auth) validateJWTClaims(claims *JWTClaims, clientIP string) error {
+	if claims.Username == "" {
+		a.logger.Debug().Str("ip", clientIP).Msg("empty username in JWT claims")
+		return fmt.Errorf("invalid username in token")
+	}
+
+	if len(claims.Username) > 255 {
+		a.logger.Debug().Str("ip", clientIP).Msg("username too long in JWT claims")
+		return fmt.Errorf("invalid username in token")
+	}
+
+	if claims.ExpiresAt != nil {
+		if claims.ExpiresAt.Before(time.Now()) {
+			a.logger.Debug().Str("user", claims.Username).Str("ip", clientIP).Msg("token expired")
+			return fmt.Errorf("token expired")
+		}
+	} else {
+		a.logger.Debug().Str("ip", clientIP).Msg("missing expiration in JWT claims")
+		return fmt.Errorf("invalid token: missing expiration")
+	}
+
+	if claims.IssuedAt != nil {
+		if claims.IssuedAt.After(time.Now().Add(60 * time.Second)) {
+			a.logger.Debug().Str("user", claims.Username).Str("ip", clientIP).Msg("token issued in the future")
+			return fmt.Errorf("invalid token: issued in future")
+		}
+	}
+
+	if claims.NotBefore != nil {
+		if claims.NotBefore.After(time.Now().Add(60 * time.Second)) {
+			a.logger.Debug().Str("user", claims.Username).Str("ip", clientIP).Msg("token not yet valid")
+			return fmt.Errorf("token not yet valid")
+		}
+	}
+	if claims.Issuer != "authpf-api" {
+		a.logger.Debug().Str("user", claims.Username).Str("ip", clientIP).Msgf("wrong issuer claim: %s", claims.Issuer)
+		return fmt.Errorf("invalid issuer claim")
+	}
+
+	if _, ok := a.config.Rbac.Users[claims.Username]; !ok {
+		a.logger.Debug().Str("user", claims.Username).Str("ip", clientIP).Msg("user not found in configuration")
+		return fmt.Errorf("user not found")
+	}
+
+	return nil
 }
 
 func (a *Auth) checkUserAndPassword(username string, clearTextPassword string) error {
