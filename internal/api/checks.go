@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -309,15 +310,27 @@ func (h *Handler) resolveAnchorUsername(c echo.Context) (string, *errors.APIErro
 		return "", err
 	}
 	queryUser := c.QueryParam("authpf_username")
-	if len(queryUser) > 1 {
+	if queryUser != "" {
+		if err = h.validateUsername(queryUser); err != nil {
+			return "", err
+		}
 		return queryUser, nil
 	}
 	return reqUser, nil
 }
 
+// Resolve the Timeout from request if available, use default instead
 func (h *Handler) resolveAnchorTimeout(c echo.Context) (string, *errors.APIError) {
 	reqTimeout := c.QueryParam("timeout")
-	if len(reqTimeout) > 0 {
+	if reqTimeout != "" {
+		if len(reqTimeout) > 10 {
+			return "", &errors.APIError{
+				HttpStatusCode: http.StatusBadRequest,
+				StatusCode:     -1,
+				Message:        "timeout parameter too long",
+				Details:        "maximum 10 characters allowed",
+			}
+		}
 		if err := exec.ValidateTimeout(reqTimeout); err != nil {
 			return "", err
 		}
@@ -331,4 +344,26 @@ func (h *Handler) getUserID(username string) int {
 		return user.UserID
 	}
 	return 0
+}
+
+// Validate the username string and if exist
+func (h *Handler) validateUsername(username string) *errors.APIError {
+	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
+		return &errors.APIError{
+			HttpStatusCode: http.StatusBadRequest,
+			StatusCode:     -1,
+			Message:        "invalid username format",
+			Details:        "username contains invalid characters",
+		}
+	}
+
+	if _, ok := h.config.Rbac.Users[username]; !ok {
+		return &errors.APIError{
+			HttpStatusCode: http.StatusBadRequest,
+			StatusCode:     -1,
+			Message:        "user not found",
+			Details:        "requested user does not exist",
+		}
+	}
+	return nil
 }
