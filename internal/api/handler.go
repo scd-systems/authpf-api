@@ -102,9 +102,17 @@ func (h *Handler) HandlePostActivate(c echo.Context) error {
 
 	// Store status into DB
 	if err := h.AddToDB(anchor); err != nil {
-		msg := "Unable to store user into Session DB"
+		msg := "Unable to store user into Session DB, rollback anchor activation"
 		h.ctx.Set("authpf", msg)
-		// TODO: Add undo command for exec (remove anchor again)
+		h.logger.Info().Msg(msg)
+
+		if err := h.CallExecDeactivateAnchor(anchor); err != nil {
+			h.ctx.Set("authpf", err.Message)
+			h.logger.Info().Msgf("failed to rollback anchor deactivation: %s", err.Message)
+			h.logger.Debug().Msgf("error in anchor deactivation: %s", err.Details)
+			return h.ctx.JSON(err.HttpStatusCode, echo.Map{"status": "failed", "message": err.Details})
+		}
+
 		return h.ctx.JSON(http.StatusInternalServerError, echo.Map{"status": "failed", "message": msg})
 	}
 

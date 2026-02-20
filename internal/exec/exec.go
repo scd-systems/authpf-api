@@ -164,8 +164,6 @@ func (e *Exec) buildPfctlActivateCmdParameters(r *authpf.AuthPFAnchor) []string 
 	userID := fmt.Sprintf("user_id=%d", r.UserID)
 	rulePath, err := e.buildAuthPFAnchorPath(r.Username)
 	if err != nil {
-		// TODO: Check Log output
-		// log.Errorf(err.Error())
 		e.logger.Error().Msg(err.Error())
 		return []string{}
 	}
