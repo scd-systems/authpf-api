@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -54,6 +55,7 @@ func TestValidateJWTClaims(t *testing.T) {
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
 					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -66,6 +68,7 @@ func TestValidateJWTClaims(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "10.0.0.1",
@@ -142,6 +145,7 @@ func TestValidateJWTClaims(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now().Add(30 * time.Second)),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -169,6 +173,7 @@ func TestValidateJWTClaims(t *testing.T) {
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
 					NotBefore: jwt.NewNumericDate(time.Now().Add(30 * time.Second)),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -181,6 +186,7 @@ func TestValidateJWTClaims(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -193,6 +199,8 @@ func TestValidateJWTClaims(t *testing.T) {
 				Username: "validuser",
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "172.16.0.1",
@@ -205,6 +213,7 @@ func TestValidateJWTClaims(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Second)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -217,6 +226,7 @@ func TestValidateJWTClaims(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -271,14 +281,16 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 		{
 			name: "Username with exactly 255 characters",
 			claims: &JWTClaims{
-				Username: "user",
+				Username: string(make([]byte, 255)),
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
-			expectError: false,
-			description: "Should accept username with exactly 255 characters",
+			expectError: true,
+			description: "Should reject username with exactly 255 null characters (not a valid user)",
 		},
 		{
 			name: "Expiration exactly at current time",
@@ -287,6 +299,7 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now()),
 					IssuedAt:  jwt.NewNumericDate(time.Now().Add(-1 * time.Second)),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -300,6 +313,7 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -314,6 +328,7 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
 					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -326,6 +341,8 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 				Username: "user",
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
@@ -338,6 +355,8 @@ func TestValidateJWTClaimsEdgeCases(t *testing.T) {
 				Username: "user",
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "127.0.0.1",
@@ -394,6 +413,7 @@ func TestValidateJWTClaimsWithNilPointers(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: nil,
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -407,6 +427,7 @@ func TestValidateJWTClaimsWithNilPointers(t *testing.T) {
 				RegisteredClaims: jwt.RegisteredClaims{
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  nil,
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -421,6 +442,7 @@ func TestValidateJWTClaimsWithNilPointers(t *testing.T) {
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
 					NotBefore: nil,
+					Issuer:    "authpf-api",
 				},
 			},
 			clientIP:    "192.168.1.1",
@@ -485,7 +507,7 @@ func TestValidateJWTClaimsPerformance(t *testing.T) {
 	// Create config with many users
 	users := make(map[string]config.ConfigFileRbacUsers)
 	for i := 0; i < 1000; i++ {
-		username := "user" + string(rune(i))
+		username := "user" + fmt.Sprintf("%d", i)
 		users[username] = config.ConfigFileRbacUsers{
 			Password: "hash",
 			Role:     "user",
@@ -514,6 +536,7 @@ func TestValidateJWTClaimsPerformance(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "authpf-api",
 		},
 	}
 
