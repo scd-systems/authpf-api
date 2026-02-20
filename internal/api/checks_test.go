@@ -107,7 +107,7 @@ func TestHandler_GetUserID(t *testing.T) {
 	}
 }
 
-// TestHandler_SessionUsername tests session username extraction
+// TestHandler_SessionUsername
 func TestHandler_SessionUsername(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -116,13 +116,12 @@ func TestHandler_SessionUsername(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 	}
 
 	// Test with valid username
 	c.Set("username", "testuser")
-	username, err := handler.sessionUsername()
+	username, err := handler.sessionUsername(c)
 
 	if err != nil {
 		assert.NoError(t, err)
@@ -131,7 +130,7 @@ func TestHandler_SessionUsername(t *testing.T) {
 	assert.Equal(t, "testuser", username)
 }
 
-// TestHandler_SessionUsername_Missing tests session username extraction with missing username
+// TestHandler_SessionUsername_Missing
 func TestHandler_SessionUsername_Missing(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -140,19 +139,18 @@ func TestHandler_SessionUsername_Missing(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 	}
 
 	// Test with missing username
-	username, err := handler.sessionUsername()
+	username, err := handler.sessionUsername(c)
 
 	assert.Error(t, err)
 	assert.Empty(t, username)
 	assert.Equal(t, http.StatusUnauthorized, err.HttpStatusCode)
 }
 
-// TestHandler_CheckSessionUsername tests session username check
+// TestHandler_CheckSessionUsername
 func TestHandler_CheckSessionUsername(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -161,20 +159,19 @@ func TestHandler_CheckSessionUsername(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 	}
 
 	// Test with valid username
 	c.Set("username", "testuser")
-	err := handler.CheckSessionUsername()
+	err := handler.CheckSessionUsername(c)
 
 	if err != nil {
 		assert.NoError(t, err)
 	}
 }
 
-// TestHandler_CheckSessionUsername_Invalid tests session username check with invalid username
+// TestHandler_CheckSessionUsername_Invalid
 func TestHandler_CheckSessionUsername_Invalid(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -183,18 +180,17 @@ func TestHandler_CheckSessionUsername_Invalid(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 	}
 
 	// Test with missing username
-	err := handler.CheckSessionUsername()
+	err := handler.CheckSessionUsername(c)
 
 	assert.Error(t, err)
 	assert.Equal(t, http.StatusUnauthorized, err.HttpStatusCode)
 }
 
-// TestHandler_CheckAnchorIsActivated_NotActivated tests anchor activation check when not activated
+// TestHandler_CheckAnchorIsActivated_NotActivated
 func TestHandler_CheckAnchorIsActivated_NotActivated(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -205,20 +201,18 @@ func TestHandler_CheckAnchorIsActivated_NotActivated(t *testing.T) {
 	db := authpf.New()
 
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 		db:     db,
 	}
 
 	c.Set("username", "testuser")
 
-	isActivated, _ := handler.CheckAnchorIsActivated()
+	isActivated, _ := handler.CheckAnchorIsActivated(c)
 
 	assert.False(t, isActivated)
-	// assert.NoError(t, err)
 }
 
-// TestHandler_CheckAnchorIsActivated_AlreadyActivated tests anchor activation check when already activated
+// TestHandler_CheckAnchorIsActivated_AlreadyActivated
 func TestHandler_CheckAnchorIsActivated_AlreadyActivated(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -238,36 +232,43 @@ func TestHandler_CheckAnchorIsActivated_AlreadyActivated(t *testing.T) {
 	db.Add(anchor)
 
 	handler := &Handler{
-		ctx:    c,
 		logger: logger,
 		db:     db,
 	}
 
 	c.Set("username", "testuser")
 
-	isActivated, err := handler.CheckAnchorIsActivated()
+	isActivated, err := handler.CheckAnchorIsActivated(c)
 
 	assert.True(t, isActivated)
 	assert.Error(t, err)
 	assert.Equal(t, http.StatusAlreadyReported, err.HttpStatusCode)
 }
 
-// TestHandler_ResolveAnchorUsername_SessionUser tests anchor username resolution with session user
+// TestHandler_ResolveAnchorUsername_SessionUser
 func TestHandler_ResolveAnchorUsername_SessionUser(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/?authpf_username=", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
+	cfg := &config.ConfigFile{
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000, Role: "user"},
+			},
+		},
+	}
+
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
+		config: cfg,
 		logger: logger,
 	}
 
 	c.Set("username", "testuser")
 
-	username, err := handler.resolveAnchorUsername()
+	username, err := handler.resolveAnchorUsername(c)
 
 	if err != nil {
 		assert.NoError(t, err)
@@ -275,29 +276,38 @@ func TestHandler_ResolveAnchorUsername_SessionUser(t *testing.T) {
 	assert.Equal(t, "testuser", username)
 }
 
-// TestHandler_ResolveAnchorUsername_QueryUser tests anchor username resolution with query parameter
+// TestHandler_ResolveAnchorUsername_QueryUser
 func TestHandler_ResolveAnchorUsername_QueryUser(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/?authpf_username=otheruser", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
+	cfg := &config.ConfigFile{
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser":  {UserID: 1000, Role: "user"},
+				"otheruser": {UserID: 2000, Role: "user"},
+			},
+		},
+	}
+
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
+		config: cfg,
 		logger: logger,
 	}
 
 	c.Set("username", "testuser")
 
-	username, err := handler.resolveAnchorUsername()
+	username, err := handler.resolveAnchorUsername(c)
 	if err != nil {
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, "otheruser", username)
 }
 
-// TestHandler_ResolveAnchorTimeout_Default tests anchor timeout resolution with default
+// TestHandler_ResolveAnchorTimeout_Default
 func TestHandler_ResolveAnchorTimeout_Default(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -312,19 +322,18 @@ func TestHandler_ResolveAnchorTimeout_Default(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		config: cfg,
 		logger: logger,
 	}
 
-	timeout, err := handler.resolveAnchorTimeout()
+	timeout, err := handler.resolveAnchorTimeout(c)
 	if err != nil {
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, "2h", timeout)
 }
 
-// TestHandler_ResolveAnchorTimeout_QueryParam tests anchor timeout resolution with query parameter
+// TestHandler_ResolveAnchorTimeout_QueryParam
 func TestHandler_ResolveAnchorTimeout_QueryParam(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/?timeout=1h", nil)
@@ -339,14 +348,63 @@ func TestHandler_ResolveAnchorTimeout_QueryParam(t *testing.T) {
 
 	logger := zerolog.New(os.Stderr)
 	handler := &Handler{
-		ctx:    c,
 		config: cfg,
 		logger: logger,
 	}
 
-	timeout, err := handler.resolveAnchorTimeout()
+	timeout, err := handler.resolveAnchorTimeout(c)
 	if err != nil {
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, "1h", timeout)
+}
+
+// TestHandler_ConcurrentRequests - Race Condition Test
+func TestHandler_ConcurrentRequests(t *testing.T) {
+	cfg := &config.ConfigFile{
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"user1": {UserID: 1000, Role: "user"},
+				"user2": {UserID: 2000, Role: "user"},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	results := make(chan string, 2)
+
+	// Request 1
+	go func() {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.Set("username", "user1")
+
+		username, _ := handler.sessionUsername(c)
+		results <- username
+	}()
+
+	// Request 2
+	go func() {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.Set("username", "user2")
+
+		username, _ := handler.sessionUsername(c)
+		results <- username
+	}()
+
+	result1 := <-results
+	result2 := <-results
+
+	assert.True(t, (result1 == "user1" && result2 == "user2") || (result1 == "user2" && result2 == "user1"),
+		"Expected user1 and user2, got %s and %s", result1, result2)
 }
