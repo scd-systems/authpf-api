@@ -6,9 +6,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
+	"github.com/scd-systems/authpf-api/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
 // TestValidateJWTClaims tests the validateJWTClaims method with various scenarios
