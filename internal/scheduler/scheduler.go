@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,17 +18,25 @@ type Scheduler struct {
 	db     *authpf.AnchorsDB
 	lock   *sync.Mutex
 	logger zerolog.Logger
-	config config.ConfigFile
+	config *config.ConfigFile
 }
 
-func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger) *Scheduler {
-	return &Scheduler{db: db, lock: lock, logger: logger}
+func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) *Scheduler {
+	return &Scheduler{db: db, lock: lock, logger: logger, config: config}
 }
 
 // cleanupExpiredRules checks and removes expired authpf anchors from the database.
 // This function must be called with the lock already held.
 func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 	s.logger.Trace().Msgf("Run recurrent authpf anchors expire check")
+
+	if len(s.config.Defaults.PfctlBinary) < 2 {
+		log.Fatalf("No pfctl binary configured")
+		os.Exit(1)
+	}
+
+	// Create Exec
+	e := exec.New(s.logger, s.config, s.db)
 
 	// Create a list of expired rules to avoid modifying map during iteration
 	var expiredRules []*authpf.AuthPFAnchor
@@ -40,7 +50,6 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 	// Process expired rules
 	for _, r := range expiredRules {
 		s.logger.Info().Msgf("Rule timeout detected, removed authpf anchors for user: %s", r.Username)
-		e := exec.New(s.logger, &s.config, s.db)
 		multiResult := e.UnloadAuthPFAnchor(r)
 		for i, result := range multiResult.Results {
 			s.logger.Trace().Msg(fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",

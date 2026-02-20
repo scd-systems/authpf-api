@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,8 +17,9 @@ func TestScheduler_New(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	assert.NotNil(t, scheduler)
 	assert.Equal(t, db, scheduler.db)
@@ -29,8 +31,10 @@ func TestScheduler_CleanupExpiredRules_NoExpiredRules(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add a non-expired rule
 	futureTime := time.Now().Add(1 * time.Hour)
@@ -56,8 +60,10 @@ func TestScheduler_CleanupExpiredRules_WithExpiredRules(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add an expired rule
 	pastTime := time.Now().Add(-1 * time.Hour)
@@ -85,8 +91,10 @@ func TestScheduler_CleanupExpiredRules_MultipleRules(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add multiple rules with different expiration times
 	pastTime := time.Now().Add(-1 * time.Hour)
@@ -127,8 +135,10 @@ func TestScheduler_CleanupExpiredRules_ZeroExpirationTime(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add a rule with zero expiration time (should not be cleaned up)
 	anchor := &authpf.AuthPFAnchor{
@@ -153,8 +163,10 @@ func TestScheduler_CleanupExpiredRules_ExactExpirationTime(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add a rule that expires at a specific time
 	expirationTime := time.Now()
@@ -180,8 +192,10 @@ func TestScheduler_CleanupExpiredRules_JustAfterExpirationTime(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add a rule that expires at a specific time
 	expirationTime := time.Now()
@@ -208,8 +222,10 @@ func TestScheduler_CleanupExpiredRules_EmptyDatabase(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Run cleanup on empty database
 	scheduler.cleanupExpiredRules(time.Now())
@@ -223,8 +239,10 @@ func TestScheduler_CleanupExpiredRules_AllExpired(t *testing.T) {
 	db := authpf.New()
 	lock := &sync.Mutex{}
 	logger := zerolog.New(os.Stderr)
+	cfg := config.New()
+	cfg.Defaults.PfctlBinary = "echo"
 
-	scheduler := New(db, lock, logger)
+	scheduler := New(db, lock, logger, cfg)
 
 	// Add multiple expired rules
 	pastTime := time.Now().Add(-1 * time.Hour)

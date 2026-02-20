@@ -120,7 +120,7 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	// Info Endpoint
 	e.GET("/info", info)
 
-	scheduler := scheduler.New(s.db, lock, s.logger)
+	scheduler := scheduler.New(s.db, lock, s.logger, s.config)
 	// Start background rule cleaner
 	go scheduler.Run()
 }
