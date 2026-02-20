@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Project file structure, created packages
 - Import anchors: existing anchor with username and userid must match
+- Rollback: Undo anchor activation in case an anchor activation is failing
 
 ### Fixed
 - Bugs
