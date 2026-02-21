@@ -348,6 +348,14 @@ func (h *Handler) getUserID(username string) int {
 
 // Validate the username string and if exist
 func (h *Handler) validateUsername(username string) *errors.APIError {
+	if len(username) > 255 {
+		return &errors.APIError{
+			HttpStatusCode: http.StatusBadRequest,
+			StatusCode:     -1,
+			Message:        "invalid username",
+			Details:        "username too long",
+		}
+	}
 	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,

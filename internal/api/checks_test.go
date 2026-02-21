@@ -408,3 +408,178 @@ func TestHandler_ConcurrentRequests(t *testing.T) {
 	assert.True(t, (result1 == "user1" && result2 == "user2") || (result1 == "user2" && result2 == "user1"),
 		"Expected user1 and user2, got %s and %s", result1, result2)
 }
+
+// TestHandler_ValidateUsername tests the validateUsername method with various scenarios
+func TestHandler_ValidateUsername(t *testing.T) {
+	tests := []struct {
+		name           string
+		username       string
+		users          map[string]config.ConfigFileRbacUsers
+		expectError    bool
+		expectedStatus int
+		expectedMsg    string
+		expectedDetail string
+	}{
+		// Valid usernames
+		{
+			name:        "valid simple username",
+			username:    "testuser",
+			users:       map[string]config.ConfigFileRbacUsers{"testuser": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with underscore",
+			username:    "test_user",
+			users:       map[string]config.ConfigFileRbacUsers{"test_user": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with hyphen",
+			username:    "test-user",
+			users:       map[string]config.ConfigFileRbacUsers{"test-user": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with numbers",
+			username:    "user123",
+			users:       map[string]config.ConfigFileRbacUsers{"user123": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with mixed case",
+			username:    "TestUser",
+			users:       map[string]config.ConfigFileRbacUsers{"TestUser": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with only underscore",
+			username:    "_",
+			users:       map[string]config.ConfigFileRbacUsers{"_": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid username with only hyphen",
+			username:    "-",
+			users:       map[string]config.ConfigFileRbacUsers{"-": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		{
+			name:        "valid complex username",
+			username:    "Test_User-123",
+			users:       map[string]config.ConfigFileRbacUsers{"Test_User-123": {UserID: 1000, Role: "user"}},
+			expectError: false,
+		},
+		// Invalid format
+		{
+			name:           "invalid username with @",
+			username:       "test@user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		{
+			name:           "invalid username with dot",
+			username:       "test.user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		{
+			name:           "invalid username with space",
+			username:       "test user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		{
+			name:           "invalid username with hash",
+			username:       "test#user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		{
+			name:           "invalid username with dollar",
+			username:       "test$user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		{
+			name:           "invalid username with slash",
+			username:       "test/user",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+		// Length validation
+		{
+			name:           "username too long (256 chars)",
+			username:       string(make([]byte, 256)),
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username",
+			expectedDetail: "username too long",
+		},
+		// User not found
+		{
+			name:           "user not found",
+			username:       "nonexistentuser",
+			users:          map[string]config.ConfigFileRbacUsers{"existinguser": {UserID: 1000, Role: "user"}},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "user not found",
+			expectedDetail: "requested user does not exist",
+		},
+		{
+			name:           "empty username",
+			username:       "",
+			users:          map[string]config.ConfigFileRbacUsers{},
+			expectError:    true,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "invalid username format",
+			expectedDetail: "username contains invalid characters",
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.ConfigFile{
+				Rbac: config.ConfigFileRbac{
+					Users: tt.users,
+				},
+			}
+
+			handler := &Handler{
+				config: cfg,
+				logger: logger,
+			}
+
+			err := handler.validateUsername(tt.username)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedStatus, err.HttpStatusCode)
+				assert.Equal(t, tt.expectedMsg, err.Message)
+				assert.Equal(t, tt.expectedDetail, err.Details)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
