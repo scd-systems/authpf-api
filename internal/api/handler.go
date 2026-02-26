@@ -12,7 +12,7 @@ import (
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
-const API_VERSION = "1.1"
+const API_VERSION = "1.2"
 
 type Handler struct {
 	db     *authpf.AnchorsDB
