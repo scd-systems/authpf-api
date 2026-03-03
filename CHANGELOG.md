@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project file structure, created packages, refactor and slice code
 - Import anchors: existing anchor with username and userid must match
 - Rollback: Undo anchor activation in case an anchor activation is failing
-- Bump Server API Version to 1.2 (authpf-api-cli version >= 2.4 required)
+- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.2.4 required)
 
 ### Fixed
 - Bugs
