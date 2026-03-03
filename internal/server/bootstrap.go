@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -105,7 +106,7 @@ func (s *Server) parseFlags() error {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("authpf-api version %s\n", Version)
+		DisplayVersionInfo()
 		os.Exit(0)
 	}
 
@@ -320,4 +321,23 @@ func readPasswordFromStdin() (string, error) {
 	}
 	password := strings.TrimSpace(string(data))
 	return password, nil
+}
+
+func DisplayVersionInfo() error {
+	info := struct {
+		ServerVersion string
+		APIVersion    string
+	}{
+		ServerVersion: Version,
+		APIVersion:    api.API_VERSION,
+	}
+
+	// Marshal to JSON and print
+	jsonData, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal version info to JSON: %w", err)
+	}
+
+	fmt.Println(string(jsonData))
+	return nil
 }
