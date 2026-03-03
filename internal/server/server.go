@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -11,19 +11,22 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"github.com/scd-systems/authpf-api/internal/api"
+	"github.com/scd-systems/authpf-api/internal/auth"
+	"github.com/scd-systems/authpf-api/internal/scheduler"
 )
 
 // setupServer configures the Echo server with middleware and routes
-func setupServer(e *echo.Echo) error {
+func (s *Server) SetupServer(e *echo.Echo) error {
 	// Suppress Echo's startup banner
 	e.HideBanner = true
-	checkSSL()
+	s.checkSSL()
 
 	// Add logger middleware to context
-	e.Use(loggerMiddleware())
+	e.Use(s.loggerMiddleware())
 
 	// Add request logging middleware
-	e.Use(requestLoggerMiddleware())
+	e.Use(s.requestLoggerMiddleware())
 
 	// Disable Echo's default logger (we use our own zerolog)
 	e.Logger.SetLevel(log.OFF)
@@ -39,29 +42,29 @@ func setupServer(e *echo.Echo) error {
 	}))
 
 	// Register routes
-	registerRoutes(e)
+	s.registerRoutes(e)
 
 	return nil
 }
 
-func checkSSL() {
-	if config.Server.SSL.Certificate == "" {
-		logger.Warn().Msg("⚠️ WARNING: Running without HTTPS. This is INSECURE!")
+func (s *Server) checkSSL() {
+	if s.config.Server.SSL.Certificate == "" {
+		s.logger.Warn().Msg("⚠️ WARNING: Running without HTTPS. This is INSECURE!")
 	}
 }
 
 // loggerMiddleware adds the zerolog logger to the Echo context
-func loggerMiddleware() echo.MiddlewareFunc {
+func (s *Server) loggerMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			c.Set("logger", logger)
+			c.Set("logger", s.logger)
 			return next(c)
 		}
 	}
 }
 
 // requestLoggerMiddleware logs incoming requests with details
-func requestLoggerMiddleware() echo.MiddlewareFunc {
+func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogURI:       true,
 		LogStatus:    true,
@@ -72,7 +75,7 @@ func requestLoggerMiddleware() echo.MiddlewareFunc {
 			username, _ := c.Get("username").(string)
 			authStatus, _ := c.Get("auth").(string)
 			authpfStatus, _ := c.Get("authpf").(string)
-			logEntry := logger.Info().
+			logEntry := s.logger.Info().
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
 				Str("URI", v.URI).
@@ -93,67 +96,73 @@ func requestLoggerMiddleware() echo.MiddlewareFunc {
 }
 
 // registerRoutes sets up all API endpoints
-func registerRoutes(e *echo.Echo) {
+func (s *Server) registerRoutes(e *echo.Echo) {
+	// Create handlers
+	handler := api.New(s.db, lock, s.logger, s.config)
+	auth := auth.New(s.config, s.logger, jwtSecret)
+
 	// Health check endpoint
 	e.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, echo.Map{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
-	e.POST("/login", login)
+	e.POST(ROUTE_LOGIN, auth.Login)
+	e.GET(ROUTE_LOGIN, handler.HandleGetLogin, auth.JwtMiddleware)
 
 	// AuthPF API endpoints (JWT required)
-	e.GET("/api/v1/authpf/activate", getLoadAuthPFAnchor, jwtMiddleware)
-	e.GET("/api/v1/authpf/all", getAllLoadAuthPFAnchors, jwtMiddleware)
-	e.POST("/api/v1/authpf/activate", activateAuthPFAnchor, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/activate", deactivateAuthPFAnchor, jwtMiddleware)
-	e.DELETE("/api/v1/authpf/all", deactivateAllAuthPFAnchors, jwtMiddleware)
+	e.GET(ROUTE_AUTHPF, handler.HandleGetActivate, auth.JwtMiddleware)
+	e.GET(ROUTE_AUTHPF_ALL, handler.HandleGetAllActivePFAnchors, auth.JwtMiddleware)
+	e.POST(ROUTE_AUTHPF, handler.HandlePostActivate, auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF, handler.HandleDeleteDeactivate, auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF_ALL, handler.HandleDeleteAllDeactivate, auth.JwtMiddleware)
 
 	// Info Endpoint
 	e.GET("/info", info)
 
+	scheduler := scheduler.New(s.db, lock, s.logger, s.config)
 	// Start background rule cleaner
-	go startRuleCleaner(logger)
+	go scheduler.Run()
 }
 
 // Start Graceful Server
-func startServerWithGracefulShutdown(e *echo.Echo) {
+func (s *Server) StartServerWithGracefulShutdown(e *echo.Echo) {
 	// Channel for OS signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	// Graceful shutdown as Goroutine
 	go func() {
-		s := <-quit
-		msg_debug := fmt.Sprintf("Received signal: %s", s)
-		logger.Debug().Msg(msg_debug)
-		logger.Info().Msg("Graceful shutdown initiated...")
-		if err := gracefulShutdown(e); err != nil {
-			logger.Error().Err(err).Msg("Shutdown error")
+		signal := <-quit
+		msg_debug := fmt.Sprintf("Received signal: %s", signal)
+		s.logger.Debug().Msg(msg_debug)
+		s.logger.Info().Msg("Graceful shutdown initiated...")
+		if err := s.gracefulShutdown(e); err != nil {
+			s.logger.Error().Err(err).Msg("Shutdown error")
 		}
 	}()
 
-	if err := startServer(e); err != nil {
-		logger.Error().Err(err).Msg("Server error")
+	if err := s.startServer(e); err != nil {
+		s.logger.Error().Err(err).Msg("Server error")
 		os.Exit(1)
 	}
 }
 
 // startServer starts the Echo server with or without TLS
-func startServer(e *echo.Echo) error {
-	addr := fmt.Sprintf("%s:%d", config.Server.Bind, config.Server.Port)
+func (s *Server) startServer(e *echo.Echo) error {
+	addr := fmt.Sprintf("%s:%d", s.config.Server.Bind, s.config.Server.Port)
 
 	protocol := "HTTP"
-	if config.Server.SSL.Certificate != "" {
+	if s.config.Server.SSL.Certificate != "" {
 		protocol = "HTTPS"
 	}
-	logger.Info().
+	s.logger.Info().
 		Str("protocol", protocol).
 		Str("address", addr).
 		Msg("server started")
 
-	if config.Server.SSL.Certificate != "" {
-		return e.StartTLS(addr, config.Server.SSL.Certificate, config.Server.SSL.Key)
+	if s.config.Server.SSL.Certificate != "" {
+		return e.StartTLS(addr, s.config.Server.SSL.Certificate, s.config.Server.SSL.Key)
 	}
 
 	return e.Start(addr)

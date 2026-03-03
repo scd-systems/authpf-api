@@ -1,62 +1,101 @@
-package main
+package server
 
 import (
 	"crypto/rand"
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
+	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
+	"github.com/scd-systems/authpf-api/internal/api"
+	"github.com/scd-systems/authpf-api/internal/auth"
+	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/internal/exec"
+	"github.com/scd-systems/authpf-api/pkg/config"
 	"golang.org/x/term"
 )
 
-var logger zerolog.Logger
+// Global flag storage for logger initialization
+var globalForeground bool
+var globalLogLevel string
+
+type Server struct {
+	config *config.ConfigFile
+	db     *authpf.AnchorsDB
+	logger zerolog.Logger
+}
+
+func NewServer() *Server {
+	config := config.New()
+	db := authpf.New()
+	return &Server{config: config, db: db}
+}
+
+func (s *Server) Start() {
+	// Bootstrap: Flags, Config, Validierung
+	if err := s.Bootstrap(); err != nil {
+		log.Fatalf("%s", err.Error())
+		os.Exit(1)
+	}
+
+	// Server: Setup and Start
+	e := echo.New()
+	if err := s.SetupServer(e); err != nil {
+		log.Fatalf("%s", err.Error())
+		os.Exit(1)
+	}
+	s.StartServerWithGracefulShutdown(e)
+}
 
 // bootstrap initializes the application: flags, config, JWT secret, SSL validation, and logger
-func bootstrap() error {
+func (s *Server) Bootstrap() (err error) {
 	// Parse command-line flags (includes config loading)
-	if err := parseFlags(); err != nil {
+	if err := s.parseFlags(); err != nil {
 		return err
 	}
 
 	// Initialize logger
-	if err := initializeLogger(); err != nil {
+	if err := s.initializeLogger(); err != nil {
 		return err
 	}
 
 	// Initialize JWT secret
-	if err := initializeJWTSecret(); err != nil {
+	if err := s.initializeJWTSecret(); err != nil {
 		return err
 	}
 
 	// Validate SSL files if enabled
-	if err := validateSSLFiles(config.Server.SSL.Certificate, config.Server.SSL.Key); err != nil {
+	if err := validateSSLFiles(s.config.Server.SSL.Certificate, s.config.Server.SSL.Key); err != nil {
 		return err
 	}
 
+	e := exec.New(s.logger, s.config, s.db)
+
 	// Import existing Anchors
-	if config.AuthPF.OnStartup == "import" {
-		if err := importAuthPF(); err != nil {
+	if s.config.AuthPF.OnStartup == "import" {
+		if err := e.ImportAuthPF(s.db); err != nil {
 			return err
 		}
 	}
-	if config.AuthPF.OnStartup == "importflush" {
-		if err := importAuthPF(); err != nil {
+	if s.config.AuthPF.OnStartup == "importflush" {
+		if err := e.ImportAuthPF(s.db); err != nil {
 			return err
 		}
-		if err := execUnloadAllAuthPFAnchors("API"); err != nil {
+		if err := e.ExecUnloadAllAuthPFAnchors("API", &s.logger, *s.config); err != nil {
 			return err
 		}
 	}
 
-	logger.Info().Str("version", Version).Str("API_Version", API_VERSION).Msg("authpf-api starting")
+	s.logger.Info().Str("version", Version).Str("API_Version", api.API_VERSION).Msg("authpf-api starting")
 	return nil
 }
 
 // parseFlags handles command-line flag parsing
-func parseFlags() error {
+func (s *Server) parseFlags() error {
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
 	version := flag.Bool("version", false, "Show version and exit")
 	genUserPassword := flag.Bool("gen-user-password", false, "Generate a bcrypt password hash (reads password from stdin)")
@@ -71,7 +110,7 @@ func parseFlags() error {
 	}
 
 	if *genUserPassword {
-		if err := generateUserPasswordHash(); err != nil {
+		if err := s.generateUserPasswordHash(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -87,11 +126,11 @@ func parseFlags() error {
 	} else if envCfg := os.Getenv("CONFIG_FILE"); envCfg != "" {
 		configFilePath = envCfg
 	} else {
-		configFilePath = CONFIG_FILE
+		configFilePath = config.CONFIG_FILE
 	}
 
 	if configFilePath != "" {
-		if err := config.loadConfig(configFilePath); err != nil {
+		if err := s.config.LoadConfig(configFilePath); err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 	}
@@ -103,9 +142,9 @@ func parseFlags() error {
 }
 
 // initializeJWTSecret sets up the JWT secret from config or generates a random one
-func initializeJWTSecret() error {
-	if config.Server.JwtSecret != "" {
-		jwtSecret = []byte(config.Server.JwtSecret)
+func (s *Server) initializeJWTSecret() error {
+	if s.config.Server.JwtSecret != "" {
+		jwtSecret = []byte(s.config.Server.JwtSecret)
 		return nil
 	}
 
@@ -116,12 +155,12 @@ func initializeJWTSecret() error {
 	}
 
 	jwtSecret = randomSecret
-	logger.Warn().Msg("⚠️ Generated random JWT secret (not persisted - configure jwtSecret in config file)")
+	s.logger.Warn().Msg("⚠️ Generated random JWT secret (not persisted - configure jwtSecret in config file)")
 	return nil
 }
 
 // initializeLogger sets up the zerolog logger based on configuration
-func initializeLogger() error {
+func (s *Server) initializeLogger() error {
 	// Priority: -v flag > LOG_LEVEL env var > default "info"
 	logLevel := globalLogLevel
 	if logLevel == "" {
@@ -136,7 +175,7 @@ func initializeLogger() error {
 		return fmt.Errorf("invalid log level: %w", err)
 	}
 
-	logWriter, err := getLogWriter()
+	logWriter, err := s.getLogWriter()
 	if err != nil {
 		return err
 	}
@@ -163,7 +202,7 @@ func initializeLogger() error {
 		},
 	}
 
-	logger = zerolog.New(consoleWriter).
+	s.logger = zerolog.New(consoleWriter).
 		With().
 		Timestamp().
 		Logger().
@@ -173,15 +212,15 @@ func initializeLogger() error {
 }
 
 // getLogWriter determines where logs should be written
-func getLogWriter() (io.Writer, error) {
+func (s *Server) getLogWriter() (io.Writer, error) {
 	if globalForeground {
 		return os.Stdout, nil
 	}
 
-	if config.Server.Logfile != "" {
-		file, err := os.OpenFile(config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+	if s.config.Server.Logfile != "" {
+		file, err := os.OpenFile(s.config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
-			return os.Stdout, fmt.Errorf("Failed to open file: %s", err.Error())
+			return os.Stdout, fmt.Errorf("failed to open file: %s", err.Error())
 		}
 		return file, nil
 	}
@@ -214,12 +253,8 @@ func validateSSLFiles(certPath, keyPath string) error {
 	return nil
 }
 
-// Global flag storage for logger initialization
-var globalForeground bool
-var globalLogLevel string
-
 // generateUserPasswordHash reads a password from stdin and generates a bcrypt hash
-func generateUserPasswordHash() error {
+func (s *Server) generateUserPasswordHash() error {
 	// Check if stdin is a terminal or piped
 	isTerminal := term.IsTerminal(int(os.Stdin.Fd()))
 
@@ -229,7 +264,7 @@ func generateUserPasswordHash() error {
 	if isTerminal {
 		// Interactive mode: prompt and read without echo
 		fmt.Fprint(os.Stderr, "Enter password: ")
-		password, err = readPasswordNoEcho()
+		password, err = s.readPasswordNoEcho()
 		if err != nil {
 			return fmt.Errorf("failed to read password: %w", err)
 		}
@@ -246,7 +281,7 @@ func generateUserPasswordHash() error {
 		return fmt.Errorf("password cannot be empty")
 	}
 
-	hash, err := GeneratePasswordHash(password)
+	hash, err := auth.GeneratePasswordHash(password)
 	if err != nil {
 		return fmt.Errorf("failed to generate password hash: %w", err)
 	}
@@ -256,7 +291,7 @@ func generateUserPasswordHash() error {
 }
 
 // readPasswordNoEcho reads a password from terminal without echoing it
-func readPasswordNoEcho() (string, error) {
+func (s *Server) readPasswordNoEcho() (string, error) {
 	// Disable terminal echo
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
@@ -264,7 +299,7 @@ func readPasswordNoEcho() (string, error) {
 	}
 	defer func() {
 		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
-			logger.Error().Msg("Cannot restore terminal")
+			s.logger.Error().Msg("Cannot restore terminal")
 		}
 	}()
 

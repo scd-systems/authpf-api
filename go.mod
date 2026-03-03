@@ -1,4 +1,4 @@
-module scd-systems.net/authpf-api
+module github.com/scd-systems/authpf-api
 
 go 1.25.5
 

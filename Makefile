@@ -15,7 +15,7 @@ SUPPORTED_OS := freebsd openbsd
 SUPPORTED_ARCH := amd64 arm64
 
 # Build flags
-LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
+LDFLAGS := -ldflags "-X github.com/scd-systems/authpf-api/internal/server.Version=$(VERSION)"
 
 # Default target - show help
 help:
@@ -58,7 +58,7 @@ help:
 build: clean
 	@echo "Building $(APP_NAME) for $(GOOS)/$(GOARCH)..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH) .
+	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH) cmd/main.go
 	@echo "✓ Build complete: $(BUILD_DIR)/$(APP_NAME)-$(GOOS)-$(GOARCH)"
 
 # Build for all supported OS/ARCH combinations
@@ -68,7 +68,7 @@ build-all: clean
 	@for os in $(SUPPORTED_OS); do \
 		for arch in $(SUPPORTED_ARCH); do \
 			echo "  Building $$os/$$arch..."; \
-			GOOS=$$os GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-$$os-$$arch . || exit 1; \
+			GOOS=$$os GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-$$os-$$arch cmd/main.go || exit 1; \
 		done; \
 	done
 	@echo "✓ All builds complete in $(DIST_DIR)/"
@@ -80,7 +80,7 @@ build-freebsd: clean
 	@mkdir -p $(DIST_DIR)
 	@for arch in $(SUPPORTED_ARCH); do \
 		echo "  Building freebsd/$$arch..."; \
-		GOOS=freebsd GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-freebsd-$$arch . || exit 1; \
+		GOOS=freebsd GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-freebsd-$$arch cmd/main.go || exit 1; \
 	done
 	@echo "✓ FreeBSD builds complete in $(DIST_DIR)/"
 	@ls -lh $(DIST_DIR)/$(APP_NAME)-freebsd-*
@@ -91,7 +91,7 @@ build-openbsd: clean
 	@mkdir -p $(DIST_DIR)
 	@for arch in $(SUPPORTED_ARCH); do \
 		echo "  Building openbsd/$$arch..."; \
-		GOOS=openbsd GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-openbsd-$$arch . || exit 1; \
+		GOOS=openbsd GOARCH=$$arch $(GO) build $(LDFLAGS) -o $(DIST_DIR)/$(APP_NAME)-openbsd-$$arch cmd/main.go || exit 1; \
 	done
 	@echo "✓ OpenBSD builds complete in $(DIST_DIR)/"
 	@ls -lh $(DIST_DIR)/$(APP_NAME)-openbsd-*

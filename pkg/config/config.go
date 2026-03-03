@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -8,7 +8,12 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-func (config *ConfigFile) loadConfig(configFile string) error {
+func New() *ConfigFile {
+	configFile := ConfigFile{}
+	return &configFile
+}
+
+func (c *ConfigFile) LoadConfig(configFile string) error {
 	info, err := os.Stat(configFile)
 	if err != nil {
 		return fmt.Errorf("cannot access config file: %v", err)
@@ -24,13 +29,13 @@ func (config *ConfigFile) loadConfig(configFile string) error {
 		return fmt.Errorf("cannot read config file: %v", err)
 	}
 
-	err = yaml.Unmarshal(yamlFile, config)
+	err = yaml.Unmarshal(yamlFile, c)
 	if err != nil {
 		return fmt.Errorf("cannot parse config file: %v", err)
 	}
 
-	// Validate required configuration sections
-	if err := config.validateRequiredSections(); err != nil {
+	// Validate Config
+	if err := c.validateRequiredSections(); err != nil {
 		return err
 	}
 
@@ -38,42 +43,42 @@ func (config *ConfigFile) loadConfig(configFile string) error {
 }
 
 // validateRequiredSections checks if all required configuration sections are defined
-func (config *ConfigFile) validateRequiredSections() error {
+func (c *ConfigFile) validateRequiredSections() error {
 	var missingFields []string
 
 	// Check defaults section
-	if config.Defaults.PfctlBinary == "" {
+	if c.Defaults.PfctlBinary == "" {
 		missingFields = append(missingFields, "defaults.pfctlBinary")
 	}
 
 	// Check server section
-	if config.Server.Bind == "" {
+	if c.Server.Bind == "" {
 		missingFields = append(missingFields, "server.bind")
 	}
-	if config.Server.Port == 0 {
+	if c.Server.Port == 0 {
 		missingFields = append(missingFields, "server.port")
 	}
-	if config.Server.Logfile == "" {
+	if c.Server.Logfile == "" {
 		missingFields = append(missingFields, "server.logfile")
 	}
-	if config.Server.ElevatorMode == "" {
+	if c.Server.ElevatorMode == "" {
 		missingFields = append(missingFields, "server.elevatorMode")
 	}
 
 	// Check authpf section
-	if config.AuthPF.Timeout == "" {
+	if c.AuthPF.Timeout == "" {
 		missingFields = append(missingFields, "authpf.timeout")
 	}
-	if config.AuthPF.UserRulesRootFolder == "" {
+	if c.AuthPF.UserRulesRootFolder == "" {
 		missingFields = append(missingFields, "authpf.userRulesRootFolder")
 	}
-	if config.AuthPF.UserRulesFile == "" {
+	if c.AuthPF.UserRulesFile == "" {
 		missingFields = append(missingFields, "authpf.userRulesFile")
 	}
-	if config.AuthPF.AnchorName == "" {
+	if c.AuthPF.AnchorName == "" {
 		missingFields = append(missingFields, "authpf.anchorName")
 	}
-	if len(config.AuthPF.FlushFilter) == 0 {
+	if len(c.AuthPF.FlushFilter) == 0 {
 		missingFields = append(missingFields, "authpf.flushFilter")
 	}
 
