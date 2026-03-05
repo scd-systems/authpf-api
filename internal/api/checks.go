@@ -268,6 +268,7 @@ func checkUserIP(ip string) *errors.APIError {
 	return nil
 }
 
+// Fill anchor struct by using context informations
 func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
 	anchor := &authpf.AuthPFAnchor{}
 
@@ -280,7 +281,12 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 	if err != nil {
 		return anchor, err
 	}
+
 	userIp := c.RealIP()
+	if configuredIP := h.getUserIP(authpf_username); configuredIP != "" {
+		userIp = configuredIP
+	}
+
 	userId := h.getUserID(authpf_username)
 
 	expireAt, err1 := exec.CalculateAnchorExpire(timeout)
@@ -303,7 +309,7 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 	return anchor, nil
 }
 
-// Extract the Anchor Username from Request (query)
+// Extract the authpf_username from request query. If query is empty, the session username will be used.
 func (h *Handler) resolveAnchorUsername(c echo.Context) (string, *errors.APIError) {
 	reqUser, err := h.sessionUsername(c)
 	if err != nil {
@@ -344,6 +350,13 @@ func (h *Handler) getUserID(username string) int {
 		return user.UserID
 	}
 	return 0
+}
+
+func (h *Handler) getUserIP(username string) string {
+	if user, ok := h.config.Rbac.Users[username]; ok && len(user.UserIP) > 0 {
+		return user.UserIP
+	}
+	return ""
 }
 
 // Validate the username string and if exist

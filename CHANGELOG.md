@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Unittests
 - Route GET method for /login to validate JWT's from authpf-api-cli
+- Fixed UserIP Support
+  Users can have a fixed IP defined now (remote IP will ignored if set)
+- Macro Support
+  Users can have user defined macros (see authpf-api.conf.sample)
 
 ### Changed
 - Project file structure, created packages, refactor and slice code

@@ -583,3 +583,270 @@ func TestHandler_ValidateUsername(t *testing.T) {
 		})
 	}
 }
+
+// TestHandler_GetUserIP tests the getUserIP method
+func TestHandler_GetUserIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		users    map[string]config.ConfigFileRbacUsers
+		expected string
+	}{
+		{
+			name:     "user exists with configured IP",
+			username: "user1",
+			users:    map[string]config.ConfigFileRbacUsers{"user1": {UserIP: "10.0.0.1"}},
+			expected: "10.0.0.1",
+		},
+		{
+			name:     "user exists with IPv6 address",
+			username: "user1",
+			users:    map[string]config.ConfigFileRbacUsers{"user1": {UserIP: "2001:db8::1"}},
+			expected: "2001:db8::1",
+		},
+		{
+			name:     "user exists with empty UserIP",
+			username: "user1",
+			users:    map[string]config.ConfigFileRbacUsers{"user1": {UserIP: ""}},
+			expected: "",
+		},
+		{
+			name:     "user does not exist",
+			username: "nonexistent",
+			users:    map[string]config.ConfigFileRbacUsers{"user1": {UserIP: "10.0.0.1"}},
+			expected: "",
+		},
+		{
+			name:     "empty username",
+			username: "",
+			users:    map[string]config.ConfigFileRbacUsers{"user1": {UserIP: "10.0.0.1"}},
+			expected: "",
+		},
+		{
+			name:     "empty users map",
+			username: "user1",
+			users:    map[string]config.ConfigFileRbacUsers{},
+			expected: "",
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.ConfigFile{
+				Rbac: config.ConfigFileRbac{
+					Users: tt.users,
+				},
+			}
+			handler := &Handler{
+				config: cfg,
+				logger: logger,
+			}
+
+			result := handler.getUserIP(tt.username)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestHandler_GetAnchorFromContext_UsesRealIP tests that RealIP is used when no UserIP is configured
+func TestHandler_GetAnchorFromContext_UsesRealIP(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	// Set RemoteAddr directly — Echo's RealIP() returns RemoteAddr (host part) when no proxy headers are trusted
+	req.RemoteAddr = "192.168.1.100:12345"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("username", "user1")
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{
+			Timeout: "1h",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"user1": {UserID: 1000, Role: "user", UserIP: ""},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.Nil(t, apiErr)
+	assert.NotNil(t, anchor)
+	assert.Equal(t, "user1", anchor.Username)
+	assert.Equal(t, "192.168.1.100", anchor.UserIP)
+	assert.Equal(t, 1000, anchor.UserID)
+	assert.Equal(t, "1h", anchor.Timeout)
+	assert.False(t, anchor.ExpiresAt.IsZero())
+}
+
+// TestHandler_GetAnchorFromContext_UsesConfiguredIP tests that configured UserIP overrides RealIP
+func TestHandler_GetAnchorFromContext_UsesConfiguredIP(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Real-IP", "192.168.1.100")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("username", "user1")
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{
+			Timeout: "2h",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"user1": {UserID: 42, Role: "user", UserIP: "10.10.10.10"},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.Nil(t, apiErr)
+	assert.NotNil(t, anchor)
+	assert.Equal(t, "user1", anchor.Username)
+	// Configured IP must override the request's RealIP
+	assert.Equal(t, "10.10.10.10", anchor.UserIP)
+	assert.Equal(t, 42, anchor.UserID)
+	assert.Equal(t, "2h", anchor.Timeout)
+	assert.False(t, anchor.ExpiresAt.IsZero())
+}
+
+// TestHandler_GetAnchorFromContext_QueryUser tests that authpf_username query param is respected
+func TestHandler_GetAnchorFromContext_QueryUser(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/?authpf_username=user2", nil)
+	req.Header.Set("X-Real-IP", "172.16.0.1")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("username", "admin")
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{
+			Timeout: "30m",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"admin": {UserID: 1, Role: "admin", UserIP: ""},
+				"user2": {UserID: 99, Role: "user", UserIP: ""},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.Nil(t, apiErr)
+	assert.NotNil(t, anchor)
+	assert.Equal(t, "user2", anchor.Username)
+	assert.Equal(t, "172.16.0.1", anchor.UserIP)
+	assert.Equal(t, 99, anchor.UserID)
+}
+
+// TestHandler_GetAnchorFromContext_MissingUsername tests error when no username in context
+func TestHandler_GetAnchorFromContext_MissingUsername(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	// No username set in context
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{Timeout: "1h"},
+		Rbac:   config.ConfigFileRbac{Users: map[string]config.ConfigFileRbacUsers{}},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.NotNil(t, apiErr)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.HttpStatusCode)
+	assert.NotNil(t, anchor) // returns empty anchor on error
+}
+
+// TestHandler_GetAnchorFromContext_InvalidTimeout tests error on invalid timeout query param
+func TestHandler_GetAnchorFromContext_InvalidTimeout(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/?timeout=notvalid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("username", "user1")
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{Timeout: "1h"},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"user1": {UserID: 1000, Role: "user"},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.NotNil(t, apiErr)
+	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
+	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
+	assert.NotNil(t, anchor)
+}
+
+// TestHandler_GetAnchorFromContext_TimeoutTooLong tests error when timeout param exceeds max length
+func TestHandler_GetAnchorFromContext_TimeoutTooLong(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/?timeout=12345678901", nil) // 11 chars > 10
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set("username", "user1")
+
+	cfg := &config.ConfigFile{
+		AuthPF: config.ConfigFileAuthPF{Timeout: "1h"},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"user1": {UserID: 1000, Role: "user"},
+			},
+		},
+	}
+
+	logger := zerolog.New(os.Stderr)
+	handler := &Handler{
+		config: cfg,
+		logger: logger,
+	}
+
+	anchor, apiErr := handler.GetAnchorFromContext(c)
+
+	assert.NotNil(t, apiErr)
+	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
+	assert.Equal(t, "timeout parameter too long", apiErr.Message)
+	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
+	assert.NotNil(t, anchor)
+}
