@@ -105,7 +105,7 @@ func (s *Server) parseFlags() error {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("authpf-api version %s\n", Version)
+		displayVersionInfo()
 		os.Exit(0)
 	}
 
