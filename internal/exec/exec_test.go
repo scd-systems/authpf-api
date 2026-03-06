@@ -476,7 +476,7 @@ func TestBuildPfctlActivateCmdParameters_WithMacros(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		macros         map[string]any
+		macros         map[string]string
 		expectedParams int
 		checkContains  []string
 	}{
@@ -488,19 +488,19 @@ func TestBuildPfctlActivateCmdParameters_WithMacros(t *testing.T) {
 		},
 		{
 			name:           "empty macros map",
-			macros:         map[string]any{},
+			macros:         map[string]string{},
 			expectedParams: 8,
 			checkContains:  []string{},
 		},
 		{
 			name:           "one macro",
-			macros:         map[string]any{"ext_if": "em0"},
+			macros:         map[string]string{"ext_if": "em0"},
 			expectedParams: 10, // 8 base + 2 for -D ext_if=em0
 			checkContains:  []string{"ext_if=em0"},
 		},
 		{
 			name:           "macro with integer value",
-			macros:         map[string]any{"max_conn": 100},
+			macros:         map[string]string{"max_conn": "100"},
 			expectedParams: 10,
 			checkContains:  []string{"max_conn=100"},
 		},
@@ -569,10 +569,10 @@ func TestBuildPfctlActivateCmdParameters_MultipleMacros(t *testing.T) {
 			Users: map[string]config.ConfigFileRbacUsers{
 				"testuser": {
 					UserID: 1000,
-					Macros: map[string]any{
+					Macros: map[string]string{
 						"ext_if":   "em0",
 						"int_if":   "em1",
-						"max_conn": 50,
+						"max_conn": "50",
 					},
 				},
 			},
