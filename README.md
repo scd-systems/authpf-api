@@ -16,6 +16,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 - 🔄 **Scheduled Cleanup** - Periodic cleanup of expired rules
 - 🏗️ **Cross-Platform Build** - Support for FreeBSD and OpenBSD on multiple architectures
 - 🧑‍💼 **Runs as User** - Runs as Non-Root User - Elevator tool (sudo/doas) support for running pfctl commands
+- 🎚️ **PF Macros** - User defined pf macro support
 
 ## Supported Platforms
 
@@ -109,10 +110,22 @@ The application is configured via a YAML configuration file. By default, it uses
 
 #### RBAC Section
 
+##### Roles
+
 | Parameter | Description |
 |-----------|-------------|
-| `rbac.roles` | Role definitions with associated permissions (e.g., admin, user). Each role defines what actions users with that role can perform. |
-| `rbac.users` | User account definitions with credentials and role assignments. Each user entry includes password hash, assigned role, and numeric user ID. |
+| `rbac.roles.<name>.permissions` | List of permission strings assigned to this role (e.g., `activate_own_rules`, `view_other_rules`). See [RBAC - Permissions](#rbac---permissions) for all available values. |
+
+##### Users
+
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| `rbac.users.<name>.password` | Bcrypt password hash for this user. Generate with `./authpf-api -gen-user-password`. | Yes |
+| `rbac.users.<name>.role` | Role assigned to this user. Must match a key defined under `rbac.roles`. | Yes |
+| `rbac.users.<name>.userId` | Numeric user ID used as the pf anchor suffix (e.g., `authpf/username(1001)`). Defaults to `0` if not set. | No |
+| `rbac.users.<name>.userIp` | Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used. | No |
+| `rbac.users.<name>.userRulesFile` | Override the global `authpf.userRulesFile` for this specific user. | No |
+| `rbac.users.<name>.macros` | Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl`. Must also be declared in the user's pf rules file. | No |
 
 ### Environment Variables
 
@@ -254,6 +267,71 @@ Authorization: Bearer <token>
 | `deactivate_other_rules` | Allow user to deactivate rules from other users |
 | `view_own_rules` | Allow user to view their own rules status |
 | `view_other_rules` | Allow user to view rules status from other users |
+
+## User IP and Macro Settings
+
+### User IP (`userIp`)
+
+By default, authpf-api uses the **remote client IP address** of the HTTP request as the `user_ip` macro value passed to `pfctl` when loading a user's anchor rules. This allows pf rules to dynamically reference the connecting client's IP.
+
+For scenarios where the client IP is dynamic, behind a NAT, or should be overridden for security reasons, you can **pin a static IP** per user via the `userIp` field in the RBAC user configuration:
+
+```yaml
+rbac:
+  users:
+    authpf-user1:
+      role: user
+      userId: 1001
+      userIp: 192.168.0.10   # fixed IP — client IP from the request is ignored
+```
+
+When `userIp` is set, the configured value is always passed as `-D user_ip=<value>` to `pfctl`, regardless of the actual source IP of the HTTP request. If `userIp` is omitted, the real client IP is used automatically.
+
+> **Note:** During anchor import on startup (`onStartup: import` / `importflush`), the `user_ip` cannot be recovered from pf and is set to `NaN/imported`. This has no functional impact — deactivation works without a valid IP.
+
+---
+
+### Macro Settings (`macros`)
+
+In addition to the built-in `user_ip` and `user_id` macros, authpf-api supports **arbitrary user-defined macros** per user. These are passed as additional `-D key=value` arguments to `pfctl` when the user's anchor is loaded, making them available inside the user's pf rules file.
+
+```yaml
+rbac:
+  users:
+    authpf-user1:
+      role: user
+      userId: 1001
+      macros:
+        server_1_port: 22
+        server_1_addr: 10.127.2.1
+```
+
+The above configuration results in the following `pfctl` invocation (simplified):
+
+```sh
+pfctl -a authpf/authpf-user1(1001) \
+  -D user_ip=<client_ip> \
+  -D user_id=1001 \
+  -D server_1_port=22 \
+  -D server_1_addr=10.127.2.1 \
+  -f /etc/authpf/users/authpf-user1/authpf.rules
+```
+
+The macros must also be declared and used inside the corresponding `authpf.rules` file of the user:
+
+```
+server_1_port = $server_1_port
+server_1_addr = $server_1_addr
+
+pass in proto tcp from $user_ip to $server_1_addr port $server_1_port
+```
+
+> **Important:** When using `elevatorMode: sudo`, the sudoers `Cmnd_Alias` must be updated to allow the additional `-D` arguments. Use a broad regex pattern to cover all macro key/value pairs:
+> ```
+> /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -D [a-zA-Z0-9_-]+=[a-zA-Z0-9_.+-]+ -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$
+> ```
+
+---
 
 ## Setup PF
 
