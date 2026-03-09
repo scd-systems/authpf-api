@@ -6,25 +6,30 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
 // Validate ConfigFile Values
-func (s *Server) validateConfig() error {
-
+func (s *Server) validateConfig() (err error) {
 	// Validate all macro fields from config file
 	for k := range s.config.Rbac.Users {
-		if err := validateIPAddr(s.config.Rbac.Users[k].UserIP); err != nil {
+		if err = validateIPAddr(s.config.Rbac.Users[k].UserIP); err != nil {
 			return err
 		}
 		for mkey, mvalue := range s.config.Rbac.Users[k].Macros {
-			if err := validateLength(mkey, 1, 128); err != nil {
+			if err = validateLength(mkey, 1, 128); err != nil {
 				return err
 			}
-			if err := validateLength(mvalue, 1, 128); err != nil {
+			if err = validateLength(mvalue, 1, 128); err != nil {
 				return err
 			}
-			if err := validateAlphanumericASCII(mvalue); err != nil {
+			if err = validateAlphanumericASCII(mvalue); err != nil {
 				return err
+			}
+			if err = validateMacroKey(s.config.Rbac.Users[k], mkey); err != nil {
+				nerr := fmt.Errorf("same twice parameters found for user %s in configuration, %s", k, err)
+				return nerr
 			}
 		}
 	}
@@ -64,6 +69,15 @@ func validateIPAddr(value string) error {
 		}
 		if net.ParseIP(value) == nil {
 			return fmt.Errorf("invalid userIP address found in config file: %s", value)
+		}
+	}
+	return nil
+}
+
+func validateMacroKey(user config.ConfigFileRbacUsers, value string) error {
+	if len(value) > 0 && len(user.UserIP) > 0 {
+		if chk := strings.Compare(value, "user_ip"); chk == 0 {
+			return fmt.Errorf("userIp and macro user_ip defined (same)")
 		}
 	}
 	return nil

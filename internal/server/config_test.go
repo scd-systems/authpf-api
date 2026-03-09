@@ -4,7 +4,96 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/scd-systems/authpf-api/pkg/config"
 )
+
+func TestValidateMacroKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		user    config.ConfigFileRbacUsers
+		key     string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "no conflict: key is user_ip but UserIP is empty",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "",
+				Macros: map[string]string{"user_ip": "10.0.0.1"},
+			},
+			key:     "user_ip",
+			wantErr: false,
+		},
+		{
+			name: "no conflict: UserIP set but key is not user_ip",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "192.168.1.1",
+				Macros: map[string]string{"my_macro": "value"},
+			},
+			key:     "my_macro",
+			wantErr: false,
+		},
+		{
+			name: "conflict: UserIP set and key is user_ip",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "192.168.1.1",
+				Macros: map[string]string{"user_ip": "10.0.0.1"},
+			},
+			key:     "user_ip",
+			wantErr: true,
+			errMsg:  "userIp and macro user_ip defined (same)",
+		},
+		{
+			name: "no conflict: both UserIP and key are empty",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "",
+				Macros: map[string]string{},
+			},
+			key:     "",
+			wantErr: false,
+		},
+		{
+			name: "no conflict: key is empty, UserIP is set",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "10.0.0.1",
+				Macros: map[string]string{},
+			},
+			key:     "",
+			wantErr: false,
+		},
+		{
+			name: "no conflict: key USER_IP is case-sensitive, UserIP is set",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "10.0.0.1",
+				Macros: map[string]string{"USER_IP": "value"},
+			},
+			key:     "USER_IP",
+			wantErr: false,
+		},
+		{
+			name: "no conflict: key User_Ip mixed case, UserIP is set",
+			user: config.ConfigFileRbacUsers{
+				UserIP: "10.0.0.1",
+				Macros: map[string]string{"User_Ip": "value"},
+			},
+			key:     "User_Ip",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMacroKey(tt.user, tt.key)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
 
 func TestValidateLength(t *testing.T) {
 	tests := []struct {
