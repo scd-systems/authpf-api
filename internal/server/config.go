@@ -75,9 +75,12 @@ func validateIPAddr(value string) error {
 }
 
 func validateMacroKey(user config.ConfigFileRbacUsers, value string) error {
-	if len(value) > 0 && len(user.UserIP) > 0 {
-		if chk := strings.Compare(value, "user_ip"); chk == 0 {
+	if len(value) > 0 {
+		if chk := strings.Compare(value, "user_ip"); chk == 0 && len(user.UserIP) > 0 {
 			return fmt.Errorf("userIp and macro user_ip defined (same)")
+		}
+		if chk := strings.Compare(value, "user_id"); chk == 0 && user.UserID > 0 {
+			return fmt.Errorf("userId and macro user_id defined (same)")
 		}
 	}
 	return nil

@@ -80,6 +80,34 @@ func TestValidateMacroKey(t *testing.T) {
 			key:     "User_Ip",
 			wantErr: false,
 		},
+		{
+			name: "conflict: UserID set and key is user_id",
+			user: config.ConfigFileRbacUsers{
+				UserID: 1000,
+				Macros: map[string]string{"user_id": "1000"},
+			},
+			key:     "user_id",
+			wantErr: true,
+			errMsg:  "userId and macro user_id defined (same)",
+		},
+		{
+			name: "no conflict: key user_id but UserID is zero",
+			user: config.ConfigFileRbacUsers{
+				UserID: 0,
+				Macros: map[string]string{"user_id": "0"},
+			},
+			key:     "user_id",
+			wantErr: false,
+		},
+		{
+			name: "no conflict: key User_Id mixed case, UserID is set (case-sensitive)",
+			user: config.ConfigFileRbacUsers{
+				UserID: 1000,
+				Macros: map[string]string{"User_Id": "1000"},
+			},
+			key:     "User_Id",
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
