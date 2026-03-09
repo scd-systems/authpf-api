@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.3] - 2026-03-06
+## [0.2.3] - 2026-03-09
 
 ### Added
 - Unittests
@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Users can be configured to use a pre-defined/static IP address (the remote Client IP will ignored if set)
 - Macro Support
   Users can be configured to have defined macros (see authpf-api.conf.sample)
+- PF Table Support
+  Tables (global and per user) can be used to add the remote client IP address on activate anchors. The user defined pfTable takes precendence over the global
+
+  
 
 ### Changed
 - Project file structure, created packages, refactor and slice code

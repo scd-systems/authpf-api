@@ -95,6 +95,10 @@ func (s *Server) Bootstrap() (err error) {
 		}
 	}
 
+	if err := s.validatePfTables(e); err != nil {
+		return err
+	}
+
 	s.logger.Info().Str("version", Version).Str("API_Version", api.API_VERSION).Msg("authpf-api starting")
 	return nil
 }
@@ -325,4 +329,42 @@ func readPasswordFromStdin() (string, error) {
 	}
 	password := strings.TrimSpace(string(data))
 	return password, nil
+}
+
+// get all pfTables in config file and put into an array
+func collectRequiredPfTables(cfg *config.ConfigFile) []string {
+	seen := make(map[string]struct{})
+	var tables []string
+
+	if cfg.AuthPF.PfTable != "" {
+		seen[cfg.AuthPF.PfTable] = struct{}{}
+		tables = append(tables, cfg.AuthPF.PfTable)
+	}
+
+	for _, user := range cfg.Rbac.Users {
+		if user.PfTable != "" {
+			if _, exists := seen[user.PfTable]; !exists {
+				seen[user.PfTable] = struct{}{}
+				tables = append(tables, user.PfTable)
+			}
+		}
+	}
+	return tables
+}
+
+// Check if all pfTables are exists
+func (s *Server) validatePfTables(e *exec.Exec) error {
+	tables := collectRequiredPfTables(s.config)
+	if len(tables) == 0 {
+		return nil
+	}
+
+	for _, table := range tables {
+		s.logger.Debug().Msgf("checking pf table existence: %s", table)
+		if err := e.CheckPfTableExists(table); err != nil {
+			return fmt.Errorf("startup pf table check failed: %w", err)
+		}
+		s.logger.Info().Msgf("pf table verified: %s", table)
+	}
+	return nil
 }

@@ -262,3 +262,46 @@ func (e *Exec) ExecUnloadAllAuthPFAnchors(username string, logger *zerolog.Logge
 	e.logger.Debug().Msg("Flushing anchors succeed")
 	return nil
 }
+
+// Resolve PF Table (user/global)
+// TODO: check were to skip if not defined
+func (e *Exec) resolvePfTable(username string) string {
+	if user, ok := e.config.Rbac.Users[username]; ok && user.PfTable != "" {
+		return user.PfTable
+	}
+	return e.config.AuthPF.PfTable
+}
+
+func (e *Exec) AddIPToPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
+	table := e.resolvePfTable(r.Username)
+	if table == "" {
+		return nil
+	}
+	return e.executePfctlCommand([]string{"-t", table, "-T", "add", r.UserIP})
+}
+
+func (e *Exec) RemoveIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
+	table := e.resolvePfTable(r.Username)
+	if table == "" {
+		return nil
+	}
+	return e.executePfctlCommand([]string{"-t", table, "-T", "delete", r.UserIP})
+}
+
+func (e *Exec) RemoveAllIPsFromPfTable() {
+	for _, anchor := range *e.db {
+		result := e.RemoveIPFromPfTable(anchor)
+		if result != nil && result.ExitCode != 0 {
+			e.logger.Warn().Str("user", anchor.Username).
+				Msgf("failed to remove IP %s from pf table: %s", anchor.UserIP, result.Stderr)
+		}
+	}
+}
+
+func (e *Exec) CheckPfTableExists(tableName string) error {
+	result := e.executePfctlCommand([]string{"-t", tableName, "-T", "show"})
+	if result.ExitCode != 0 {
+		return fmt.Errorf("pf table %q does not exist or is not accessible: %s", tableName, result.Stderr)
+	}
+	return nil
+}
