@@ -160,14 +160,27 @@ func (e *Exec) buildAuthPFAnchorPath(username string) (string, error) {
 
 func (e *Exec) buildPfctlActivateCmdParameters(r *authpf.AuthPFAnchor) []string {
 	anchor := fmt.Sprintf("%s/%s(%d)", e.config.AuthPF.AnchorName, r.Username, r.UserID)
+
 	userIP := fmt.Sprintf("user_ip=%s", r.UserIP)
 	userID := fmt.Sprintf("user_id=%d", r.UserID)
+
 	rulePath, err := e.buildAuthPFAnchorPath(r.Username)
 	if err != nil {
 		e.logger.Error().Msg(err.Error())
 		return []string{}
 	}
-	return []string{"-a", anchor, "-D", userIP, "-D", userID, "-f", rulePath}
+
+	params := []string{"-a", anchor, "-D", userIP, "-D", userID}
+
+	// Append user-defined macros from RBAC config as -D key=value
+	if user, ok := e.config.Rbac.Users[r.Username]; ok {
+		for k, v := range user.Macros {
+			params = append(params, "-D", fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+
+	params = append(params, "-f", rulePath)
+	return params
 }
 
 func (e *Exec) buildPfctlDeactivateCmdParameters(r *authpf.AuthPFAnchor) [][]string {

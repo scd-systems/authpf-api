@@ -42,6 +42,11 @@ func (s *Server) Start() {
 		os.Exit(1)
 	}
 
+	if err := s.validateConfig(); err != nil {
+		log.Fatalf("%s", err.Error())
+		os.Exit(1)
+	}
+
 	// Server: Setup and Start
 	e := echo.New()
 	if err := s.SetupServer(e); err != nil {

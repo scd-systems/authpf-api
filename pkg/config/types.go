@@ -59,8 +59,10 @@ type ConfigFileRbacRoles struct {
 }
 
 type ConfigFileRbacUsers struct {
-	UserRulesFile string `yaml:"userRulesFile"`
-	Password      string `yaml:"password"`
-	Role          string `yaml:"role"`
-	UserID        int    `yaml:"userId,omitempty"`
+	UserRulesFile string            `yaml:"userRulesFile"`
+	Password      string            `yaml:"password"`
+	Role          string            `yaml:"role"`
+	UserID        int               `yaml:"userId,omitempty"`
+	UserIP        string            `yaml:"userIp,omitempty"`
+	Macros        map[string]string `yaml:"macros"`
 }

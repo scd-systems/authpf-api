@@ -469,3 +469,155 @@ func TestExecuteSystemCommandMockedError(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode)
 	assert.NotNil(t, result.Error)
 }
+
+// TestBuildPfctlActivateCmdParameters_WithMacros tests that user macros are appended as -D key=value
+func TestBuildPfctlActivateCmdParameters_WithMacros(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name           string
+		macros         map[string]string
+		expectedParams int
+		checkContains  []string
+	}{
+		{
+			name:           "no macros",
+			macros:         nil,
+			expectedParams: 8, // -a anchor -D user_ip -D user_id -f rulePath
+			checkContains:  []string{},
+		},
+		{
+			name:           "empty macros map",
+			macros:         map[string]string{},
+			expectedParams: 8,
+			checkContains:  []string{},
+		},
+		{
+			name:           "one macro",
+			macros:         map[string]string{"ext_if": "em0"},
+			expectedParams: 10, // 8 base + 2 for -D ext_if=em0
+			checkContains:  []string{"ext_if=em0"},
+		},
+		{
+			name:           "macro with integer value",
+			macros:         map[string]string{"max_conn": "100"},
+			expectedParams: 10,
+			checkContains:  []string{"max_conn=100"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.ConfigFile{
+				Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+				AuthPF: config.ConfigFileAuthPF{
+					UserRulesRootFolder: tmpDir,
+					UserRulesFile:       "rules",
+					AnchorName:          "authpf",
+				},
+				Rbac: config.ConfigFileRbac{
+					Users: map[string]config.ConfigFileRbacUsers{
+						"testuser": {UserID: 1000, Macros: tt.macros},
+					},
+				},
+			}
+
+			e := createTestExec(t, cfg)
+			rule := &authpf.AuthPFAnchor{
+				Username: "testuser",
+				UserIP:   "192.168.1.1",
+				UserID:   1000,
+			}
+
+			result := e.buildPfctlActivateCmdParameters(rule)
+
+			assert.Equal(t, tt.expectedParams, len(result),
+				"expected %d params, got %d: %v", tt.expectedParams, len(result), result)
+
+			// Verify -f rulePath is always last
+			if len(result) >= 2 {
+				assert.Equal(t, "-f", result[len(result)-2], "second-to-last param must be -f")
+			}
+
+			// Verify all expected macro strings appear as -D values
+			for _, expected := range tt.checkContains {
+				found := false
+				for i, p := range result {
+					if p == "-D" && i+1 < len(result) && result[i+1] == expected {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected -D %s in params %v", expected, result)
+			}
+		})
+	}
+}
+
+// TestBuildPfctlActivateCmdParameters_MultipleMacros tests ordering and completeness with multiple macros
+func TestBuildPfctlActivateCmdParameters_MultipleMacros(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {
+					UserID: 1000,
+					Macros: map[string]string{
+						"ext_if":   "em0",
+						"int_if":   "em1",
+						"max_conn": "50",
+					},
+				},
+			},
+		},
+	}
+
+	e := createTestExec(t, cfg)
+	rule := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "10.0.0.1",
+		UserID:   1000,
+	}
+
+	result := e.buildPfctlActivateCmdParameters(rule)
+
+	// 8 base params + 3 macros × 2 = 14
+	assert.Equal(t, 14, len(result), "expected 14 params, got %d: %v", len(result), result)
+
+	// -f rulePath must always be the last two elements
+	assert.Equal(t, "-f", result[len(result)-2])
+
+	// Count -D occurrences: 2 fixed (user_ip, user_id) + 3 macros = 5
+	dCount := 0
+	for _, p := range result {
+		if p == "-D" {
+			dCount++
+		}
+	}
+	assert.Equal(t, 5, dCount, "expected 5 -D flags, got %d", dCount)
+}
+
+// TestBuildPfctlActivateCmdParameters_UnknownUser tests behaviour when user is not in RBAC config
+func TestBuildPfctlActivateCmdParameters_UnknownUser(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := createTestConfig(t, tmpDir) // only "testuser" in config
+
+	e := createTestExec(t, cfg)
+	rule := &authpf.AuthPFAnchor{
+		Username: "unknownuser",
+		UserIP:   "10.0.0.2",
+		UserID:   9999,
+	}
+
+	result := e.buildPfctlActivateCmdParameters(rule)
+
+	// No macros for unknown user — base 8 params expected
+	assert.Equal(t, 8, len(result), "expected 8 params for unknown user, got %d: %v", len(result), result)
+}
