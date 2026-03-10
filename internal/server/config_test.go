@@ -258,37 +258,37 @@ func TestValidateAlphanumericASCII(t *testing.T) {
 			name:    "contains space",
 			value:   "hello world",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 		{
 			name:    "contains hyphen",
 			value:   "hello-world",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 		{
 			name:    "contains slash",
 			value:   "hello/world",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 		{
 			name:    "contains at-sign",
 			value:   "user@host",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 		{
 			name:    "contains unicode character",
 			value:   "héllo",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 		{
 			name:    "contains semicolon",
 			value:   "val;ue",
 			wantErr: true,
-			errMsg:  "invalid characters found in macro",
+			errMsg:  "invalid characters found in config parameters",
 		},
 	}
 
