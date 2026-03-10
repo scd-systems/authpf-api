@@ -45,6 +45,9 @@ authpf:
   #    flushall: Remove all activated user rules when api server get shutdown
   onShutdown: flushall
 
+  # Global PF Table to use for the remote client IP addresses
+  pfTable: authpf_users
+
 # Server configuration
 server:
   # IP address to bind the server to (127.0.0.1 for localhost only)
@@ -83,6 +86,9 @@ server:
   #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
   #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
   #      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
+  #      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \
+  #      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \
+  #      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
   #   %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
   #
   # doas:
@@ -128,6 +134,8 @@ rbac:
       role: admin
       # Numeric user ID
       userId: 1000
+      # User PF Table to use for the remote client IP addresses (global pfTable will ignored if set)
+      pfTable: authpf_users
 
     # Example User
     authpf-user1:
