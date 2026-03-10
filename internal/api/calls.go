@@ -8,23 +8,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/internal/errors"
-	"github.com/scd-systems/authpf-api/internal/exec"
 )
 
 // Call Exec activate anchor
 func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
-	e, err := exec.New(h.logger, h.config, h.db)
-	if err != nil {
-		h.logger.Debug().Str("user", c.Get("username").(string)).Msgf("Unable to create new Exec: %v", err.Error())
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        err.Error(),
-			Details:        "unable to create an Exec",
-		}
-	}
-
-	result := e.LoadAuthPFAnchor(r)
+	result := h.exec.LoadAuthPFAnchor(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
@@ -38,7 +26,7 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 	}
 
 	// Add user_ip to pf table
-	result = e.AddIPToPfTable(r)
+	result = h.exec.AddIPToPfTable(r)
 	msg = fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
@@ -54,18 +42,8 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 }
 
 func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
-	e, err := exec.New(h.logger, h.config, h.db)
-	if err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        err.Error(),
-			Details:        "unable to create an Exec",
-		}
-	}
-
 	// Remove user_ip from pf table
-	result := e.RemoveIPFromPfTable(r)
+	result := h.exec.RemoveIPFromPfTable(r)
 
 	if result != nil {
 		// Log only possible of pf table is defined (pf table required in RemoveIPFromPfTable)
@@ -78,7 +56,7 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIEr
 	}
 
 	// Remove anchor
-	multiResult := e.UnloadAuthPFAnchor(r)
+	multiResult := h.exec.UnloadAuthPFAnchor(r)
 	for i, result := range multiResult.Results {
 		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
 			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
@@ -97,21 +75,20 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIEr
 }
 
 func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
-	e, err := exec.New(h.logger, h.config, h.db)
-	if err != nil {
-		h.logger.Debug().Str("user", r.Username).Msgf("Unable to create new Exec: %v", err.Error())
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        err.Error(),
-			Details:        "unable to create an Exec",
+
+	// Remove all user_ip's from pf tables
+	result := h.exec.RemoveAllIPsFromPfTable()
+	if result != nil {
+		// Log only possible of pf table is defined (pf table required in RemoveIPFromPfTable)
+		msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+		h.logger.Trace().Str("user", r.Username).Msg(msg)
+
+		if result.ExitCode != 0 {
+			h.logger.Warn().Str("user", r.Username).Msgf("failed to remove all IP's from pf table: %s", result.Stderr)
 		}
 	}
 
-	// Remove all user_ip's from pf tables
-	e.RemoveAllIPsFromPfTable()
-
-	multiResult := e.UnloadAllAuthPFAnchors()
+	multiResult := h.exec.UnloadAllAuthPFAnchors()
 
 	// Log all commands
 	for i, result := range multiResult.Results {

@@ -13,6 +13,8 @@ import (
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
 func (h *Handler) CheckAnchorIsActivated(c echo.Context) (bool, *errors.APIError) {
 	sessionUsername, err := h.resolveAnchorUsername(c)
 	if err != nil {
@@ -308,7 +310,7 @@ func (h *Handler) validateUsername(username string) *errors.APIError {
 			Details:        "username too long",
 		}
 	}
-	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
+	if !usernameRegex.MatchString(username) {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,

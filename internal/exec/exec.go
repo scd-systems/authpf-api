@@ -44,11 +44,6 @@ func New(logger zerolog.Logger, config *config.ConfigFile, db *authpf.AnchorsDB)
 	return &Exec{logger: logger, config: config, db: db}, nil
 }
 
-// Create an Exec without ConfigFile
-func NewNoConfig(logger zerolog.Logger, db *authpf.AnchorsDB) *Exec {
-	return &Exec{logger: logger, db: db}
-}
-
 // Call system exec.Command() -> os command
 func (e *Exec) executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	const commandExecutionTimeout = 30 * time.Second

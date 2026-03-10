@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
@@ -19,6 +20,7 @@ type Handler struct {
 	lock   *sync.Mutex
 	logger zerolog.Logger
 	config *config.ConfigFile
+	exec   *exec.Exec
 }
 
 // AuthPFAnchorResponse represents all rules with server time for client-side calculations
@@ -27,8 +29,14 @@ type AuthPFAnchorResponse struct {
 	ServerTime time.Time        `json:"server_time"`
 }
 
-func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) *Handler {
-	return &Handler{db: db, lock: lock, logger: logger, config: config}
+func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) (*Handler, error) {
+	e, err := exec.New(logger, config, db)
+	if err != nil {
+		logger.Error().Msgf("failed to initialize exec: %v", err.Error())
+		return nil, fmt.Errorf("failed to initialize exec: %v", err.Error())
+	}
+
+	return &Handler{db: db, lock: lock, logger: logger, config: config, exec: e}, nil
 }
 
 func (h *Handler) AddToDB(r *authpf.AuthPFAnchor) error {

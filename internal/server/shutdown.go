@@ -35,7 +35,6 @@ func (s *Server) deactivateAllActiveUsers() error {
 	}
 
 	s.logger.Info().Int("count", len(*s.db)).Msg("Deactivating authpf anchors")
-
 	e, err := exec.New(s.logger, s.config, s.db)
 	if err != nil {
 		s.logger.Debug().Msgf("Cannot create new Exec: %v", err.Error())
