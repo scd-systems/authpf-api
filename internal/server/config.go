@@ -12,12 +12,18 @@ import (
 
 // Validate ConfigFile Values
 func (s *Server) validateConfig() (err error) {
+	if err = validateAlphanumericASCII(s.config.AuthPF.PfTable); err != nil {
+		return err
+	}
+
 	// Validate all macro fields from config file
-	for k := range s.config.Rbac.Users {
-		if err = validateIPAddr(s.config.Rbac.Users[k].UserIP); err != nil {
+	for k, v := range s.config.Rbac.Users {
+		// UserIP Check
+		if err = validateIPAddr(v.UserIP); err != nil {
 			return err
 		}
-		for mkey, mvalue := range s.config.Rbac.Users[k].Macros {
+		// Macros
+		for mkey, mvalue := range v.Macros {
 			if err = validateLength(mkey, 1, 128); err != nil {
 				return err
 			}
@@ -27,10 +33,13 @@ func (s *Server) validateConfig() (err error) {
 			if err = validateAlphanumericASCII(mvalue); err != nil {
 				return err
 			}
-			if err = validateMacroKey(s.config.Rbac.Users[k], mkey); err != nil {
+			if err = validateMacroKey(v, mkey); err != nil {
 				nerr := fmt.Errorf("same twice parameters found for user %s in configuration, %s", k, err)
 				return nerr
 			}
+		}
+		if err = validateAlphanumericASCII(v.PfTable); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -55,7 +64,7 @@ func validateAlphanumericASCII(value string) error {
 		return fmt.Errorf("input must not be empty")
 	}
 	if !validStringRegex.MatchString(value) {
-		return fmt.Errorf("invalid characters found in macro, only [a-zA-Z0-9_.] allowed, got: %s", value)
+		return fmt.Errorf("invalid characters found in config parameters, only [a-zA-Z0-9_.] allowed, got: %s", value)
 	}
 	return nil
 }
