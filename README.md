@@ -397,9 +397,9 @@ Without `persist`, pf will remove the table when it becomes empty, causing subse
 When using `elevatorMode: sudo`, the sudoers `Cmnd_Alias` must include the table management commands:
 
 ```
-/sbin/pfctl -t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \
-/sbin/pfctl -t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \
-/sbin/pfctl -t [a-zA-Z0-9_]+ -T show$
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-zA-Z:.]+$, \
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-zA-Z:.]+$, \
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
 ```
 
 See the full updated sudo example in the [Elevator Setup](#elevator-setup) section below.
@@ -486,9 +486,9 @@ Sudoers File:
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$, \
-      /sbin/pfctl -t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \
-      /sbin/pfctl -t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \
-      /sbin/pfctl -t [a-zA-Z0-9_]+ -T show$
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
   %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
 ```
 
