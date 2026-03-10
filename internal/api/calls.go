@@ -29,19 +29,16 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 	}
 
 	// Add user_ip to pf table
-	if tableResult := e.AddIPToPfTable(r); tableResult != nil {
-		tableMsg := fmt.Sprintf("pfctl table: '%s %s', ExitCode: %d, StdErr: %s",
-			tableResult.Command, strings.Join(tableResult.Args, " "),
-			tableResult.ExitCode, tableResult.Stderr)
-		h.logger.Trace().Str("user", r.Username).Msg(tableMsg)
+	result = e.AddIPToPfTable(r)
+	msg = fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
-		if tableResult.ExitCode != 0 {
-			return &errors.APIError{
-				HttpStatusCode: http.StatusInternalServerError,
-				StatusCode:     tableResult.ExitCode,
-				Message:        "failed to add IP to pf table",
-				Details:        tableResult.Stderr,
-			}
+	if result.ExitCode != 0 {
+		return &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     result.ExitCode,
+			Message:        "failed to add IP to pf table",
+			Details:        result.Stderr,
 		}
 	}
 	return nil
@@ -50,17 +47,21 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
 	e := exec.New(h.logger, h.config, h.db)
 
-	multiResult := e.UnloadAuthPFAnchor(r)
-
 	// Remove user_ip from pf table
-	if tableResult := e.RemoveIPFromPfTable(r); tableResult != nil {
-		if tableResult.ExitCode != 0 {
-			h.logger.Warn().Str("user", r.Username).
-				Msgf("failed to remove IP from pf table: %s", tableResult.Stderr)
+	result := e.RemoveIPFromPfTable(r)
+
+	if result != nil {
+		// Log only possible of pf table is defined (pf table required in RemoveIPFromPfTable)
+		msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+		h.logger.Trace().Str("user", r.Username).Msg(msg)
+
+		if result.ExitCode != 0 {
+			h.logger.Warn().Str("user", r.Username).Msgf("failed to remove IP from pf table: %s", result.Stderr)
 		}
 	}
 
 	// Remove anchor
+	multiResult := e.UnloadAuthPFAnchor(r)
 	for i, result := range multiResult.Results {
 		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
 			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),

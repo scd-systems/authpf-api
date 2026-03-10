@@ -33,14 +33,17 @@ type MultiCommandResult struct {
 	Error   error
 }
 
+// Create an Exec with ConfigFile
 func New(logger zerolog.Logger, config *config.ConfigFile, db *authpf.AnchorsDB) *Exec {
 	return &Exec{logger: logger, config: config, db: db}
 }
 
+// Create an Exec without ConfigFile
 func NewNoConfig(logger zerolog.Logger, db *authpf.AnchorsDB) *Exec {
 	return &Exec{logger: logger, db: db}
 }
 
+// Call system exec.Command() -> os command
 func (e *Exec) executeSystemCommand(command string, args ...string) *SystemCommandResult {
 	const commandExecutionTimeout = 30 * time.Second
 
@@ -98,6 +101,7 @@ func (e *Exec) executeSystemCommand(command string, args ...string) *SystemComma
 	}
 }
 
+// Create command prefix (also for elevator mode)
 func (e *Exec) buildPfctlCmd() string {
 	prefix := e.config.Defaults.PfctlBinary
 	switch e.config.Server.ElevatorMode {
@@ -109,15 +113,16 @@ func (e *Exec) buildPfctlCmd() string {
 	return prefix
 }
 
-func (e *Exec) executePfctlCommand(cmd []string) *SystemCommandResult {
+// Run pfctl command with arguments
+func (e *Exec) executePfctlCommand(args []string) *SystemCommandResult {
 	prefix := e.buildPfctlCmd()
-	args := cmd
 	if prefix != e.config.Defaults.PfctlBinary {
-		args = append([]string{e.config.Defaults.PfctlBinary}, cmd...)
+		args = append([]string{e.config.Defaults.PfctlBinary}, args...)
 	}
 	return e.executeSystemCommand(prefix, args...)
 }
 
+// Run multiple pfctl commands with arguments
 func (e *Exec) executePfctlCommands(commands [][]string) *MultiCommandResult {
 	results := make([]*SystemCommandResult, 0)
 
@@ -137,6 +142,7 @@ func (e *Exec) executePfctlCommands(commands [][]string) *MultiCommandResult {
 	}
 }
 
+// Create and return the authpf user rules filepath for pfctl command
 func (e *Exec) buildAuthPFAnchorPath(username string) (string, error) {
 	basePath := e.config.AuthPF.UserRulesRootFolder
 	rulePath := filepath.Join(basePath, username, e.config.AuthPF.UserRulesFile)
@@ -158,6 +164,7 @@ func (e *Exec) buildAuthPFAnchorPath(username string) (string, error) {
 	return rulePath, nil
 }
 
+// Create and return pfctl anchor parameter for activations with all macros
 func (e *Exec) buildPfctlActivateCmdParameters(r *authpf.AuthPFAnchor) []string {
 	anchor := fmt.Sprintf("%s/%s(%d)", e.config.AuthPF.AnchorName, r.Username, r.UserID)
 
@@ -183,6 +190,7 @@ func (e *Exec) buildPfctlActivateCmdParameters(r *authpf.AuthPFAnchor) []string 
 	return params
 }
 
+// Create and return pfctl anchor parameter for deactivations
 func (e *Exec) buildPfctlDeactivateCmdParameters(r *authpf.AuthPFAnchor) [][]string {
 	anchor := fmt.Sprintf("%s/%s(%d)", e.config.AuthPF.AnchorName, r.Username, r.UserID)
 
@@ -197,6 +205,7 @@ func (e *Exec) buildPfctlDeactivateCmdParameters(r *authpf.AuthPFAnchor) [][]str
 	return commands
 }
 
+// Create and return all pfctl anchor and parameters for deactivations
 func (e *Exec) buildPfctlDeactivateAllCmdParameters() [][]string {
 	filter := e.config.AuthPF.FlushFilter
 	if len(filter) < 1 {
@@ -234,6 +243,7 @@ func (e *Exec) UnloadAllAuthPFAnchors() *MultiCommandResult {
 	return e.executePfctlCommands(parameters)
 }
 
+// Unload all Anchors
 func (e *Exec) ExecUnloadAllAuthPFAnchors(username string, logger *zerolog.Logger, config config.ConfigFile) error {
 	if len(*e.db) < 1 {
 		e.logger.Debug().Msg("No anchors to flush")
@@ -264,7 +274,6 @@ func (e *Exec) ExecUnloadAllAuthPFAnchors(username string, logger *zerolog.Logge
 }
 
 // Resolve PF Table (user/global)
-// TODO: check were to skip if not defined
 func (e *Exec) resolvePfTable(username string) string {
 	if user, ok := e.config.Rbac.Users[username]; ok && user.PfTable != "" {
 		return user.PfTable
@@ -272,6 +281,7 @@ func (e *Exec) resolvePfTable(username string) string {
 	return e.config.AuthPF.PfTable
 }
 
+// Add user_ip to pf table
 func (e *Exec) AddIPToPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
 	table := e.resolvePfTable(r.Username)
 	if table == "" {
@@ -280,6 +290,7 @@ func (e *Exec) AddIPToPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
 	return e.executePfctlCommand([]string{"-t", table, "-T", "add", r.UserIP})
 }
 
+// Remove the user_ip from pf table
 func (e *Exec) RemoveIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
 	table := e.resolvePfTable(r.Username)
 	if table == "" {
@@ -288,16 +299,24 @@ func (e *Exec) RemoveIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult 
 	return e.executePfctlCommand([]string{"-t", table, "-T", "delete", r.UserIP})
 }
 
-func (e *Exec) RemoveAllIPsFromPfTable() {
-	for _, anchor := range *e.db {
-		result := e.RemoveIPFromPfTable(anchor)
-		if result != nil && result.ExitCode != 0 {
-			e.logger.Warn().Str("user", anchor.Username).
-				Msgf("failed to remove IP %s from pf table: %s", anchor.UserIP, result.Stderr)
+// Clear all pf tables from all known user_ip's
+func (e *Exec) RemoveAllIPsFromPfTable() *SystemCommandResult {
+	for _, v := range *e.db {
+		result := e.RemoveIPFromPfTable(v)
+
+		if result != nil {
+			msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
+			e.logger.Trace().Str("user", v.Username).Msg(msg)
+			if result.ExitCode != 0 {
+				e.logger.Warn().Str("user", v.Username).Msgf("failed to remove IP %s from pf table: %s", v.UserIP, result.Stderr)
+				return result
+			}
 		}
 	}
+	return nil
 }
 
+// Validate pfTable
 func (e *Exec) CheckPfTableExists(tableName string) error {
 	result := e.executePfctlCommand([]string{"-t", tableName, "-T", "show"})
 	if result.ExitCode != 0 {

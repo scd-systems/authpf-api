@@ -24,7 +24,7 @@ func (s *Server) gracefulShutdown(e *echo.Echo) error {
 	return e.Shutdown(ctx)
 }
 
-// deactivateAllActiveUsers removes all active entries from anchorsDB and pfctl
+// deactivateAllActiveUsers removes all active entries from anchorsDB and pf tables
 func (s *Server) deactivateAllActiveUsers() error {
 	lock.Lock()
 	defer lock.Unlock()
@@ -40,10 +40,17 @@ func (s *Server) deactivateAllActiveUsers() error {
 	// Create and exec pfctl flush for all authpf user rules
 	result := e.UnloadAllAuthPFAnchors()
 	if result.Error != nil {
-		s.logger.Error().Err(result.Error).Msg("Error unloading pfctl anchors")
+		s.logger.Error().Err(result.Error).Msg("Error unloading authpf anchors")
 		return result.Error
 	}
-
 	s.logger.Info().Msg("All authpf anchors deactivated successfully")
+
+	// Cleanup pf tables
+	if result := e.RemoveAllIPsFromPfTable(); result != nil {
+		s.logger.Error().Err(result.Error).Msg("Error cleanup pf tables")
+		return result.Error
+	}
+	s.logger.Info().Msg("All pf tables cleaned up successfully")
+
 	return nil
 }
