@@ -41,12 +41,6 @@ func (s *Server) Start() {
 		log.Fatalf("%s", err.Error())
 		os.Exit(1)
 	}
-
-	if err := s.validateConfig(); err != nil {
-		log.Fatalf("%s", err.Error())
-		os.Exit(1)
-	}
-
 	// Server: Setup and Start
 	e := echo.New()
 	if err := s.SetupServer(e); err != nil {
@@ -68,6 +62,11 @@ func (s *Server) Bootstrap() (err error) {
 		return err
 	}
 
+	// Validate Config
+	if err := s.validateConfig(); err != nil {
+		return err
+	}
+
 	// Initialize JWT secret
 	if err := s.initializeJWTSecret(); err != nil {
 		return err
@@ -78,6 +77,7 @@ func (s *Server) Bootstrap() (err error) {
 		return err
 	}
 
+	// Create Exec
 	e := exec.New(s.logger, s.config, s.db)
 
 	// Import existing Anchors

@@ -301,7 +301,7 @@ func (e *Exec) RemoveAllIPsFromPfTable() {
 func (e *Exec) CheckPfTableExists(tableName string) error {
 	result := e.executePfctlCommand([]string{"-t", tableName, "-T", "show"})
 	if result.ExitCode != 0 {
-		return fmt.Errorf("pf table %q does not exist or is not accessible: %s", tableName, result.Stderr)
+		return fmt.Errorf("pf table %q does not exist or is not accessible (maybe not persist): %s", tableName, result.Stderr)
 	}
 	return nil
 }
