@@ -111,7 +111,7 @@ func (a *Auth) Login(c echo.Context) error {
 
 	tokenDuration, err := parseJwtTokenTimeout(timeoutStr)
 	if err != nil {
-		a.logger.Error().Msg(fmt.Sprintf("Invalid JWT token timeout configuration: %v", err))
+		a.logger.Error().Err(err).Msg(fmt.Sprintln("Invalid JWT token timeout configuration"))
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}
 
@@ -128,7 +128,7 @@ func (a *Auth) Login(c echo.Context) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(a.jwtSecret)
 	if err != nil {
-		a.logger.Error().Str("user", req.Username).Msg("failed to generate JWT token")
+		a.logger.Error().Err(err).Str("user", req.Username).Msg("failed to generate JWT token")
 		c.Set("auth", fmt.Sprintf("Token generation failed: %v", err))
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "token generation failed"})
 	}

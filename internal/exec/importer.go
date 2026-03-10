@@ -23,8 +23,7 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 	e.logger.Debug().Msg("Start import anchor(s)")
 
 	if result.Error != nil {
-		msg := fmt.Sprintf("Failed to import anchor(s): %s", result.Error)
-		e.logger.Error().Msg(msg)
+		e.logger.Error().Err(result.Error).Msg("Failed to import anchor(s)")
 		return result.Error
 	}
 	if len(result.Stdout) <= 0 {

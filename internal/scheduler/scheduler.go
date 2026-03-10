@@ -1,8 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,17 +48,15 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 	// Process expired rules
 	for _, r := range expiredRules {
 		s.logger.Info().Msgf("Rule timeout detected, removed authpf anchors for user: %s", r.Username)
-		multiResult := e.UnloadAuthPFAnchor(r)
-		for i, result := range multiResult.Results {
-			s.logger.Trace().Msg(fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
-				i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-				result.ExitCode, result.Stdout, result.Stderr))
+
+		if err := e.FlushAnchor(r); err != nil {
+			s.logger.Error().Err(err).Msgf("Failed to unload authpf anchors from user: %s", r.Username)
 		}
-		if multiResult.Error != nil {
-			s.logger.Error().Msgf("Failed to unload authpf anchors from user: %s", r.Username)
+		if err := e.FlushPFTable(r); err != nil {
+			s.logger.Error().Err(err).Msgf("Failed to remove user ip from user: %s", r.Username)
 		}
 		if err := s.db.Remove(r.Username); err != nil {
-			s.logger.Error().Msgf("Unable to remove user: %s from Session DB", r.Username)
+			s.logger.Error().Err(err).Msgf("Unable to remove user: %s from Session DB", r.Username)
 		}
 	}
 }

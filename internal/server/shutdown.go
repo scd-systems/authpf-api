@@ -41,20 +41,19 @@ func (s *Server) deactivateAllActiveUsers() error {
 		return err
 	}
 
-	// Create and exec pfctl flush for all authpf user rules
-	result := e.UnloadAllAuthPFAnchors()
-	if result.Error != nil {
-		s.logger.Error().Err(result.Error).Msg("Error unloading authpf anchors")
-		return result.Error
-	}
-	s.logger.Info().Msg("All authpf anchors deactivated successfully")
-
 	// Cleanup pf tables
-	if result := e.RemoveAllIPsFromPfTable(); result != nil {
+	if result := e.FlushAllPFTables(); result != nil {
 		s.logger.Error().Err(result.Error).Msg("Error cleanup pf tables")
 		return result.Error
 	}
 	s.logger.Info().Msg("All pf tables cleaned up successfully")
+
+	// Exec pfctl flush for all authpf user rules
+	if err = e.FlushAllAnchors("shutdown"); err != nil {
+		s.logger.Error().Err(err).Msg("Error unloading authpf anchors")
+		return err
+	}
+	s.logger.Info().Msg("All authpf anchors deactivated successfully")
 
 	return nil
 }

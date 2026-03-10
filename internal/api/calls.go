@@ -43,27 +43,12 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 
 func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
 	// Remove user_ip from pf table
-	result := h.exec.RemoveIPFromPfTable(r)
-
-	if result != nil {
-		// Log only possible of pf table is defined (pf table required in RemoveIPFromPfTable)
-		msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Trace().Str("user", r.Username).Msg(msg)
-
-		if result.ExitCode != 0 {
-			h.logger.Warn().Str("user", r.Username).Msgf("failed to remove IP from pf table: %s", result.Stderr)
-		}
+	if err := h.exec.FlushPFTable(r); err != nil {
+		h.logger.Error().Err(err).Str("user", r.Username).Msgf("failed to remove IP from pf table")
 	}
 
-	// Remove anchor
-	multiResult := h.exec.UnloadAuthPFAnchor(r)
-	for i, result := range multiResult.Results {
-		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
-			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-			result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Debug().Str("user", r.Username).Msg(msg)
-	}
-	if multiResult.Error != nil {
+	// remove anchor
+	if err := h.exec.FlushAnchor(r); err != nil {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
@@ -71,33 +56,21 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIEr
 			Details:        "check server logs",
 		}
 	}
+
 	return nil
 }
 
 func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
 
 	// Remove all user_ip's from pf tables
-	result := h.exec.RemoveAllIPsFromPfTable()
+	result := h.exec.FlushAllPFTables()
 	if result != nil {
-		// Log only possible of pf table is defined (pf table required in RemoveIPFromPfTable)
-		msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Trace().Str("user", r.Username).Msg(msg)
-
 		if result.ExitCode != 0 {
 			h.logger.Warn().Str("user", r.Username).Msgf("failed to remove all IP's from pf table: %s", result.Stderr)
 		}
 	}
 
-	multiResult := h.exec.UnloadAllAuthPFAnchors()
-
-	// Log all commands
-	for i, result := range multiResult.Results {
-		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
-			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-			result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Debug().Str("user", r.Username).Msg(msg)
-	}
-	if multiResult.Error != nil {
+	if err := h.exec.FlushAllAnchors(r.Username); err != nil {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusInternalServerError,
 			StatusCode:     -1,
@@ -105,5 +78,7 @@ func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.A
 			Details:        "check server logs",
 		}
 	}
+
+	h.db.Flush()
 	return nil
 }

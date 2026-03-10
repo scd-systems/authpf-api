@@ -102,7 +102,7 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 	// Create handlers
 	handler, err := api.New(s.db, lock, s.logger, s.config)
 	if err != nil {
-		s.logger.Error().Msgf("failed to create handler: %v", err.Error())
+		s.logger.Error().Err(err).Msgf("failed to create handler")
 		return err
 	}
 

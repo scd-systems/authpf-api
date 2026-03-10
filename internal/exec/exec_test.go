@@ -799,7 +799,7 @@ func TestRemoveIPFromPfTable_ReturnsNilWhenNoTableConfigured(t *testing.T) {
 		UserID:   1000,
 	}
 
-	result := e.RemoveIPFromPfTable(anchor)
+	result := e.FlushPFTable(anchor)
 	assert.Nil(t, result, "RemoveIPFromPfTable must return nil when no pfTable is configured")
 }
 
@@ -829,7 +829,7 @@ func TestRemoveIPFromPfTable_BuildsCorrectPfctlArgs(t *testing.T) {
 		UserID:   1000,
 	}
 
-	result := e.RemoveIPFromPfTable(anchor)
+	result := e.removeIPFromPfTable(anchor)
 	assert.NotNil(t, result, "result must not be nil when pfTable is configured")
 	assert.Equal(t, "/sbin/pfctl", result.Command)
 	assert.Contains(t, result.Args, "-t")
@@ -865,14 +865,14 @@ func TestRemoveIPFromPfTable_UsesUserTableOverGlobal(t *testing.T) {
 		UserID:   1000,
 	}
 
-	result := e.RemoveIPFromPfTable(anchor)
+	result := e.removeIPFromPfTable(anchor)
 	assert.NotNil(t, result)
 	assert.Contains(t, result.Args, "user_specific_table")
 	assert.NotContains(t, result.Args, "global_table")
 }
 
-// TestRemoveAllIPsFromPfTable_EmptyDB verifies that no panic occurs when the anchor DB is empty
-func TestRemoveAllIPsFromPfTable_EmptyDB(t *testing.T) {
+// TestFlushAllPFTables_EmptyDB verifies that no panic occurs when the anchor DB is empty
+func TestFlushAllPFTables_EmptyDB(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := &config.ConfigFile{
 		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
@@ -893,12 +893,12 @@ func TestRemoveAllIPsFromPfTable_EmptyDB(t *testing.T) {
 
 	// must not panic
 	assert.NotPanics(t, func() {
-		e.RemoveAllIPsFromPfTable()
-	}, "RemoveAllIPsFromPfTable must not panic on empty DB")
+		e.FlushAllPFTables()
+	}, "FlushAllPFTables must not panic on empty DB")
 }
 
-// TestRemoveAllIPsFromPfTable_NoTableConfigured verifies that no pfctl call is made when no pfTable is configured
-func TestRemoveAllIPsFromPfTable_NoTableConfigured(t *testing.T) {
+// TestFlushAllPFTables_NoTableConfigured verifies that no pfctl call is made when no pfTable is configured
+func TestFlushAllPFTables_NoTableConfigured(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := createTestConfig(t, tmpDir) // no pfTable configured
 
@@ -912,8 +912,8 @@ func TestRemoveAllIPsFromPfTable_NoTableConfigured(t *testing.T) {
 
 	// must not panic, no pfctl call expected
 	assert.NotPanics(t, func() {
-		e.RemoveAllIPsFromPfTable()
-	}, "RemoveAllIPsFromPfTable must not panic when no pfTable configured")
+		e.FlushAllPFTables()
+	}, "FlushAllPFTables must not panic when no pfTable configured")
 }
 
 // TestCheckPfTableExists_NonExistentBinary verifies that an error is returned when the pfctl binary does not exist

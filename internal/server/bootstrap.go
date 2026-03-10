@@ -93,7 +93,7 @@ func (s *Server) Bootstrap() (err error) {
 		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
-		if err := e.ExecUnloadAllAuthPFAnchors("API"); err != nil {
+		if err := e.FlushAllAnchors("API"); err != nil {
 			return err
 		}
 	}
@@ -311,7 +311,7 @@ func (s *Server) readPasswordNoEcho() (string, error) {
 	}
 	defer func() {
 		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
-			s.logger.Error().Msg("Cannot restore terminal")
+			s.logger.Error().Err(err).Msg("Cannot restore terminal")
 		}
 	}()
 

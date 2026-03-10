@@ -36,6 +36,11 @@ func (a *AnchorsDB) Remove(username string) error {
 	return fmt.Errorf("username not found in DB: %s", username)
 }
 
+// Clear DB
+func (a *AnchorsDB) Flush() {
+	*a = make(AnchorsDB)
+}
+
 func (a *AnchorsDB) IsActivated(username string) bool {
 	for _, v := range *a {
 		if v.Username == username {

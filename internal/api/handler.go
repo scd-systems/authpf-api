@@ -32,7 +32,7 @@ type AuthPFAnchorResponse struct {
 func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) (*Handler, error) {
 	e, err := exec.New(logger, config, db)
 	if err != nil {
-		logger.Error().Msgf("failed to initialize exec: %v", err.Error())
+		logger.Error().Err(err).Msgf("failed to initialize exec")
 		return nil, fmt.Errorf("failed to initialize exec: %v", err.Error())
 	}
 
@@ -266,6 +266,6 @@ func (h *Handler) HandleDeleteAllDeactivate(c echo.Context) error {
 }
 
 func (h *Handler) flushDB() {
-	*h.db = make(authpf.AnchorsDB)
+	h.db.Flush()
 	h.logger.Debug().Msg("Flushing anchors succeed")
 }
