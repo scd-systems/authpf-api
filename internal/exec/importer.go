@@ -4,17 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/scd-systems/authpf-api/internal/authpf"
-	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
-func (e *Exec) ImportAuthPF(db *authpf.AnchorsDB) error {
+func (e *Exec) ImportAuthPF() error {
 	args := []string{"-sA"}
 	return e.parsePfctlOutput(e.executePfctlCommand(args))
 }
@@ -62,7 +60,7 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 		}
 
 		// Validate Username and UserID
-		if !validateUserAndIDConfig(*e.config, username, uid) {
+		if !validateUserAndIDConfig(e.config, username, uid) {
 			e.logger.Debug().Msgf("Import: Username %s and/or UserID %d does not match configuration, anchor ignored", username, uid)
 			continue
 		}
@@ -101,48 +99,28 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 }
 
 // Check for valid AuthPF Timeout string
-func ValidateTimeout(timeoutStr string) *errors.APIError {
+func ValidateTimeout(timeoutStr string) error {
 	if timeoutStr == "" {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "Missing timeout validation parameter",
-			Details:        fmt.Sprintln("timeout must be a valid duration (e.g., '1h', '30m'), got empty timeout string"),
-		}
+		return fmt.Errorf("missing timeout validation parameter, timeout must be a valid duration (e.g., '1h', '30m'), got empty timeout string")
 	}
 
 	d, err := time.ParseDuration(timeoutStr)
 	if err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid timeout format",
-			Details:        fmt.Sprintf("timeout must be a valid duration (e.g., '1h', '30m'), got: %s", timeoutStr),
-		}
+		return fmt.Errorf("invalid timeout format, timeout must be a valid duration (e.g., '1h', '30m'), got: %s", timeoutStr)
 	}
 
 	if d < time.Minute {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "timeout must be at least 1 minute",
-			Details:        fmt.Sprintf("provided timeout: %v", d),
-		}
+		return fmt.Errorf("timeout must be at least 1 minute, provided timeout: %v", d)
 	}
 
 	if d > 24*time.Hour {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "timeout cannot exceed 24 hours",
-			Details:        fmt.Sprintf("provided timeout: %v", d),
-		}
+		return fmt.Errorf("timeout cannot exceed 24 hours, provided timeout: %v", d)
 	}
 	return nil
 }
 
 // Check UserID
-func validateUserAndIDConfig(config config.ConfigFile, username string, userid int) bool {
+func validateUserAndIDConfig(config *config.ConfigFile, username string, userid int) bool {
 	for idx, v := range config.Rbac.Users {
 		if idx == username && v.UserID == userid {
 			return true

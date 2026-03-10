@@ -36,7 +36,12 @@ func (s *Server) deactivateAllActiveUsers() error {
 
 	s.logger.Info().Int("count", len(*s.db)).Msg("Deactivating authpf anchors")
 
-	e := exec.New(s.logger, s.config, s.db)
+	e, err := exec.New(s.logger, s.config, s.db)
+	if err != nil {
+		s.logger.Debug().Msgf("Cannot create new Exec: %v", err.Error())
+		return err
+	}
+
 	// Create and exec pfctl flush for all authpf user rules
 	result := e.UnloadAllAuthPFAnchors()
 	if result.Error != nil {

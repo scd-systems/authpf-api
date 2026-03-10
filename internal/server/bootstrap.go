@@ -78,19 +78,22 @@ func (s *Server) Bootstrap() (err error) {
 	}
 
 	// Create Exec
-	e := exec.New(s.logger, s.config, s.db)
+	e, err := exec.New(s.logger, s.config, s.db)
+	if err != nil {
+		return err
+	}
 
 	// Import existing Anchors
 	if s.config.AuthPF.OnStartup == "import" {
-		if err := e.ImportAuthPF(s.db); err != nil {
+		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
 	}
 	if s.config.AuthPF.OnStartup == "importflush" {
-		if err := e.ImportAuthPF(s.db); err != nil {
+		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
-		if err := e.ExecUnloadAllAuthPFAnchors("API", &s.logger, *s.config); err != nil {
+		if err := e.ExecUnloadAllAuthPFAnchors("API"); err != nil {
 			return err
 		}
 	}

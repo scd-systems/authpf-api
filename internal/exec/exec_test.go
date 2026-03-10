@@ -17,7 +17,9 @@ import (
 func createTestExec(t *testing.T, cfg *config.ConfigFile) *Exec {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	db := authpf.New()
-	return New(logger, cfg, db)
+	nExec, err := New(logger, cfg, db)
+	assert.NoError(t, err)
+	return nExec
 }
 
 // Helper function to create a test config
@@ -886,7 +888,8 @@ func TestRemoveAllIPsFromPfTable_EmptyDB(t *testing.T) {
 	}
 	db := authpf.New() // empty DB
 	logger := zerolog.New(os.Stderr)
-	e := New(logger, cfg, db)
+	e, err := New(logger, cfg, db)
+	assert.NoError(t, err)
 
 	// must not panic
 	assert.NotPanics(t, func() {
@@ -904,7 +907,8 @@ func TestRemoveAllIPsFromPfTable_NoTableConfigured(t *testing.T) {
 	db.Add(anchor)
 
 	logger := zerolog.New(os.Stderr)
-	e := New(logger, cfg, db)
+	e, err := New(logger, cfg, db)
+	assert.NoError(t, err)
 
 	// must not panic, no pfctl call expected
 	assert.NotPanics(t, func() {

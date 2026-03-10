@@ -13,7 +13,16 @@ import (
 
 // Call Exec activate anchor
 func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
+	e, err := exec.New(h.logger, h.config, h.db)
+	if err != nil {
+		h.logger.Debug().Str("user", c.Get("username").(string)).Msgf("Unable to create new Exec: %v", err.Error())
+		return &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     -1,
+			Message:        err.Error(),
+			Details:        "unable to create an Exec",
+		}
+	}
 
 	result := e.LoadAuthPFAnchor(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
@@ -45,7 +54,15 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 }
 
 func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
+	e, err := exec.New(h.logger, h.config, h.db)
+	if err != nil {
+		return &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     -1,
+			Message:        err.Error(),
+			Details:        "unable to create an Exec",
+		}
+	}
 
 	// Remove user_ip from pf table
 	result := e.RemoveIPFromPfTable(r)
@@ -80,7 +97,16 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIEr
 }
 
 func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
+	e, err := exec.New(h.logger, h.config, h.db)
+	if err != nil {
+		h.logger.Debug().Str("user", r.Username).Msgf("Unable to create new Exec: %v", err.Error())
+		return &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     -1,
+			Message:        err.Error(),
+			Details:        "unable to create an Exec",
+		}
+	}
 
 	// Remove all user_ip's from pf tables
 	e.RemoveAllIPsFromPfTable()

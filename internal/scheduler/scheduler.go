@@ -2,8 +2,6 @@ package scheduler
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -31,12 +29,14 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 	s.logger.Trace().Msgf("Run recurrent authpf anchors expire check")
 
 	if len(s.config.Defaults.PfctlBinary) < 2 {
-		log.Fatalf("No pfctl binary configured")
-		os.Exit(1)
+		s.logger.Fatal().Msg("No pfctl binary configured")
 	}
 
 	// Create Exec
-	e := exec.New(s.logger, s.config, s.db)
+	e, err := exec.New(s.logger, s.config, s.db)
+	if err != nil {
+		s.logger.Fatal().Msgf("Cannot create new Exec: %v", err.Error())
+	}
 
 	// Create a list of expired rules to avoid modifying map during iteration
 	var expiredRules []*authpf.AuthPFAnchor

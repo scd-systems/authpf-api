@@ -34,8 +34,14 @@ type MultiCommandResult struct {
 }
 
 // Create an Exec with ConfigFile
-func New(logger zerolog.Logger, config *config.ConfigFile, db *authpf.AnchorsDB) *Exec {
-	return &Exec{logger: logger, config: config, db: db}
+func New(logger zerolog.Logger, config *config.ConfigFile, db *authpf.AnchorsDB) (*Exec, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config must not be nil")
+	}
+	if db == nil {
+		return nil, fmt.Errorf("db must not be nil")
+	}
+	return &Exec{logger: logger, config: config, db: db}, nil
 }
 
 // Create an Exec without ConfigFile
@@ -244,7 +250,7 @@ func (e *Exec) UnloadAllAuthPFAnchors() *MultiCommandResult {
 }
 
 // Unload all Anchors
-func (e *Exec) ExecUnloadAllAuthPFAnchors(username string, logger *zerolog.Logger, config config.ConfigFile) error {
+func (e *Exec) ExecUnloadAllAuthPFAnchors(username string) error {
 	if len(*e.db) < 1 {
 		e.logger.Debug().Msg("No anchors to flush")
 		return nil

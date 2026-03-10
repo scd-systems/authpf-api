@@ -271,8 +271,13 @@ func (h *Handler) resolveAnchorTimeout(c echo.Context) (string, *errors.APIError
 				Details:        "maximum 10 characters allowed",
 			}
 		}
+
 		if err := exec.ValidateTimeout(reqTimeout); err != nil {
-			return "", err
+			return "", &errors.APIError{
+				HttpStatusCode: http.StatusBadRequest,
+				Message:        "invalid timeout format",
+				Details:        err.Error(),
+			}
 		}
 		return reqTimeout, nil
 	}
