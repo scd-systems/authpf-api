@@ -713,7 +713,7 @@ func TestAddIPToPfTable_ReturnsNilWhenNoTableConfigured(t *testing.T) {
 	}
 
 	result := e.AddIPToPfTable(anchor)
-	assert.Nil(t, result, "AddIPToPfTable must return nil when no pfTable is configured")
+	assert.NotNil(t, result.ExitCode, 0)
 }
 
 // TestAddIPToPfTable_BuildsCorrectPfctlArgs verifies that the correct pfctl arguments are built

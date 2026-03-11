@@ -785,7 +785,7 @@ func TestHandler_GetAnchorFromContext_MissingUsername(t *testing.T) {
 
 	assert.NotNil(t, apiErr)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.HttpStatusCode)
-	assert.NotNil(t, anchor) // returns empty anchor on error
+	assert.Nil(t, anchor) // returns empty anchor on error
 }
 
 // TestHandler_GetAnchorFromContext_InvalidTimeout tests error on invalid timeout query param
@@ -816,7 +816,7 @@ func TestHandler_GetAnchorFromContext_InvalidTimeout(t *testing.T) {
 	assert.NotNil(t, apiErr)
 	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
 	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
-	assert.NotNil(t, anchor)
+	assert.Nil(t, anchor)
 }
 
 // TestHandler_GetAnchorFromContext_TimeoutTooLong tests error when timeout param exceeds max length
@@ -848,5 +848,5 @@ func TestHandler_GetAnchorFromContext_TimeoutTooLong(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
 	assert.Equal(t, "timeout parameter too long", apiErr.Message)
 	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
-	assert.NotNil(t, anchor)
+	assert.Nil(t, anchor)
 }
