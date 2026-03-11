@@ -80,8 +80,8 @@ func validateIPAddr(value string) error {
 		if addr == "" {
 			return fmt.Errorf("empty userIP address found in config file")
 		}
-		if net.ParseIP(value) == nil {
-			return fmt.Errorf("invalid userIP address found in config file: %s", value)
+		if net.ParseIP(addr) == nil {
+			return fmt.Errorf("invalid userIP address found in config file: %s", addr)
 		}
 	}
 	return nil
