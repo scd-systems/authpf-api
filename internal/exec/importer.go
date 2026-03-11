@@ -80,7 +80,11 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 			return err
 		}
 
-		e.db.Add(&authpf.AuthPFAnchor{Username: username, UserID: uid, Timeout: e.config.AuthPF.Timeout, ExpiresAt: expiresAt, UserIP: "NaN/imported"})
+		anchor, err := authpf.SetAnchor(username, e.config.AuthPF.Timeout, "NaN/imported", uid, expiresAt)
+		if err != nil {
+			return err
+		}
+		e.db.Add(anchor)
 	}
 
 	if err := scanner.Err(); err != nil {

@@ -233,12 +233,14 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 		}
 	}
 
-	anchor := &authpf.AuthPFAnchor{
-		Username:  authpf_username,
-		Timeout:   timeout,
-		UserIP:    userIp,
-		UserID:    userId,
-		ExpiresAt: expireAt,
+	anchor, err2 := authpf.SetAnchor(authpf_username, timeout, userIp, userId, expireAt)
+	if err2 != nil {
+		return nil, &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     -1,
+			Message:        "Unable to set Anchor for user",
+			Details:        err2.Error(),
+		}
 	}
 	return anchor, nil
 }
