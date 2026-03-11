@@ -263,8 +263,3 @@ func (h *Handler) HandleDeleteAllDeactivate(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }
-
-func (h *Handler) flushDB() {
-	h.db.Flush()
-	h.logger.Debug().Msg("Flushing anchors succeed")
-}
