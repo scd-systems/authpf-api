@@ -27,6 +27,7 @@ func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor)
 
 	// Add user_ip to pf table
 	result = h.exec.AddIPToPfTable(r)
+
 	msg = fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 

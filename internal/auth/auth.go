@@ -14,7 +14,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
-	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/pkg/config"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -265,88 +264,4 @@ func (a *Auth) checkUserAndPassword(username string, clearTextPassword string) e
 	}
 
 	return fmt.Errorf("password not correct")
-}
-
-func (a *Auth) validateUserPermissions(username string, permission string) error {
-	user, ok := a.config.Rbac.Users[username]
-	if !ok {
-		return fmt.Errorf("user %q not found", username)
-	}
-
-	role, ok := a.config.Rbac.Roles[user.Role]
-	if !ok {
-		return fmt.Errorf("role %q for user %q does not exists", user.Role, username)
-	}
-
-	for _, p := range role.Permissions {
-		if p == permission {
-			return nil
-		}
-	}
-	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
-}
-
-// validateUsername check for valid username
-func (a *Auth) validateUsername(username string) error {
-	if username == "" {
-		return fmt.Errorf("username cannot be empty")
-	}
-	if len(username) > 255 {
-		return fmt.Errorf("username too long (max 255 characters)")
-	}
-	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
-		return fmt.Errorf("username contains invalid characters")
-	}
-	if _, ok := a.config.Rbac.Users[username]; !ok {
-		return fmt.Errorf("user %q not found", username)
-	}
-	return nil
-}
-
-// CheckPermission checks if a user has a specific permission
-// Returns a ValidationError if the user doesn't have the permission
-func (a *Auth) checkPermission(username string, permission string) *errors.APIError {
-	if err := a.validateUserPermissions(username, permission); err != nil {
-		return &errors.APIError{
-			StatusCode: http.StatusForbidden,
-			Message:    "permission denied",
-			Details:    err.Error(),
-		}
-	}
-	return nil
-}
-
-// ResolveTargetUser resolves the target user for an operation
-// If requestedUser is empty or equals the session user, returns the session user
-// If requestedUser differs from session user, checks if the session user has permission to operate on other users
-// Returns the resolved username or a ValidationError
-func (a *Auth) ResolveTargetUser(c echo.Context, sessionUser, requestedUser string, requiredPermission string) (string, *errors.APIError) {
-	// If no specific user requested, use session user
-	if requestedUser == "" || requestedUser == sessionUser {
-		return sessionUser, nil
-	}
-
-	// Check if session user has permission to operate on other users
-	if permErr := a.checkPermission(sessionUser, requiredPermission); permErr != nil {
-		return "", permErr
-	}
-
-	// Validate the requested username exists
-	if valErr := a.validateUsernameWithResponse(requestedUser); valErr != nil {
-		a.logger.Info().Str("status", "rejected").Str("user", sessionUser).Str("requested_user", requestedUser).Msg("invalid requested username")
-		return "", valErr
-	}
-
-	return requestedUser, nil
-}
-
-func (a *Auth) validateUsernameWithResponse(username string) *errors.APIError {
-	if err := a.validateUsername(username); err != nil {
-		return &errors.APIError{
-			StatusCode: http.StatusBadRequest,
-			Message:    "invalid username",
-			Details:    err.Error(),
-		}
-	}
-	return nil
 }

@@ -39,13 +39,11 @@ func (s *Server) Start() {
 	// Bootstrap: Flags, Config, Validierung
 	if err := s.Bootstrap(); err != nil {
 		log.Fatalf("%s", err.Error())
-		os.Exit(1)
 	}
 	// Server: Setup and Start
 	e := echo.New()
 	if err := s.SetupServer(e); err != nil {
 		log.Fatalf("%s", err.Error())
-		os.Exit(1)
 	}
 	s.StartServerWithGracefulShutdown(e)
 }
@@ -84,18 +82,19 @@ func (s *Server) Bootstrap() (err error) {
 	}
 
 	// Import existing Anchors
-	if s.config.AuthPF.OnStartup == "import" {
+	switch s.config.AuthPF.OnStartup {
+	case "import":
 		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
-	}
-	if s.config.AuthPF.OnStartup == "importflush" {
+	case "importflush":
 		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
 		if err := e.FlushAllAnchors("API"); err != nil {
 			return err
 		}
+		s.db.Flush()
 	}
 
 	if err := s.validatePfTables(e); err != nil {
@@ -304,17 +303,6 @@ func (s *Server) generateUserPasswordHash() error {
 
 // readPasswordNoEcho reads a password from terminal without echoing it
 func (s *Server) readPasswordNoEcho() (string, error) {
-	// Disable terminal echo
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
-			s.logger.Error().Err(err).Msg("Cannot restore terminal")
-		}
-	}()
-
 	// Read password
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {

@@ -206,16 +206,14 @@ func checkUserIP(ip string) *errors.APIError {
 
 // Fill anchor struct by using context informations
 func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
-	anchor := &authpf.AuthPFAnchor{}
-
 	authpf_username, err := h.resolveAnchorUsername(c)
 	if err != nil {
-		return anchor, err
+		return nil, err
 	}
 
 	timeout, err := h.resolveAnchorTimeout(c)
 	if err != nil {
-		return anchor, err
+		return nil, err
 	}
 
 	userIp := c.RealIP()
@@ -235,7 +233,7 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 		}
 	}
 
-	anchor = &authpf.AuthPFAnchor{
+	anchor := &authpf.AuthPFAnchor{
 		Username:  authpf_username,
 		Timeout:   timeout,
 		UserIP:    userIp,
