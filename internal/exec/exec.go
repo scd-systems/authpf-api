@@ -307,7 +307,12 @@ func (e *Exec) resolvePfTable(username string) string {
 func (e *Exec) removeIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
 	table := e.resolvePfTable(r.Username)
 	if table == "" {
-		return nil
+		e.logger.Trace().Str("user", r.Username).Msg("no pfTable configured, skipping IP table delete")
+		return &SystemCommandResult{
+			Command:  "pfctl",
+			Args:     []string{},
+			ExitCode: 0,
+		}
 	}
 	return e.executePfctlCommand([]string{"-t", table, "-T", "delete", r.UserIP})
 }
@@ -316,7 +321,12 @@ func (e *Exec) removeIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult 
 func (e *Exec) AddIPToPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult {
 	table := e.resolvePfTable(r.Username)
 	if table == "" {
-		return nil
+		e.logger.Trace().Str("user", r.Username).Msg("no pfTable configured, skipping IP table add")
+		return &SystemCommandResult{
+			Command:  "pfctl",
+			Args:     []string{},
+			ExitCode: 0,
+		}
 	}
 	return e.executePfctlCommand([]string{"-t", table, "-T", "add", r.UserIP})
 }
