@@ -212,7 +212,7 @@ func (h *Handler) HandleDeleteDeactivate(c echo.Context) error {
 	check, _ := h.CheckAnchorIsActivated(c)
 	if !check {
 		msg := "User anchor not active"
-		c.Set("authpf", fmt.Sprintf("Deactivated authpf anchor: user=%s, user_ip=%s, user_id=%d", anchor.Username, anchor.UserIP, anchor.UserID))
+		c.Set("authpf", fmt.Sprintf("Anchor not active for user=%s, user_ip=%s, user_id=%d", anchor.Username, anchor.UserIP, anchor.UserID))
 		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "user": anchor.Username, "message": msg})
 	}
 
@@ -261,7 +261,6 @@ func (h *Handler) HandleDeleteAllDeactivate(c echo.Context) error {
 		c.Set("authpf", err.Details)
 		return c.JSON(err.HttpStatusCode, echo.Map{"status": "failed", "message": err.Message})
 	}
-	h.flushDB()
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
 }
 
