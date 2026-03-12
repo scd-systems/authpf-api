@@ -1,5 +1,5 @@
 .nh
-.TH authpf-api(8) - RESTful HTTP API for managing pf user rules
+.TH authpf-api(1) - RESTful HTTP API for managing pf user rules
 .SH NAME
 \fBauthpf-api\fP — RESTful HTTP API for managing pf user rules
 
@@ -23,16 +23,28 @@ Display the version information and exit.
 
 .TP
 \fB-gen-user-password\fP
-Generate a bcrypt-hashed password for user authentication. The password is hashed using SHA256 first, then bcrypt. Can be used interactively or with piped input.
+Generate a bcrypt-hashed password for user authentication. The password is first hashed with SHA256, then with bcrypt. Can be used interactively or with piped input. Note: the API login endpoint expects the password to be sent as a SHA256 hash.
+
+.TP
+\fB-configFile\fP \fIpath\fP
+Path to the configuration file. Overrides the \fBCONFIG_FILE\fR environment variable and the compiled-in default.
+
+.TP
+\fB-c\fP \fIpath\fP
+Short form of \fB-configFile\fP\&. Takes precedence over \fB-configFile\fP if both are specified.
+
+.TP
+\fB-v\fP \fIlevel\fP
+Set the log level. Valid values are: \fBdebug\fR, \fBinfo\fR, \fBwarn\fR, \fBerror\fR, \fBfatal\fR\&. Overrides the \fBLOG_LEVEL\fR environment variable.
 
 .SH ENVIRONMENT
 .TP
 \fBCONFIG_FILE\fP
-Path to the configuration file. Defaults to \fB/usr/local/etc/authpf-api.conf\fR if not set.
+Path to the configuration file. Defaults to \fB/usr/local/etc/authpf-api.conf\fR if not set. Overridden by the \fB-configFile\fP / \fB-c\fP flags.
 
 .TP
 \fBLOG_LEVEL\fP
-Set the logging level. Valid values are: \fBdebug\fR, \fBinfo\fR, \fBwarn\fR, \fBerror\fR\&. Default is \fBinfo\fR\&.
+Set the logging level. Valid values are: \fBdebug\fR, \fBinfo\fR, \fBwarn\fR, \fBerror\fR, \fBfatal\fR\&. Default is \fBinfo\fR\&. Overridden by the \fB-v\fP flag.
 
 .SH CONFIGURATION
 \fBauthpf-api\fP is configured via a YAML configuration file, typically located at \fB/usr/local/etc/authpf-api.conf\fR\&. See \fBauthpf-api.conf(5)\fR for detailed configuration options.
@@ -68,9 +80,9 @@ All endpoints require JWT authentication via \fBAuthorization: Bearer <token>\fR
 Activate pf rules for the authenticated user.
 .TP
 Query parameters:
-\fBauthpf_username\fR - Activate rules for another user (requires appropriate permissions)
+\fBauthpf_username\fR — Activate rules for another user (requires \fBactivate_other_rules\fR permission)
 
-\fBtimeout\fR — Override the default timeout (e.g., 30m, 1h)
+\fBtimeout\fR — Override the default timeout (e.g., \fB30m\fR, \fB1h\fR)
 
 .PP
 \fBResponse (201 Created):\fP
@@ -87,7 +99,7 @@ Query parameters:
 Deactivate pf rules for the authenticated user.
 .TP
 Query parameters:
-\fBauthpf_username\fR - Deactivate rules for another user (requires appropriate permissions)
+\fBauthpf_username\fR — Deactivate rules for another user (requires \fBdeactivate_other_rules\fR permission)
 
 .PP
 \fBResponse (202 Accepted):\fP
@@ -101,7 +113,7 @@ Query parameters:
 .EE
 
 .SS GET /api/v1/authpf/all
-Get status of all activated rules.
+Get status of all activated rules. Requires \fBview_own_rules\fR permission; \fBview_other_rules\fR is required to see other users' rules.
 
 .PP
 \fBResponse (200 OK):\fP
@@ -118,7 +130,7 @@ Get status of all activated rules.
 .EE
 
 .SS DELETE /api/v1/authpf/all
-Delete all activated rules (admin only).
+Delete all activated rules. Requires \fBdeactivate_other_rules\fR permission (admin only).
 
 .PP
 \fBResponse (200 OK):\fP
@@ -129,7 +141,9 @@ Delete all activated rules (admin only).
 }
 .EE
 
-.SH EXAMPLES
+.SH PASSWORD GENERATION
+\fBauthpf-api\fP uses a two-step hashing scheme: the plain-text password is first hashed with SHA256, then the SHA256 digest is hashed with bcrypt and stored in the configuration file. When logging in, the client must send the SHA256 hash of the plain-text password — not the plain-text password itself.
+
 .SS Generate a user password
 .EX
 authpf-api -gen-user-password
@@ -143,9 +157,15 @@ echo -n "your-password" | authpf-api -gen-user-password
 $2a$10$N9qo8uLOickgx2ZM.......
 .EE
 
+.SH EXAMPLES
 .SS Run in foreground with debug logging
 .EX
 LOG_LEVEL=debug authpf-api -foreground
+.EE
+
+.SS Run with a custom config file
+.EX
+authpf-api -c /etc/authpf-api/authpf-api.conf
 .EE
 
 .SS Check version
@@ -154,6 +174,7 @@ authpf-api -version
 .EE
 
 .SH SETUP
+.SS PF Configuration
 Before using \fBauthpf-api\fP, ensure that the authpf anchors are configured in \fB/etc/pf.conf\fR:
 
 .EX
@@ -164,22 +185,89 @@ anchor "authpf/*"
 .EE
 
 .PP
-Verify that the anchor name in the configuration file matches the \fBanchorName\fR setting (default: authpf).
+Verify that the anchor name in the configuration file matches the \fBanchorName\fR setting (default: \fBauthpf\fR).
+
+.PP
+If PF table support is enabled, declare the table as \fBpersist\fR in \fB/etc/pf.conf\fR so it survives becoming empty:
+
+.EX
+table <authpf_users> persist
+.EE
+
+.SS SSL Setup
+To enable HTTPS, generate a certificate and key and configure them in \fBauthpf-api.conf(5)\fR\&. Example using a self-signed CA:
+
+.EX
+# Create CA root key and self-sign
+openssl ecparam -genkey -name secp384r1 | openssl ec -aes256 -out rootCA.key
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 -out rootCA.crt
+
+# Create server key and CSR
+openssl ecparam -genkey -name prime256v1 -noout -out server.key
+openssl req -new -key server.key -out server.csr
+
+# Sign the server certificate
+openssl x509 -req -in server.csr -CA rootCA.crt -CAkey rootCA.key \\
+    -CAcreateserial -out server.crt -days 397 -sha256
+.EE
+
+.PP
+Then set in \fBauthpf-api.conf\fR:
+
+.EX
+server:
+  ssl:
+    certificate: /etc/ssl/certs/server.crt
+    key: /etc/ssl/private/server.key
+.EE
+
+.SS Elevator Setup
+When running \fBauthpf-api\fP as a non-root user, privilege escalation is required to execute \fBpfctl(8)\fR\&. See \fBauthpf-api.conf(5)\fR for full configuration details.
+
+.PP
+\fBConfigure Sudo\fP — add to the sudoers file:
+
+.EX
+Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -sA, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? \\
+        -D user_ip=[0-9.]+ -D user_id=[0-9]+ \\
+        -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F nat$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F rules$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F queue$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F states$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F Tables$, \\
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F all$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
+%_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
+.EE
+
+.PP
+The three pf table rules are only required when \fBauthpf.pfTable\fR or any \fBrbac.users.<name>.pfTable\fR is configured.
+
+.PP
+\fBConfigure Doas\fP — add to \fB/etc/doas.conf\fR:
+
+.EX
+permit nopass :authpf as root cmd /sbin/pfctl
+.EE
 
 .SH FILES
 .EX
 /usr/local/etc/authpf-api.conf — Default configuration file
-/var/log/authpf-api.log — Default logfile location
-/etc/authpf/users — Default root directory for user-specific rule files
-/etc/pf.conf — Packet filter configuration file
+/var/log/authpf-api.log        — Default logfile location
+/etc/authpf/users              — Default root directory for user-specific rule files
+/etc/pf.conf                   — Packet filter configuration file
 .EE
 
 .SH SEE ALSO
 authpf-api.conf(5),
 authpf(8),
-file(1),
 pfctl(8),
 pf(4),
+pf.conf(5),
 sudo(8),
 doas(1)
 
