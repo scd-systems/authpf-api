@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
@@ -19,6 +20,7 @@ type Handler struct {
 	lock   *sync.Mutex
 	logger zerolog.Logger
 	config *config.ConfigFile
+	exec   *exec.Exec
 }
 
 // AuthPFAnchorResponse represents all rules with server time for client-side calculations
@@ -27,8 +29,14 @@ type AuthPFAnchorResponse struct {
 	ServerTime time.Time        `json:"server_time"`
 }
 
-func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) *Handler {
-	return &Handler{db: db, lock: lock, logger: logger, config: config}
+func New(db *authpf.AnchorsDB, lock *sync.Mutex, logger zerolog.Logger, config *config.ConfigFile) (*Handler, error) {
+	e, err := exec.New(logger, config, db)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to initialize exec")
+		return nil, fmt.Errorf("failed to initialize exec: %v", err.Error())
+	}
+
+	return &Handler{db: db, lock: lock, logger: logger, config: config, exec: e}, nil
 }
 
 func (h *Handler) AddToDB(r *authpf.AuthPFAnchor) error {
@@ -204,7 +212,7 @@ func (h *Handler) HandleDeleteDeactivate(c echo.Context) error {
 	check, _ := h.CheckAnchorIsActivated(c)
 	if !check {
 		msg := "User anchor not active"
-		c.Set("authpf", fmt.Sprintf("Deactivated authpf anchor: user=%s, user_ip=%s, user_id=%d", anchor.Username, anchor.UserIP, anchor.UserID))
+		c.Set("authpf", fmt.Sprintf("Anchor not active for user=%s, user_ip=%s, user_id=%d", anchor.Username, anchor.UserIP, anchor.UserID))
 		return c.JSON(http.StatusForbidden, echo.Map{"status": "rejected", "user": anchor.Username, "message": msg})
 	}
 
@@ -253,11 +261,5 @@ func (h *Handler) HandleDeleteAllDeactivate(c echo.Context) error {
 		c.Set("authpf", err.Details)
 		return c.JSON(err.HttpStatusCode, echo.Map{"status": "failed", "message": err.Message})
 	}
-	h.flushDB()
 	return c.JSON(http.StatusOK, echo.Map{"status": "cleared"})
-}
-
-func (h *Handler) flushDB() {
-	*h.db = make(authpf.AnchorsDB)
-	h.logger.Debug().Msg("Flushing anchors succeed")
 }

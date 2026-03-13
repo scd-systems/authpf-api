@@ -12,24 +12,37 @@ import (
 
 // Validate ConfigFile Values
 func (s *Server) validateConfig() (err error) {
-	// Validate all macro fields from config file
-	for k := range s.config.Rbac.Users {
-		if err = validateIPAddr(s.config.Rbac.Users[k].UserIP); err != nil {
+	if len(s.config.AuthPF.PfTable) > 0 {
+		if err = validateAlphanumericASCII("authpf.pfTable", s.config.AuthPF.PfTable); err != nil {
 			return err
 		}
-		for mkey, mvalue := range s.config.Rbac.Users[k].Macros {
+	}
+
+	// Validate all macro fields from config file
+	for k, v := range s.config.Rbac.Users {
+		// UserIP Check
+		if err = validateIPAddr(v.UserIP); err != nil {
+			return err
+		}
+		// Macros
+		for mkey, mvalue := range v.Macros {
 			if err = validateLength(mkey, 1, 128); err != nil {
 				return err
 			}
 			if err = validateLength(mvalue, 1, 128); err != nil {
 				return err
 			}
-			if err = validateAlphanumericASCII(mvalue); err != nil {
+			if err = validateAlphanumericASCII(mkey, mvalue); err != nil {
 				return err
 			}
-			if err = validateMacroKey(s.config.Rbac.Users[k], mkey); err != nil {
+			if err = validateMacroKey(v, mkey); err != nil {
 				nerr := fmt.Errorf("same twice parameters found for user %s in configuration, %s", k, err)
 				return nerr
+			}
+		}
+		if len(v.PfTable) > 0 {
+			if err = validateAlphanumericASCII(fmt.Sprintf("rbac.users.%s.pfTable", k), v.PfTable); err != nil {
+				return err
 			}
 		}
 	}
@@ -48,14 +61,14 @@ func validateLength(value string, minLen int, maxLen int) error {
 }
 
 // Validate Value against allowed chars
-func validateAlphanumericASCII(value string) error {
+func validateAlphanumericASCII(key, value string) error {
 	var validStringRegex = regexp.MustCompile(`^[A-Za-z0-9_.]*$`)
 
 	if len(value) == 0 {
-		return fmt.Errorf("input must not be empty")
+		return fmt.Errorf("input must not be empty, key: %s", key)
 	}
 	if !validStringRegex.MatchString(value) {
-		return fmt.Errorf("invalid characters found in macro, only [a-zA-Z0-9_.] allowed, got: %s", value)
+		return fmt.Errorf("invalid characters found in config parameter: %s, only [a-zA-Z0-9_.] allowed, got: '%s'", key, value)
 	}
 	return nil
 }
@@ -67,8 +80,8 @@ func validateIPAddr(value string) error {
 		if addr == "" {
 			return fmt.Errorf("empty userIP address found in config file")
 		}
-		if net.ParseIP(value) == nil {
-			return fmt.Errorf("invalid userIP address found in config file: %s", value)
+		if net.ParseIP(addr) == nil {
+			return fmt.Errorf("invalid userIP address found in config file: %s", addr)
 		}
 	}
 	return nil

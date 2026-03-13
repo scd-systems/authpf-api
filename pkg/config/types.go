@@ -32,6 +32,7 @@ type ConfigFileAuthPF struct {
 	FlushFilter         []string `yaml:"flushFilter"`
 	OnShutdown          string   `yaml:"onShutdown"`
 	OnStartup           string   `yaml:"onStartup"`
+	PfTable             string   `yaml:"pfTable"`
 }
 
 type ConfigFileServer struct {
@@ -65,4 +66,5 @@ type ConfigFileRbacUsers struct {
 	UserID        int               `yaml:"userId,omitempty"`
 	UserIP        string            `yaml:"userIp,omitempty"`
 	Macros        map[string]string `yaml:"macros"`
+	PfTable       string            `yaml:"pfTable"`
 }

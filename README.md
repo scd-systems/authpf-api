@@ -17,6 +17,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 - 🏗️ **Cross-Platform Build** - Support for FreeBSD and OpenBSD on multiple architectures
 - 🧑‍💼 **Runs as User** - Runs as Non-Root User - Elevator tool (sudo/doas) support for running pfctl commands
 - 🎚️ **PF Macros** - User defined pf macro support
+- 📋 **PF Table Support** - Automatically track active user IPs in a pf table (global or per-user)
 
 ## Supported Platforms
 
@@ -94,6 +95,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
 | `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
 | `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
+| `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
 
 #### Server Section
 
@@ -126,6 +128,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `rbac.users.<name>.userIp` | Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used. | No |
 | `rbac.users.<name>.userRulesFile` | Override the global `authpf.userRulesFile` for this specific user. | No |
 | `rbac.users.<name>.macros` | Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl`. Must also be declared in the user's pf rules file. | No |
+| `rbac.users.<name>.pfTable` | Override the global `authpf.pfTable` for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must exist in `pf.conf`. | No |
 
 ### Environment Variables
 
@@ -333,6 +336,76 @@ pass in proto tcp from $user_ip to $server_1_addr port $server_1_port
 
 ---
 
+## PF Table Support
+
+authpf-api can automatically track active user IPs in a pf table — similar to the original [authpf(8)](https://man.freebsd.org/cgi/man.cgi?query=authpf) behaviour. This allows pf rules to reference the set of currently authenticated users by table name.
+
+### How it works
+
+- When a user's anchor is **activated**, their `user_ip` is added to the configured pf table via `pfctl -t <table> -T add <ip>`.
+- When a user's anchor is **deactivated**, their IP is removed via `pfctl -t <table> -T delete <ip>`.
+- On **startup**, authpf-api verifies that all configured tables exist.
+- A **global table** applies to all users. A **per-user table** overrides the global one for that specific user.
+
+### Priority
+
+```
+user.pfTable (if set)  →  authpf.pfTable (global, if set)  →  no table management
+```
+
+### Configuration
+
+**Global table** (applies to all users without a per-user override):
+
+```yaml
+authpf:
+  pfTable: authpf_users
+```
+
+**Per-user table** (overrides the global table for this user):
+
+```yaml
+rbac:
+  users:
+    authpf-user1:
+      role: user
+      userId: 1001
+      pfTable: custom_table_user1   # overrides authpf.pfTable
+```
+
+### Required pf.conf entry
+
+The table must be declared as `persist` in `/etc/pf.conf` before starting authpf-api:
+
+```
+table <authpf_users> persist
+```
+
+Without `persist`, pf will remove the table when it becomes empty, causing subsequent `pfctl -T add` calls to fail.
+
+### Error behaviour
+
+| Operation | On failure |
+|---|---|
+| Add IP on activate | **Fatal** — HTTP 500 returned, anchor is not activated |
+| Remove IP on deactivate | **Warn only** — logged, anchor is still flushed |
+| Remove IP on shutdown / deactivate-all | **Warn only** — logged, all anchors are still flushed |
+| Table existence check on startup | **Fatal** — server refuses to start |
+
+### Elevator (sudo) — additional rules
+
+When using `elevatorMode: sudo`, the sudoers `Cmnd_Alias` must include the table management commands:
+
+```
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-zA-Z:.]+$, \
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-zA-Z:.]+$, \
+/sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
+```
+
+See the full updated sudo example in the [Elevator Setup](#elevator-setup) section below.
+
+---
+
 ## Setup PF
 
 Before you can use authpf-api, please verify that the authpf anchors are set up in pf.conf
@@ -401,7 +474,7 @@ Copy the rootCA.crt to the clients to verify the server.
 When running authpf-api as non-root user, an elevator setup is required.
 AuthPF-API currently supports sudo and doas.
 
-### Configure Sudo 
+### Configure Sudo
 
 Sudoers File:
 ```
@@ -412,9 +485,14 @@ Sudoers File:
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F queue$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F states$, \
       /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F Tables$, \
-      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$
+      /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\([0-9]+\))? -F all$, \
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \
+      /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
   %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
 ```
+
+> **Note:** The three pf table rules are only required when `authpf.pfTable` or any `rbac.users.<name>.pfTable` is configured. They cover IPv4 and IPv6 addresses for add/delete, and the startup existence check for show.
 
 Configure authpf-api.conf
 

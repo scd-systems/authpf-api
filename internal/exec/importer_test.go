@@ -79,7 +79,9 @@ func createTestExecForImporter(t *testing.T) *Exec {
 			},
 		},
 	}
-	return New(logger, cfg, db)
+	nExec, err := New(logger, cfg, db)
+	assert.NoError(t, err)
+	return nExec
 }
 
 // TestParsePfctlOutput verifies that parsePfctlOutput correctly parses the

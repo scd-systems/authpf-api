@@ -24,7 +24,7 @@ func (s *Server) gracefulShutdown(e *echo.Echo) error {
 	return e.Shutdown(ctx)
 }
 
-// deactivateAllActiveUsers removes all active entries from anchorsDB and pfctl
+// deactivateAllActiveUsers removes all active entries from anchorsDB and pf tables
 func (s *Server) deactivateAllActiveUsers() error {
 	lock.Lock()
 	defer lock.Unlock()
@@ -35,15 +35,25 @@ func (s *Server) deactivateAllActiveUsers() error {
 	}
 
 	s.logger.Info().Int("count", len(*s.db)).Msg("Deactivating authpf anchors")
-
-	e := exec.New(s.logger, s.config, s.db)
-	// Create and exec pfctl flush for all authpf user rules
-	result := e.UnloadAllAuthPFAnchors()
-	if result.Error != nil {
-		s.logger.Error().Err(result.Error).Msg("Error unloading pfctl anchors")
-		return result.Error
+	e, err := exec.New(s.logger, s.config, s.db)
+	if err != nil {
+		s.logger.Debug().Msgf("Cannot create new Exec: %v", err.Error())
+		return err
 	}
 
+	// Cleanup pf tables
+	if result := e.FlushAllPFTables(); result != nil {
+		s.logger.Error().Err(result.Error).Msg("Error cleanup pf tables")
+		return result.Error
+	}
+	s.logger.Info().Msg("All pf tables cleaned up successfully")
+
+	// Exec pfctl flush for all authpf user rules
+	if err = e.FlushAllAnchors("shutdown"); err != nil {
+		s.logger.Error().Err(err).Msg("Error unloading authpf anchors")
+		return err
+	}
 	s.logger.Info().Msg("All authpf anchors deactivated successfully")
+
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
@@ -16,7 +17,9 @@ import (
 func createTestExec(t *testing.T, cfg *config.ConfigFile) *Exec {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	db := authpf.New()
-	return New(logger, cfg, db)
+	nExec, err := New(logger, cfg, db)
+	assert.NoError(t, err)
+	return nExec
 }
 
 // Helper function to create a test config
@@ -620,4 +623,341 @@ func TestBuildPfctlActivateCmdParameters_UnknownUser(t *testing.T) {
 
 	// No macros for unknown user — base 8 params expected
 	assert.Equal(t, 8, len(result), "expected 8 params for unknown user, got %d: %v", len(result), result)
+}
+
+// TestResolvePfTable_UserOverridesGlobal verifies that the user-level pfTable takes precedence over the global one
+func TestResolvePfTable_UserOverridesGlobal(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "global_table",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000, PfTable: "user_table"},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+	result := e.resolvePfTable("testuser")
+	assert.Equal(t, "user_table", result, "user pfTable must override global pfTable")
+}
+
+// TestResolvePfTable_FallbackToGlobal verifies fallback to the global pfTable when the user has none configured
+func TestResolvePfTable_FallbackToGlobal(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "global_table",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000, PfTable: ""},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+	result := e.resolvePfTable("testuser")
+	assert.Equal(t, "global_table", result, "should fall back to global pfTable when user pfTable is empty")
+}
+
+// TestResolvePfTable_EmptyWhenNoneConfigured verifies that an empty string is returned when no pfTable is configured anywhere
+func TestResolvePfTable_EmptyWhenNoneConfigured(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := createTestConfig(t, tmpDir) // no pfTable configured
+	e := createTestExec(t, cfg)
+	result := e.resolvePfTable("testuser")
+	assert.Equal(t, "", result, "should return empty string when no pfTable configured")
+}
+
+// TestResolvePfTable_UnknownUserFallsBackToGlobal verifies that an unknown user falls back to the global pfTable
+func TestResolvePfTable_UnknownUserFallsBackToGlobal(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "global_table",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{},
+		},
+	}
+	e := createTestExec(t, cfg)
+	result := e.resolvePfTable("unknownuser")
+	assert.Equal(t, "global_table", result, "unknown user should fall back to global pfTable")
+}
+
+// ─── AddIPToPfTable ───────────────────────────────────────────────────────────
+
+// TestAddIPToPfTable_ReturnsNilWhenNoTableConfigured verifies that nil is returned when no pfTable is configured
+func TestAddIPToPfTable_ReturnsNilWhenNoTableConfigured(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := createTestConfig(t, tmpDir) // no pfTable configured
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "192.168.1.100",
+		UserID:   1000,
+	}
+
+	result := e.AddIPToPfTable(anchor)
+	assert.NotNil(t, result.ExitCode, 0)
+}
+
+// TestAddIPToPfTable_BuildsCorrectPfctlArgs verifies that the correct pfctl arguments are built
+func TestAddIPToPfTable_BuildsCorrectPfctlArgs(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "authpf_users",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "10.0.0.1",
+		UserID:   1000,
+	}
+
+	result := e.AddIPToPfTable(anchor)
+	// pfctl binary does not exist in the test environment, ExitCode != 0 is expected
+	// Important: result must not be nil and args must be correctly assembled
+	assert.NotNil(t, result, "result must not be nil when pfTable is configured")
+	assert.Equal(t, "/sbin/pfctl", result.Command)
+	assert.Contains(t, result.Args, "-t")
+	assert.Contains(t, result.Args, "authpf_users")
+	assert.Contains(t, result.Args, "-T")
+	assert.Contains(t, result.Args, "add")
+	assert.Contains(t, result.Args, "10.0.0.1")
+}
+
+// TestAddIPToPfTable_UsesUserTableOverGlobal verifies that the user-specific pfTable is used instead of the global one
+func TestAddIPToPfTable_UsesUserTableOverGlobal(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "global_table",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000, PfTable: "user_specific_table"},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "10.0.0.1",
+		UserID:   1000,
+	}
+
+	result := e.AddIPToPfTable(anchor)
+	assert.NotNil(t, result)
+	assert.Contains(t, result.Args, "user_specific_table",
+		"must use user-specific pfTable, not global")
+	assert.NotContains(t, result.Args, "global_table")
+}
+
+// TestRemoveIPFromPfTable_ReturnsNilWhenNoTableConfigured verifies that nil is returned when no pfTable is configured
+func TestRemoveIPFromPfTable_ReturnsNilWhenNoTableConfigured(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := createTestConfig(t, tmpDir) // no pfTable configured
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "192.168.1.100",
+		UserID:   1000,
+	}
+
+	result := e.FlushPFTable(anchor)
+	assert.Nil(t, result, "RemoveIPFromPfTable must return nil when no pfTable is configured")
+}
+
+// TestRemoveIPFromPfTable_BuildsCorrectPfctlArgs verifies that the correct pfctl arguments are built
+func TestRemoveIPFromPfTable_BuildsCorrectPfctlArgs(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "authpf_users",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "10.0.0.1",
+		UserID:   1000,
+	}
+
+	result := e.removeIPFromPfTable(anchor)
+	assert.NotNil(t, result, "result must not be nil when pfTable is configured")
+	assert.Equal(t, "/sbin/pfctl", result.Command)
+	assert.Contains(t, result.Args, "-t")
+	assert.Contains(t, result.Args, "authpf_users")
+	assert.Contains(t, result.Args, "-T")
+	assert.Contains(t, result.Args, "delete") // must use "delete", not "add"
+	assert.Contains(t, result.Args, "10.0.0.1")
+}
+
+// TestRemoveIPFromPfTable_UsesUserTableOverGlobal verifies that the user-specific pfTable takes precedence over the global one
+func TestRemoveIPFromPfTable_UsesUserTableOverGlobal(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "global_table",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{
+				"testuser": {UserID: 1000, PfTable: "user_specific_table"},
+			},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	anchor := &authpf.AuthPFAnchor{
+		Username: "testuser",
+		UserIP:   "10.0.0.1",
+		UserID:   1000,
+	}
+
+	result := e.removeIPFromPfTable(anchor)
+	assert.NotNil(t, result)
+	assert.Contains(t, result.Args, "user_specific_table")
+	assert.NotContains(t, result.Args, "global_table")
+}
+
+// TestFlushAllPFTables_EmptyDB verifies that no panic occurs when the anchor DB is empty
+func TestFlushAllPFTables_EmptyDB(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/sbin/pfctl"},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			PfTable:             "authpf_users",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{},
+		},
+	}
+	db := authpf.New() // empty DB
+	logger := zerolog.New(os.Stderr)
+	e, err := New(logger, cfg, db)
+	assert.NoError(t, err)
+
+	// must not panic
+	assert.NotPanics(t, func() {
+		e.FlushAllPFTables()
+	}, "FlushAllPFTables must not panic on empty DB")
+}
+
+// TestFlushAllPFTables_NoTableConfigured verifies that no pfctl call is made when no pfTable is configured
+func TestFlushAllPFTables_NoTableConfigured(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := createTestConfig(t, tmpDir) // no pfTable configured
+
+	db := authpf.New()
+	anchor, _ := authpf.SetAnchor("testuser", "30m", "10.0.0.1", 1000, time.Now().Add(30*time.Minute))
+	db.Add(anchor)
+
+	logger := zerolog.New(os.Stderr)
+	e, err := New(logger, cfg, db)
+	assert.NoError(t, err)
+
+	// must not panic, no pfctl call expected
+	assert.NotPanics(t, func() {
+		e.FlushAllPFTables()
+	}, "FlushAllPFTables must not panic when no pfTable configured")
+}
+
+// TestCheckPfTableExists_NonExistentBinary verifies that an error is returned when the pfctl binary does not exist
+func TestCheckPfTableExists_NonExistentBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/nonexistent/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	err := e.CheckPfTableExists("some_table")
+	assert.Error(t, err, "CheckPfTableExists must return error when pfctl binary does not exist")
+	assert.Contains(t, err.Error(), "some_table")
+}
+
+// TestCheckPfTableExists_ErrorMessageContainsTableName verifies that the error message contains the table name for clear diagnostics
+func TestCheckPfTableExists_ErrorMessageContainsTableName(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.ConfigFile{
+		Defaults: config.ConfigFileDefaults{PfctlBinary: "/nonexistent/pfctl"},
+		Server:   config.ConfigFileServer{ElevatorMode: ""},
+		AuthPF: config.ConfigFileAuthPF{
+			UserRulesRootFolder: tmpDir,
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+		},
+		Rbac: config.ConfigFileRbac{
+			Users: map[string]config.ConfigFileRbacUsers{},
+		},
+	}
+	e := createTestExec(t, cfg)
+
+	tableName := "my_custom_table"
+	err := e.CheckPfTableExists(tableName)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), tableName,
+		"error message must contain the table name for clear diagnostics")
 }

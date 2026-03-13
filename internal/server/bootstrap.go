@@ -39,19 +39,11 @@ func (s *Server) Start() {
 	// Bootstrap: Flags, Config, Validierung
 	if err := s.Bootstrap(); err != nil {
 		log.Fatalf("%s", err.Error())
-		os.Exit(1)
 	}
-
-	if err := s.validateConfig(); err != nil {
-		log.Fatalf("%s", err.Error())
-		os.Exit(1)
-	}
-
 	// Server: Setup and Start
 	e := echo.New()
 	if err := s.SetupServer(e); err != nil {
 		log.Fatalf("%s", err.Error())
-		os.Exit(1)
 	}
 	s.StartServerWithGracefulShutdown(e)
 }
@@ -68,6 +60,11 @@ func (s *Server) Bootstrap() (err error) {
 		return err
 	}
 
+	// Validate Config
+	if err := s.validateConfig(); err != nil {
+		return err
+	}
+
 	// Initialize JWT secret
 	if err := s.initializeJWTSecret(); err != nil {
 		return err
@@ -78,21 +75,30 @@ func (s *Server) Bootstrap() (err error) {
 		return err
 	}
 
-	e := exec.New(s.logger, s.config, s.db)
+	// Create Exec
+	e, err := exec.New(s.logger, s.config, s.db)
+	if err != nil {
+		return err
+	}
 
 	// Import existing Anchors
-	if s.config.AuthPF.OnStartup == "import" {
-		if err := e.ImportAuthPF(s.db); err != nil {
+	switch s.config.AuthPF.OnStartup {
+	case "import":
+		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
+	case "importflush":
+		if err := e.ImportAuthPF(); err != nil {
+			return err
+		}
+		if err := e.FlushAllAnchors("API"); err != nil {
+			return err
+		}
+		s.db.Flush()
 	}
-	if s.config.AuthPF.OnStartup == "importflush" {
-		if err := e.ImportAuthPF(s.db); err != nil {
-			return err
-		}
-		if err := e.ExecUnloadAllAuthPFAnchors("API", &s.logger, *s.config); err != nil {
-			return err
-		}
+
+	if err := s.validatePfTables(e); err != nil {
+		return err
 	}
 
 	s.logger.Info().Str("version", Version).Str("API_Version", api.API_VERSION).Msg("authpf-api starting")
@@ -297,17 +303,6 @@ func (s *Server) generateUserPasswordHash() error {
 
 // readPasswordNoEcho reads a password from terminal without echoing it
 func (s *Server) readPasswordNoEcho() (string, error) {
-	// Disable terminal echo
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
-			s.logger.Error().Msg("Cannot restore terminal")
-		}
-	}()
-
 	// Read password
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
@@ -325,4 +320,42 @@ func readPasswordFromStdin() (string, error) {
 	}
 	password := strings.TrimSpace(string(data))
 	return password, nil
+}
+
+// get all pfTables in config file and put into an array
+func collectRequiredPfTables(cfg *config.ConfigFile) []string {
+	seen := make(map[string]struct{})
+	var tables []string
+
+	if cfg.AuthPF.PfTable != "" {
+		seen[cfg.AuthPF.PfTable] = struct{}{}
+		tables = append(tables, cfg.AuthPF.PfTable)
+	}
+
+	for _, user := range cfg.Rbac.Users {
+		if user.PfTable != "" {
+			if _, exists := seen[user.PfTable]; !exists {
+				seen[user.PfTable] = struct{}{}
+				tables = append(tables, user.PfTable)
+			}
+		}
+	}
+	return tables
+}
+
+// Check if all pfTables are exists
+func (s *Server) validatePfTables(e *exec.Exec) error {
+	tables := collectRequiredPfTables(s.config)
+	if len(tables) == 0 {
+		return nil
+	}
+
+	for _, table := range tables {
+		s.logger.Debug().Msgf("checking pf table existence: %s", table)
+		if err := e.CheckPfTableExists(table); err != nil {
+			return fmt.Errorf("startup pf table check failed: %w", err)
+		}
+		s.logger.Info().Msgf("pf table verified: %s", table)
+	}
+	return nil
 }

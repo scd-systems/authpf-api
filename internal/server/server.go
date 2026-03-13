@@ -42,7 +42,9 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 	}))
 
 	// Register routes
-	s.registerRoutes(e)
+	if err := s.registerRoutes(e); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -96,9 +98,14 @@ func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
 }
 
 // registerRoutes sets up all API endpoints
-func (s *Server) registerRoutes(e *echo.Echo) {
+func (s *Server) registerRoutes(e *echo.Echo) error {
 	// Create handlers
-	handler := api.New(s.db, lock, s.logger, s.config)
+	handler, err := api.New(s.db, lock, s.logger, s.config)
+	if err != nil {
+		s.logger.Error().Err(err).Msgf("failed to create handler")
+		return err
+	}
+
 	auth := auth.New(s.config, s.logger, jwtSecret)
 
 	// Health check endpoint
@@ -123,6 +130,7 @@ func (s *Server) registerRoutes(e *echo.Echo) {
 	scheduler := scheduler.New(s.db, lock, s.logger, s.config)
 	// Start background rule cleaner
 	go scheduler.Run()
+	return nil
 }
 
 // Start Graceful Server

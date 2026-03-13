@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/scd-systems/authpf-api/internal/authpf"
@@ -13,6 +12,8 @@ import (
 	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
+
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 func (h *Handler) CheckAnchorIsActivated(c echo.Context) (bool, *errors.APIError) {
 	sessionUsername, err := h.resolveAnchorUsername(c)
@@ -65,71 +66,6 @@ func (h *Handler) CheckJSONPayload(c echo.Context, r *authpf.AuthPFAnchor) *erro
 			StatusCode:     -1,
 			Message:        "invalid JSON payload",
 			Details:        err.Error(),
-		}
-	}
-	return nil
-}
-
-// Call Exec activate anchor
-func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
-
-	result := e.LoadAuthPFAnchor(r)
-	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
-	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
-
-	if result.ExitCode != 0 {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     result.ExitCode,
-			Message:        "failed to load anchor rules",
-			Details:        result.Stderr,
-		}
-	}
-	return nil
-}
-
-func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
-
-	multiResult := e.UnloadAuthPFAnchor(r)
-
-	// Log all commands
-	for i, result := range multiResult.Results {
-		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
-			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-			result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Debug().Str("user", r.Username).Msg(msg)
-	}
-	if multiResult.Error != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "failed to unload anchor rules",
-			Details:        "check server logs",
-		}
-	}
-	return nil
-}
-
-func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
-	e := exec.New(h.logger, h.config, h.db)
-
-	multiResult := e.UnloadAllAuthPFAnchors()
-
-	// Log all commands
-	for i, result := range multiResult.Results {
-		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
-			i+1, len(multiResult.Results), result.Command, strings.Join(result.Args, " "),
-			result.ExitCode, result.Stdout, result.Stderr)
-		h.logger.Debug().Str("user", r.Username).Msg(msg)
-	}
-	if multiResult.Error != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "failed to unload anchor rules",
-			Details:        "check server logs",
 		}
 	}
 	return nil
@@ -270,16 +206,14 @@ func checkUserIP(ip string) *errors.APIError {
 
 // Fill anchor struct by using context informations
 func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
-	anchor := &authpf.AuthPFAnchor{}
-
 	authpf_username, err := h.resolveAnchorUsername(c)
 	if err != nil {
-		return anchor, err
+		return nil, err
 	}
 
 	timeout, err := h.resolveAnchorTimeout(c)
 	if err != nil {
-		return anchor, err
+		return nil, err
 	}
 
 	userIp := c.RealIP()
@@ -299,12 +233,14 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 		}
 	}
 
-	anchor = &authpf.AuthPFAnchor{
-		Username:  authpf_username,
-		Timeout:   timeout,
-		UserIP:    userIp,
-		UserID:    userId,
-		ExpiresAt: expireAt,
+	anchor, err2 := authpf.SetAnchor(authpf_username, timeout, userIp, userId, expireAt)
+	if err2 != nil {
+		return nil, &errors.APIError{
+			HttpStatusCode: http.StatusInternalServerError,
+			StatusCode:     -1,
+			Message:        "Unable to set Anchor for user",
+			Details:        err2.Error(),
+		}
 	}
 	return anchor, nil
 }
@@ -337,8 +273,13 @@ func (h *Handler) resolveAnchorTimeout(c echo.Context) (string, *errors.APIError
 				Details:        "maximum 10 characters allowed",
 			}
 		}
+
 		if err := exec.ValidateTimeout(reqTimeout); err != nil {
-			return "", err
+			return "", &errors.APIError{
+				HttpStatusCode: http.StatusBadRequest,
+				Message:        "invalid timeout format",
+				Details:        err.Error(),
+			}
 		}
 		return reqTimeout, nil
 	}
@@ -369,7 +310,7 @@ func (h *Handler) validateUsername(username string) *errors.APIError {
 			Details:        "username too long",
 		}
 	}
-	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(username) {
+	if !usernameRegex.MatchString(username) {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
 			StatusCode:     -1,

@@ -18,12 +18,3 @@ func (ve *APIError) Error() string {
 	}
 	return ve.Message
 }
-
-func NewAPIError(httpStatus, statusCode int, message, details string) *APIError {
-	return &APIError{
-		HttpStatusCode: httpStatus,
-		StatusCode:     statusCode,
-		Message:        message,
-		Details:        details,
-	}
-}

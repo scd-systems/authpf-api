@@ -1,38 +1,39 @@
+'\" t
 .nh
 .TH authpf-api.conf(5) - Configuration file for authpf-api
 .SH NAME
 \fBauthpf-api.conf\fP — configuration file for authpf-api
 
 .SH DESCRIPTION
-The \fBauthpf-api.conf\fP file is a YAML-formatted configuration file for \fBauthpf-api(8)\fR\&. It defines all operational parameters including server settings, authentication, pf rule management, and role-based access control.
+The \fBauthpf-api.conf\fP file is a YAML-formatted configuration file for \fBauthpf-api(1)\fR\&. It defines all operational parameters including server settings, authentication, pf rule management, and role-based access control.
 
 .PP
-The default location is \fB/usr/local/etc/authpf-api.conf\fR\&. An alternative path can be specified via the \fBCONFIG_FILE\fR environment variable.
+The default location is \fB/usr/local/etc/authpf-api.conf\fR\&. An alternative path can be specified via the \fBCONFIG_FILE\fR environment variable or the \fB-configFile\fP / \fB-c\fP command-line flags.
 
 .SH CONFIGURATION SECTIONS
 .SS defaults
 Global default settings applied across the application.
 .TP
 \fBpfctlBinary\fP
-Path to the \fBpfctl(8)\fR binary executable. Must be accessible by the user running \fBauthpf-api(8)\fR\&. \fI(string, required)\fP
+Path to the \fBpfctl(8)\fR binary executable. Must be accessible by the user running \fBauthpf-api(1)\fR\&. \fI(string, required)\fP
 
 .SS authpf
 AuthPF-specific configuration for rule management and timeouts.
 .TP
 \fBtimeout\fP
-Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Supports duration formats like 30m, 1h, 2d. \fI(string, required)\fP
+Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Supports duration formats like \fB30m\fR, \fB1h\fR, \fB2d\fR\&. \fI(string, required)\fP
 
 .TP
 \fBuserRulesRootFolder\fP
-Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be readable and writable by the user running \fBauthpf-api(8)\fR\&. \fI(string, required)\fP
+Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be readable by the user running \fBauthpf-api(1)\fR\&. \fI(string, required)\fP
 
 .TP
 \fBuserRulesFile\fP
-Filename for user rules within the userRulesRootFolder. This file is loaded when a user activates their anchors. \fI(string, required)\fP
+Filename for user rules within the \fBuserRulesRootFolder\fR\&. This file is loaded when a user activates their anchors. Can be overridden per user via \fBrbac.users.<name>.userRulesFile\fR\&. \fI(string, required)\fP
 
 .TP
 \fBanchorName\fP
-Name of the PF anchor to use for rule management. Used to organize and  manage rules within the packet filter. Must match the anchor name configured in \fB/etc/pf.conf\fR\&. \fI(string, required)\fP
+Name of the PF anchor to use for rule management. Used to organize and manage rules within the packet filter. Must match the anchor name configured in \fB/etc/pf.conf\fR\&. \fI(string, required)\fP
 
 .TP
 \fBflushFilter\fP
@@ -49,31 +50,35 @@ Valid values:
 
 .TP
 \fBonStartup\fP
-Specifies the startup anchor loading behavior \fI(string, optional)\fP\&.
-
-Valid values: 
-
-\fBnone\fR - Do not import anchors on startup (default)
-
-\fBimport\fR - Import existing anchors from pf. Parses output of \fBpfctl -sA\fR and imports all existing  anchors matching the pattern authpf/NAME(USERID).
-
-\fBimportflush\fR - Same as import, but removes/flushes anchors immediately after importing to achieve a clean state for startup.
-
-.TP
-\fBLimitations\fP
-1. UserIP macro value cannot be detected during import. It will be set to "NaN/imported" and has no effect.
-
-2. Expire datetime is calculated using \fBauthpf.timeout\fR and current server time.
-
-.TP
-\fBonShutdown\fP
-Specifies behavior when the API server shuts down.
+Specifies the startup anchor loading behavior. \fI(string, optional)\fP
 
 Valid values:
 
-\fBnone\fR - Do nothing (default)
+\fBnone\fR — Do not import anchors on startup (default)
 
-\fBflushall\fR - Remove all activated user rules when the API server shuts down
+\fBimport\fR — Import existing anchors from pf. Parses the output of \fBpfctl -sA\fR and imports all existing anchors matching the pattern \fBauthpf/NAME(USERID)\fR\&. Note: anchors without a numeric user ID suffix (e.g. \fBauthpf/user\fR without \fB(2000)\fR) are not imported.
+
+\fBimportflush\fR — Same as \fBimport\fR, but removes/flushes all anchors immediately after importing to achieve a clean state on startup.
+
+.TP
+\fBLimitations of import:\fP
+1. The \fBuser_ip\fR macro value cannot be detected during import. It will be set to \fBNaN/imported\fR and has no functional effect. Deactivation works without a valid IP address.
+
+2. The expiry datetime is calculated from \fBauthpf.timeout\fR and the current server time at import.
+
+.TP
+\fBonShutdown\fP
+Specifies behavior when the API server shuts down. \fI(string, optional)\fP
+
+Valid values:
+
+\fBnone\fR — Do nothing (default)
+
+\fBflushall\fR — Remove all activated user rules when the API server shuts down
+
+.TP
+\fBpfTable\fP
+Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR before starting \fBauthpf-api(1)\fR\&. Leave empty to disable. Can be overridden per user via \fBrbac.users.<name>.pfTable\fR\&. \fI(string, optional)\fP
 
 .SS server
 Server configuration including network binding, SSL/TLS, and authentication.
@@ -90,24 +95,24 @@ Port number for the HTTP/HTTPS server. Ensure the port is not already in use and
 SSL/TLS configuration for HTTPS support. \fI(object, optional)\fP
 
 .TP
-\fBcertificate\fP
-Path to SSL certificate file. Leave empty to disable SSL and use HTTP only. Required for HTTPS connections. \fI(string, optional)\fP
+\fBssl.certificate\fP
+Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. \fI(string, optional)\fP
 
 .TP
-\fBkey\fP
-Path to SSL private key file. Must match the certificate and be readable by the server process. Required if certificate is specified. \fI(string, optional)\fP
+\fBssl.key\fP
+Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if \fBssl.certificate\fR is specified. \fI(string, optional)\fP
 
 .TP
 \fBjwtSecret\fP
-JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security. If not set or empty, a random secret will be generated automatically. \fBWARNING:\fR Using the default or a weak secret compromises security. \fI(string, optional)\fP
+JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security. If not set or empty, a random secret is generated automatically on each startup — this means all tokens are invalidated on restart. \fI(string, optional)\fP
 
 .TP
 \fBjwtTokenTimeout\fP
-JWT token timeout in hours. Determines how long authentication tokens remain valid. Default is 8 hours if not set. \fI(integer, optional)\fP
+JWT token validity duration. Determines how long authentication tokens remain valid. Supports duration formats like \fB30m\fR, \fB8h\fR, \fB24h\fR\&. Default is \fB8h\fR if not set. \fI(string, optional)\fP
 
 .TP
 \fBelevatorMode\fP
-Elevator mode for privilege escalation. Required when running \fBauthpf-api(8)\fR as a non-root user. \fI(string, optional)\fP
+Elevator mode for privilege escalation. Required when running \fBauthpf-api(1)\fR as a non-root user. \fI(string, optional)\fP
 
 Valid values:
 
@@ -119,30 +124,126 @@ Valid values:
 
 .TP
 \fBlogfile\fP
-Path to the server logfile. Ensure the directory exists and is writable by the server process. Use \fB-foreground\fR flag to log to stdout instead. \fI(string, required)\fP
+Path to the server logfile. Ensure the directory exists and is writable by the server process. Use the \fB-foreground\fR flag to log to stdout instead. \fI(string, required)\fP
 
-.TP
-\fBrbac\fP
+.SS rbac
 Role-Based Access Control configuration for users and permissions.
-
 .TP
-\fBroles\fP
+\fBrbac.roles\fP
 Role definitions with associated permissions. Each role defines what actions users with that role can perform. \fI(object, required)\fP
 
 .TP
-\fBusers\fP
-User account definitions with credentials and role assignments. Each user entry includes a password hash, assigned role, and optional numeric user ID. \fI(object, required)\fP
+\fBrbac.roles.<name>\&.permissions\fP
+List of permission strings assigned to this role. See \fBAVAILABLE RBAC PERMISSIONS\fP below. \fI(array of strings, required)\fP
+
+.TP
+\fBrbac.users\fP
+User account definitions with credentials and role assignments. \fI(object, required)\fP
+
+.TP
+\fBrbac.users.<name>\&.password\fP
+Bcrypt password hash for this user. Generate with \fBauthpf-api -gen-user-password\fR\&. \fI(string, required)\fP
+
+.TP
+\fBrbac.users.<name>\&.role\fP
+Role assigned to this user. Must match a key defined under \fBrbac.roles\fR\&. \fI(string, required)\fP
+
+.TP
+\fBrbac.users.<name>\&.userId\fP
+Numeric user ID used as the pf anchor suffix (e.g. \fBauthpf/username(1001)\fR). Defaults to \fB0\fR if not set. \fI(integer, optional)\fP
+
+.TP
+\fBrbac.users.<name>\&.userIp\fP
+Pin a static IP address passed as the \fBuser_ip\fR macro to \fBpfctl\fR\&. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. \fI(string, optional)\fP
+
+.TP
+\fBrbac.users.<name>\&.userRulesFile\fP
+Override the global \fBauthpf.userRulesFile\fR for this specific user. If set, this filename is used instead of the global default when loading this user's anchor rules. \fI(string, optional)\fP
+
+.TP
+\fBrbac.users.<name>\&.macros\fP
+Map of arbitrary key/value pairs passed as additional \fB-D key=value\fR arguments to \fBpfctl\fR when the user's anchor is loaded. Each macro must also be declared in the user's pf rules file. Macro keys and values are validated to contain only alphanumeric characters, underscores, dots, and hyphens. The reserved keys \fBuser_ip\fR and \fBuser_id\fR must not be redefined here if \fBuserIp\fR or \fBuserId\fR are already set. \fI(map of string to string, optional)\fP
+
+.TP
+\fBrbac.users.<name>\&.pfTable\fP
+Override the global \fBauthpf.pfTable\fR for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR\&. \fI(string, optional)\fP
 
 .SH AVAILABLE RBAC PERMISSIONS
-\fBactivate_own_rules\fP - Allow user to activate their own authpf rules
-\fBactivate_other_rules\fP - Allow user to activate rules from other users
-\fBdeactivate_own_rules\fP - Allow user to deactivate their own rules
-\fBdeactivate_other_rules\fP - Allow user to deactivate rules from other users
-\fBview_own_rules\fP - Allow user to view their own rules status
-\fBview_other_rules\fP - Allow user to view rules status from other users
+.TP
+\fBactivate_own_rules\fP
+Allow user to activate their own authpf rules.
+
+.TP
+\fBactivate_other_rules\fP
+Allow user to activate rules for other users (via \fBauthpf_username\fR query parameter).
+
+.TP
+\fBdeactivate_own_rules\fP
+Allow user to deactivate their own rules.
+
+.TP
+\fBdeactivate_other_rules\fP
+Allow user to deactivate rules for other users (via \fBauthpf_username\fR query parameter). Also required for \fBDELETE /api/v1/authpf/all\fR\&.
+
+.TP
+\fBview_own_rules\fP
+Allow user to view their own rules status via \fBGET /api/v1/authpf/all\fR\&.
+
+.TP
+\fBview_other_rules\fP
+Allow user to view rules status for all users via \fBGET /api/v1/authpf/all\fR\&.
+
+.SH PF TABLE SUPPORT
+\fBauthpf-api\fP can automatically track active user IPs in a pf table, similar to the original \fBauthpf(8)\fR behaviour. This allows pf rules to reference the set of currently authenticated users by table name.
+
+.PP
+When a user's anchor is \fBactivated\fP, their \fBuser_ip\fR is added to the configured pf table via \fBpfctl -t <table> -T add <ip>\fR\&. When a user's anchor is \fBdeactivated\fP, their IP is removed via \fBpfctl -t <table> -T delete <ip>\fR\&. On startup, \fBauthpf-api\fP verifies that all configured tables exist — this check is fatal and prevents the server from starting if a table is missing.
+
+.PP
+\fBPriority\fP (highest to lowest):
+
+.EX
+rbac.users.<name>.pfTable  →  authpf.pfTable  →  no table management
+.EE
+
+.PP
+The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR:
+
+.EX
+table <authpf_users> persist
+.EE
+
+.PP
+Without \fBpersist\fR, pf removes the table when it becomes empty, causing subsequent \fBpfctl -T add\fR calls to fail.
+
+.PP
+\fBError behaviour:\fP
+
+.TS
+allbox;
+l l 
+l l .
+\fBOperation\fP	\fBOn failure\fP
+Add IP on activate	T{
+Fatal — HTTP 500 returned, anchor is not activated
+T}
+Remove IP on deactivate	T{
+Warn only — logged, anchor is still flushed
+T}
+T{
+Remove IP on shutdown / deactivate-all
+T}	T{
+Warn only — logged, all anchors are still flushed
+T}
+T{
+Table existence check on startup
+T}	T{
+Fatal — server refuses to start
+T}
+.TE
 
 .SH PASSWORD GENERATION
-User passwords must be hashed using bcrypt. Generate a password hash using:
+User passwords must be hashed using bcrypt. The \fB-gen-user-password\fR flag performs a two-step hash: SHA256 followed by bcrypt. The API login endpoint expects the password to be sent as a SHA256 hash.
 
 .EX
 authpf-api -gen-user-password
@@ -159,7 +260,7 @@ $2a$10$N9qo8uLOickgx2ZM.......
 .EE
 
 .PP
-Copy the generated hash and add it to the configuration file.
+Copy the generated hash and add it to the configuration file under \fBrbac.users.<name>.password\fR\&.
 
 .SH ELEVATOR SETUP
 When running \fBauthpf-api\fP as a non-root user, an elevator setup is required. \fBauthpf-api\fP supports both \fBsudo(8)\fR and \fBdoas(1)\fR\&.
@@ -177,8 +278,23 @@ Cmnd_Alias AUTHPF_API_COMMANDS = /sbin/pfctl -sA, \\
     /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F queue$, \\
     /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F states$, \\
     /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F Tables$, \\
-    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F all$
+    /sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? -F all$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T add [0-9a-fA-F:.]+$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T delete [0-9a-fA-F:.]+$, \\
+    /sbin/pfctl ^-t [a-zA-Z0-9_]+ -T show$
 %_authpf-api ALL=(root)  NOPASSWD: AUTHPF_API_COMMANDS
+.EE
+
+.PP
+The three pf table rules (\fB-T add\fR, \fB-T delete\fR, \fB-T show\fR) are only required when \fBauthpf.pfTable\fR or any \fBrbac.users.<name>.pfTable\fR is configured. They cover both IPv4 and IPv6 addresses.
+
+.PP
+When using user-defined \fBmacros\fR, the sudoers \fBCmnd_Alias\fR must be updated to allow the additional \fB-D\fR arguments. Use a broad regex pattern to cover all macro key/value pairs:
+
+.EX
+/sbin/pfctl ^-a authpf/([a-zA-Z0-9_-]+)(\\([0-9]+\\))? \\
+    -D [a-zA-Z0-9_-]+=[a-zA-Z0-9_.+-]+ \\
+    -f /etc/authpf/users/[a-zA-Z0-9_-]+/authpf.rules$
 .EE
 
 .SS Configure Doas
@@ -187,6 +303,19 @@ Add the following to \fB/etc/doas.conf\fR:
 .EX
 permit nopass :authpf as root cmd /sbin/pfctl
 .EE
+
+.PP
+For a more restrictive setup, use the \fBpfctl_wrapper\fR script (found under \fBscripts/\fR) and configure \fBdefaults.pfctlBinary\fR to point to it:
+
+.EX
+permit nopass :authpf as root cmd /usr/local/sbin/pfctl_wrapper
+.EE
+
+.PP
+\fBNote:\fP \fBdoas(1)\fR does not support regular expressions for command arguments. The broad \fBcmd /sbin/pfctl\fR rule allows all pfctl invocations. Use the \fBpfctl_wrapper\fR for tighter control.
+
+.PP
+\fBNote:\fP On FreeBSD 15.0, \fBpfctl -Fa\fR (flush all) may return an error (\fBOperation not supported by device\fR) due to a NETLINK change. Run each flush filter separately instead of using \fBall\fR\&.
 
 .SH EXAMPLES
 .SS Minimal Configuration
@@ -223,7 +352,7 @@ rbac:
       role: user
 .EE
 
-.SS Production Configuration with SSL and Sudo
+.SS Production Configuration with SSL, Sudo, and PF Table
 .EX
 defaults:
   pfctlBinary: /sbin/pfctl
@@ -239,6 +368,7 @@ authpf:
     - rules
   onStartup: importflush
   onShutdown: flushall
+  pfTable: authpf_users
 
 server:
   bind: 0.0.0.0
@@ -247,7 +377,7 @@ server:
     certificate: /etc/ssl/certs/authpf-api.crt
     key: /etc/ssl/private/authpf-api.key
   jwtSecret: your-strong-random-secret-here
-  jwtTokenTimeout: 12
+  jwtTokenTimeout: 12h
   elevatorMode: sudo
   logfile: /var/log/authpf-api.log
 
@@ -275,24 +405,33 @@ rbac:
       password: $2a$10$hijklmni.....
       role: user
       userId: 1001
+      userIp: 192.168.0.10
+      userRulesFile: custom.rules
+      pfTable: custom_table_user1
+      macros:
+        server_1_port: 22
+        server_1_addr: 10.127.2.1
 .EE
 
 .SH FILES
 .EX
 /usr/local/etc/authpf-api.conf — Default configuration file location
-/etc/authpf/users — Default root directory for user-specific rule files
-/etc/pf.conf — Packet filter configuration file                
-/var/log/authpf-api.log — Default logfile location
+/etc/authpf/users              — Default root directory for user-specific rule files
+/etc/pf.conf                   — Packet filter configuration file
+/var/log/authpf-api.log        — Default logfile location
 .EE
 
 .SH ENVIRONMENT
-.EX
-CONFIG_FILE - Override the default configuration file path
-LOG_LEVEL - Set the logging level (debug, info, warn, error)
-.EE
+.TP
+\fBCONFIG_FILE\fP
+Override the default configuration file path. Overridden by the \fB-configFile\fP / \fB-c\fP flags.
+
+.TP
+\fBLOG_LEVEL\fP
+Set the logging level (\fBdebug\fR, \fBinfo\fR, \fBwarn\fR, \fBerror\fR, \fBfatal\fR). Overridden by the \fB-v\fP flag.
 
 .SH SEE ALSO
-authpf-api(8)
+authpf-api(1),
 authpf(8),
 pfctl(8),
 pf(4),
@@ -301,7 +440,7 @@ sudo(8),
 doas(1)
 
 .SH HISTORY
-The \fBauthpf-api.conf\fP configuration file format was introduced with \fBauthpf-api(8)\fR as a YAML-based alternative to traditional shell-based authpf configuration.
+The \fBauthpf-api.conf\fP configuration file format was introduced with \fBauthpf-api(1)\fR as a YAML-based alternative to traditional shell-based authpf configuration.
 
 .SH AUTHORS
 bofh@scd-systems.net

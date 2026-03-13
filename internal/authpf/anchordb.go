@@ -36,6 +36,11 @@ func (a *AnchorsDB) Remove(username string) error {
 	return fmt.Errorf("username not found in DB: %s", username)
 }
 
+// Clear DB
+func (a *AnchorsDB) Flush() {
+	*a = make(AnchorsDB)
+}
+
 func (a *AnchorsDB) IsActivated(username string) bool {
 	for _, v := range *a {
 		if v.Username == username {
@@ -49,6 +54,5 @@ func SetAnchor(username string, timeout string, userIp string, userId int, expir
 	if len(username) < 1 || len(timeout) < 1 || len(userIp) < 1 || userId < 0 || userId > 65535 {
 		return &AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
 	}
-
 	return &AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
 }
