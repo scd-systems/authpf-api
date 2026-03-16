@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-03-16
 
 ### ⚠️ Breaking Changes
-- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.2.4 required)
+- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.3.0 required)
 
 ### Added
 - More Unittests
