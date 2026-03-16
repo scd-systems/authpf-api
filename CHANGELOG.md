@@ -5,29 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.3] - 2026-03-09
+## [0.3.0] - 2026-03-16
+
+### ⚠️ Breaking Changes
+- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.2.4 required)
 
 ### Added
-- Unittests
+- More Unittests
 - Route GET method for /login to validate JWT's from authpf-api-cli
 - Static UserIP Support
-  Users can be configured to use a pre-defined/static IP address (the remote Client IP will ignored if set)
+  Users can be configured to use a pre-defined/static IP address (the remote Client IP will be ignored if set)
 - Macro Support
   Users can be configured to have defined macros (see authpf-api.conf.sample)
 - PF Table Support
-  Tables (global and per user) can be used to add the remote client IP address on activate anchors. The user defined pfTable takes precendence over the global
-
-  
+  Tables (global and per user) can be used to add the remote client IP address on activate 
+  anchors. The user defined pfTable takes precedence over the global
 
 ### Changed
 - Project file structure, created packages, refactor and slice code
 - Import anchors: existing anchor with username and userid must match
 - Rollback: Undo anchor activation in case an anchor activation is failing
-- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.2.4 required)
 - Refactor version information output for CLI/API
+- Github Workflow
 
 ### Fixed
-- Bugs
+- Lot of bugs
+- Update readme, example and manpages
 
 ## [0.2.2] - 2026-02-06
 
@@ -41,14 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2026-01-27
 
 ### Added
-- Graceful-Shutdown to flush anchors when server get stopped
+- Graceful-Shutdown to flush anchors when server gets stopped
 - Import anchors on startup
 - /info endpoint to get API version response
 
 ### Changed
 - Improved logging
 - Removed clear-text password exchange for user login process
-- switch HSTS by use the secure middleware Handler from echo Framework
+- Switch HSTS by use the secure middleware Handler from echo Framework
 - Refactoring
 
 ### Fixed
@@ -83,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RBAC support
 - AuthPF rule management
 
-[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...v0.2.1
+[0.2.2]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...v0.2.1
 [0.2.1]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/scd-systems/authpf-api/compare/v0.1.9...v0.2.0

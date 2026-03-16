@@ -23,15 +23,13 @@ jobs:
       
       - name: Build ${{ matrix.os }}-${{ matrix.arch }}
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
-          go build -ldflags "-X main.Version=${{ github.ref_name }}" \
-          -o authpf-api-${{ matrix.os }}-${{ matrix.arch }} .
+          make build GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
-          path: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/authpf-api-${{ matrix.os }}-${{ matrix.arch }}
 
   release:
     needs: build
@@ -61,12 +59,14 @@ jobs:
       - name: Extract Release Notes from CHANGELOG
         id: changelog
         run: |
+          # Extrace ChangeLog
           VERSION=${{ github.ref_name }}
-          # Extrahiere den Changelog-Eintrag für diese Version
-          awk "/^## \[${VERSION#v}\]/,/^## \[/" CHANGELOG.md | \
-          head -n -1 | tail -n +2 > RELEASE_NOTES.md
+          VERSION_NUM="${VERSION#v}"
+          sed -n "/^## \[${VERSION_NUM}\]/,/^## \[/{
+          /^## \[/d
+          p
+          }" CHANGELOG.md > RELEASE_NOTES.md
           
-          # Fallback wenn Version nicht gefunden
           if [ ! -s RELEASE_NOTES.md ]; then
             echo "## Release ${VERSION}" > RELEASE_NOTES.md
             echo "" >> RELEASE_NOTES.md
@@ -78,7 +78,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             release/*
@@ -86,5 +86,4 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
