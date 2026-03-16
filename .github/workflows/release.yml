@@ -23,15 +23,13 @@ jobs:
       
       - name: Build ${{ matrix.os }}-${{ matrix.arch }}
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
-          go build -ldflags "-X main.Version=${{ github.ref_name }}" \
-          -o authpf-api-${{ matrix.os }}-${{ matrix.arch }} .
+          make build GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
-          path: authpf-api-${{ matrix.os }}-${{ matrix.arch }}
+          name: build/authpf-api-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/authpf-api-${{ matrix.os }}-${{ matrix.arch }}
 
   release:
     needs: build
@@ -49,7 +47,7 @@ jobs:
       - name: Generate Checksums
         run: |
           mkdir -p release
-          for dir in authpf-api-*/; do
+          for dir in build/authpf-api-*/; do
             for file in "$dir"*; do
               if [ -f "$file" ]; then
                 cp "$file" release/
