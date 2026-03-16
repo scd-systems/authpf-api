@@ -47,7 +47,7 @@ jobs:
       - name: Generate Checksums
         run: |
           mkdir -p release
-          for dir in build/authpf-api-*/; do
+          for dir in authpf-api-*/; do
             for file in "$dir"*; do
               if [ -f "$file" ]; then
                 cp "$file" release/
