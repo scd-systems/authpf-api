@@ -59,7 +59,7 @@ jobs:
       - name: Extract Release Notes from CHANGELOG
         id: changelog
         run: |
-          # Extrace ChangeLog
+          # Extract ChangeLog
           VERSION=${{ github.ref_name }}
           VERSION_NUM="${VERSION#v}"
           sed -n "/^## \[${VERSION_NUM}\]/,/^## \[/{
