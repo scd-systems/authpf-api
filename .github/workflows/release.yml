@@ -59,12 +59,14 @@ jobs:
       - name: Extract Release Notes from CHANGELOG
         id: changelog
         run: |
+          # Extrace ChangeLog
           VERSION=${{ github.ref_name }}
-          # Extrahiere den Changelog-Eintrag für diese Version
-          awk "/^## \[${VERSION#v}\]/,/^## \[/" CHANGELOG.md | \
-          head -n -1 | tail -n +2 > RELEASE_NOTES.md
+          VERSION_NUM="${VERSION#v}"
+          sed -n "/^## \[${VERSION_NUM}\]/,/^## \[/{
+          /^## \[/d
+          p
+          }" CHANGELOG.md > RELEASE_NOTES.md
           
-          # Fallback wenn Version nicht gefunden
           if [ ! -s RELEASE_NOTES.md ]; then
             echo "## Release ${VERSION}" > RELEASE_NOTES.md
             echo "" >> RELEASE_NOTES.md

@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.3] - 2026-03-09
+## [0.3.0] - 2026-03-16
 
-### Added
-- Unittests
-- Route GET method for /login to validate JWT's from authpf-api-cli
+### ⚠️ Breaking Changes
+- API Version 1.2, authpf-api-cli version >= 0.2.4 required
+
+### 🎉 New Features
 - Static UserIP Support
   Users can be configured to use a pre-defined/static IP address (the remote Client IP will ignored if set)
 - Macro Support
@@ -17,17 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PF Table Support
   Tables (global and per user) can be used to add the remote client IP address on activate anchors. The user defined pfTable takes precendence over the global
 
-  
-
-### Changed
+### 🧐 Enhancements
+- Added more unittests
 - Project file structure, created packages, refactor and slice code
+- Route GET method for /login to validate JWT's from authpf-api-cli
 - Import anchors: existing anchor with username and userid must match
 - Rollback: Undo anchor activation in case an anchor activation is failing
-- Bump Server API Version to 1.2 (authpf-api-cli version >= 0.2.4 required)
 - Refactor version information output for CLI/API
+- Github Workflow
 
-### Fixed
-- Bugs
+### 📖 Documentation
+- Update readme, example and manpages
+
+### 🐞 Bug Fixes
+- Lot of bugs
 
 ## [0.2.2] - 2026-02-06
 
