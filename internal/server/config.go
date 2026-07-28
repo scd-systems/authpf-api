@@ -6,8 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
 // Validate ConfigFile Values
@@ -35,8 +33,8 @@ func (s *Server) validateConfig() (err error) {
 			if err = validateAlphanumericASCII(mkey, mvalue); err != nil {
 				return err
 			}
-			if err = validateMacroKey(v, mkey); err != nil {
-				nerr := fmt.Errorf("same twice parameters found for user %s in configuration, %s", k, err)
+			if err = validateMacroKey(mkey); err != nil {
+				nerr := fmt.Errorf("invalid macro for user %s in configuration, %s", k, err)
 				return nerr
 			}
 		}
@@ -87,14 +85,30 @@ func validateIPAddr(value string) error {
 	return nil
 }
 
-func validateMacroKey(user config.ConfigFileRbacUsers, value string) error {
-	if len(value) > 0 {
-		if chk := strings.Compare(value, "user_ip"); chk == 0 && len(user.UserIP) > 0 {
-			return fmt.Errorf("userIp and macro user_ip defined (same)")
-		}
-		if chk := strings.Compare(value, "user_id"); chk == 0 && user.UserID > 0 {
-			return fmt.Errorf("userId and macro user_id defined (same)")
-		}
+// pf.conf(5) documents macro names as starting with a letter, followed by
+// letters, digits and underscores. The lexer is looser than the manual, but
+// validating against the documented contract keeps a config that passes
+// startup from failing at activation time.
+var validMacroKeyRegex = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+
+// validateMacroKey checks the macro name itself. Only the value was ever
+// checked: validateAlphanumericASCII takes (key, value) and regex-tests the
+// value, using the key solely to label the error.
+//
+// A key that is not a valid pf macro name still reaches pfctl as part of the
+// -D argument, and produces a macro that no rules file can reference. Worse,
+// it changes the shape of the argument the sudoers or doas allowlist matches
+// against, so the config validates at startup and the activation fails later.
+//
+// user_ip and user_id are rejected outright. The app always passes both
+// itself, before the user macros, and pfctl keeps the first definition of a
+// command-line macro, so a user macro with either name is silently discarded.
+func validateMacroKey(value string) error {
+	if !validMacroKeyRegex.MatchString(value) {
+		return fmt.Errorf("invalid macro key %q, only [A-Za-z][A-Za-z0-9_]* allowed", value)
+	}
+	if value == "user_ip" || value == "user_id" {
+		return fmt.Errorf("macro key %q collides with the built-in pfctl macro of the same name", value)
 	}
 	return nil
 }

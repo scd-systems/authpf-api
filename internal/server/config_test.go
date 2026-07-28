@@ -11,108 +11,46 @@ import (
 func TestValidateMacroKey(t *testing.T) {
 	tests := []struct {
 		name    string
-		user    config.ConfigFileRbacUsers
 		key     string
 		wantErr bool
 		errMsg  string
 	}{
+		{name: "plain key", key: "my_macro", wantErr: false},
+		{name: "uppercase key", key: "SERVER_1_PORT", wantErr: false},
+		// errMsg carries the full charset here so the message and the regex
+		// cannot drift apart silently again.
 		{
-			name: "no conflict: key is user_ip but UserIP is empty",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "",
-				Macros: map[string]string{"user_ip": "10.0.0.1"},
-			},
-			key:     "user_ip",
-			wantErr: false,
+			name:    "leading underscore rejected, pf.conf documents letter-first",
+			key:     "_internal",
+			wantErr: true,
+			errMsg:  `invalid macro key "_internal", only [A-Za-z][A-Za-z0-9_]* allowed`,
 		},
+		{name: "reserved-looking but distinct key", key: "user_ip2", wantErr: false},
+		{name: "mixed case is not the reserved name", key: "User_Ip", wantErr: false},
 		{
-			name: "no conflict: UserIP set but key is not user_ip",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "192.168.1.1",
-				Macros: map[string]string{"my_macro": "value"},
-			},
-			key:     "my_macro",
-			wantErr: false,
-		},
-		{
-			name: "conflict: UserIP set and key is user_ip",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "192.168.1.1",
-				Macros: map[string]string{"user_ip": "10.0.0.1"},
-			},
+			name:    "user_ip always rejected, the app passes -D user_ip itself",
 			key:     "user_ip",
 			wantErr: true,
-			errMsg:  "userIp and macro user_ip defined (same)",
+			errMsg:  "collides with the built-in pfctl macro",
 		},
 		{
-			name: "no conflict: both UserIP and key are empty",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "",
-				Macros: map[string]string{},
-			},
-			key:     "",
-			wantErr: false,
-		},
-		{
-			name: "no conflict: key is empty, UserIP is set",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "10.0.0.1",
-				Macros: map[string]string{},
-			},
-			key:     "",
-			wantErr: false,
-		},
-		{
-			name: "no conflict: key USER_IP is case-sensitive, UserIP is set",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "10.0.0.1",
-				Macros: map[string]string{"USER_IP": "value"},
-			},
-			key:     "USER_IP",
-			wantErr: false,
-		},
-		{
-			name: "no conflict: key User_Ip mixed case, UserIP is set",
-			user: config.ConfigFileRbacUsers{
-				UserIP: "10.0.0.1",
-				Macros: map[string]string{"User_Ip": "value"},
-			},
-			key:     "User_Ip",
-			wantErr: false,
-		},
-		{
-			name: "conflict: UserID set and key is user_id",
-			user: config.ConfigFileRbacUsers{
-				UserID: 1000,
-				Macros: map[string]string{"user_id": "1000"},
-			},
+			name:    "user_id always rejected, the app passes -D user_id itself",
 			key:     "user_id",
 			wantErr: true,
-			errMsg:  "userId and macro user_id defined (same)",
+			errMsg:  "collides with the built-in pfctl macro",
 		},
-		{
-			name: "no conflict: key user_id but UserID is zero",
-			user: config.ConfigFileRbacUsers{
-				UserID: 0,
-				Macros: map[string]string{"user_id": "0"},
-			},
-			key:     "user_id",
-			wantErr: false,
-		},
-		{
-			name: "no conflict: key User_Id mixed case, UserID is set (case-sensitive)",
-			user: config.ConfigFileRbacUsers{
-				UserID: 1000,
-				Macros: map[string]string{"User_Id": "1000"},
-			},
-			key:     "User_Id",
-			wantErr: false,
-		},
+		{name: "empty key", key: "", wantErr: true, errMsg: "invalid macro key"},
+		{name: "leading digit", key: "1port", wantErr: true, errMsg: "invalid macro key"},
+		{name: "hyphen", key: "my-macro", wantErr: true, errMsg: "invalid macro key"},
+		{name: "dot", key: "my.macro", wantErr: true, errMsg: "invalid macro key"},
+		{name: "space", key: "my macro", wantErr: true, errMsg: "invalid macro key"},
+		{name: "shell metacharacters", key: "x;rm", wantErr: true, errMsg: "invalid macro key"},
+		{name: "argv injection shape", key: "x=1 -F all", wantErr: true, errMsg: "invalid macro key"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateMacroKey(tt.user, tt.key)
+			err := validateMacroKey(tt.key)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errMsg)
