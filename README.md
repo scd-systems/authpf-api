@@ -387,7 +387,7 @@ Without `persist`, pf will remove the table when it becomes empty, causing subse
 
 | Operation | On failure |
 |---|---|
-| Add IP on activate | **Fatal** — HTTP 500 returned, anchor is not activated |
+| Add IP on activate | **Fatal** — HTTP 500 returned, the anchor loaded in step 1 is unloaded again |
 | Remove IP on deactivate | **Warn only** — logged, anchor is still flushed |
 | Remove IP on shutdown / deactivate-all | **Warn only** — logged, all anchors are still flushed |
 | Table existence check on startup | **Fatal** — server refuses to start |
