@@ -60,6 +60,12 @@ func (s *Server) Bootstrap() (err error) {
 		return err
 	}
 
+	// Warn about config keys the decoder dropped silently. A misspelled
+	// optional key like pfTable disables its feature with no other signal.
+	for _, key := range s.config.UnknownKeys {
+		s.logger.Warn().Msgf("unknown config key ignored: %s", key)
+	}
+
 	// Validate Config
 	if err := s.validateConfig(); err != nil {
 		return err
