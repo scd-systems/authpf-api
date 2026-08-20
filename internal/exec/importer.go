@@ -112,8 +112,8 @@ func ValidateTimeout(timeoutStr string) error {
 		return fmt.Errorf("invalid timeout format, timeout must be a valid duration (e.g., '1h', '30m'), got: %s", timeoutStr)
 	}
 
-	if d < time.Minute {
-		return fmt.Errorf("timeout must be at least 1 minute, provided timeout: %v", d)
+	if d < time.Second {
+		return fmt.Errorf("timeout must be at least 1 second, provided timeout: %v", d)
 	}
 
 	if d > 24*time.Hour {

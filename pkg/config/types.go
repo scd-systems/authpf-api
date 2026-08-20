@@ -33,6 +33,7 @@ type ConfigFileAuthPF struct {
 	OnShutdown          string   `yaml:"onShutdown"`
 	OnStartup           string   `yaml:"onStartup"`
 	PfTable             string   `yaml:"pfTable"`
+	SchedulerInterval   string   `yaml:"schedulerInterval"`
 }
 
 type ConfigFileServer struct {

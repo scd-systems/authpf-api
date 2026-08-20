@@ -64,7 +64,17 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 // Scheduler runs a periodic cleanup of expired authpf anchors.
 func (s *Scheduler) Run() {
 	s.logger.Debug().Msgf("Authpf scheduler starting")
-	ticker := time.NewTicker(time.Second * 60)
+
+	// Parse scheduler interval from config (default: 60s)
+	interval := 60
+	if s.config.AuthPF.SchedulerInterval != "" {
+		duration, err := time.ParseDuration(s.config.AuthPF.SchedulerInterval)
+		if err == nil {
+			interval = int(duration.Seconds())
+		}
+	}
+
+	ticker := time.NewTicker(time.Second * time.Duration(interval))
 	defer ticker.Stop()
 	for {
 		<-ticker.C
