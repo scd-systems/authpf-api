@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/api"
 	"github.com/scd-systems/authpf-api/internal/auth"
@@ -24,9 +25,10 @@ var globalForeground bool
 var globalLogLevel string
 
 type Server struct {
-	config *config.ConfigFile
-	db     *authpf.AnchorsDB
-	logger zerolog.Logger
+	config     *config.ConfigFile
+	db         *authpf.AnchorsDB
+	logger     zerolog.Logger
+	httpServer *http.Server
 }
 
 func NewServer() *Server {

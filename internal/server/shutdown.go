@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/scd-systems/authpf-api/internal/exec"
 )
 
@@ -21,7 +21,7 @@ func (s *Server) gracefulShutdown(e *echo.Echo) error {
 	defer cancel()
 
 	s.logger.Info().Msg("Shutting down server...")
-	return e.Shutdown(ctx)
+	return s.httpServer.Shutdown(ctx)
 }
 
 // deactivateAllActiveUsers removes all active entries from anchorsDB and pf tables
