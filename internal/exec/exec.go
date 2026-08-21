@@ -251,6 +251,13 @@ func (e *Exec) FlushAnchor(r *authpf.AuthPFAnchor) error {
 		return nil
 	}
 
+	return e.UnloadAnchor(r)
+}
+
+// Unload anchor rules without consulting the session DB. The activation
+// error path needs this: a half-activated anchor is loaded in pf but never
+// reached the DB, so the FlushAnchor guard above would skip it.
+func (e *Exec) UnloadAnchor(r *authpf.AuthPFAnchor) error {
 	multiResult := e.unloadAuthPFAnchor(r)
 	for i, result := range multiResult.Results {
 		msg := fmt.Sprintf("Exec [%d/%d]: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s",
