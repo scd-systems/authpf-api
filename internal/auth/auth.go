@@ -89,17 +89,17 @@ func (a *Auth) Login(c *echo.Context) error {
 	req := new(LoginRequest)
 	if err := c.Bind(req); err != nil {
 		c.Set("auth", "invalid request")
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "invalid request"})
+		return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid request"})
 	}
 
 	if req.Username == "" || req.Password == "" {
 		c.Set("auth", "no username or password")
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid credentials"})
+		return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid credentials"})
 	}
 
 	if err := a.checkUserAndPassword(req.Username, req.Password); err != nil {
 		c.Set("auth", fmt.Sprintf("Failed login request [user: %s]: %s", req.Username, err))
-		return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid username or password"})
 	}
 
 	// Parse JWT token timeout from config
@@ -111,7 +111,7 @@ func (a *Auth) Login(c *echo.Context) error {
 	tokenDuration, err := parseJwtTokenTimeout(timeoutStr)
 	if err != nil {
 		a.logger.Error().Err(err).Msg(fmt.Sprintln("Invalid JWT token timeout configuration"))
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": "token generation failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]any{"error": "token generation failed"})
 	}
 
 	claims := &JWTClaims{
@@ -129,7 +129,7 @@ func (a *Auth) Login(c *echo.Context) error {
 	if err != nil {
 		a.logger.Error().Err(err).Str("user", req.Username).Msg("failed to generate JWT token")
 		c.Set("auth", fmt.Sprintf("Token generation failed: %v", err))
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": "token generation failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]any{"error": "token generation failed"})
 	}
 	c.Set("auth", fmt.Sprintf("User %s has been successfully authenticated", req.Username))
 	return c.JSON(http.StatusOK, LoginResponse{Token: tokenString})
@@ -141,18 +141,18 @@ func (a *Auth) JwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		auth := c.Request().Header.Get("Authorization")
 		if auth == "" {
 			a.logger.Debug().Str("ip", c.RealIP()).Msg("missing authorization header")
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "missing authorization header"})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": "missing authorization header"})
 		}
 
 		if len(auth) < 7 || auth[:7] != "Bearer " {
 			a.logger.Debug().Str("ip", c.RealIP()).Msg("invalid authorization format")
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid authorization format"})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid authorization format"})
 		}
 
 		tokenString := auth[7:]
 		if len(tokenString) > 4096 {
 			a.logger.Debug().Str("ip", c.RealIP()).Msg("token too long")
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid token"})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid token"})
 		}
 
 		claims := &JWTClaims{}
@@ -172,16 +172,16 @@ func (a *Auth) JwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		})
 		if err != nil {
 			a.logger.Debug().Str("ip", c.RealIP()).Msgf("token parsing failed: %s", err)
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid token"})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid token"})
 		}
 
 		if !token.Valid {
 			a.logger.Debug().Str("ip", c.RealIP()).Msg("token is not valid")
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "invalid token"})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": "invalid token"})
 		}
 
 		if err := a.validateJWTClaims(claims, c.RealIP()); err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": err.Error()})
+			return c.JSON(http.StatusUnauthorized, map[string]any{"error": err.Error()})
 		}
 
 		c.Set("username", claims.Username)

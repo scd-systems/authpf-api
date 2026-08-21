@@ -208,7 +208,7 @@ func TestE2E_HealthCheck(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Health check should return 200")
 
-	var healthResp map[string]interface{}
+	var healthResp map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&healthResp))
 	assert.Equal(t, "running", healthResp["Status"])
 }
@@ -312,7 +312,7 @@ func TestE2E_GetStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "GET status should return 200")
 
-	var statusResp map[string]interface{}
+	var statusResp map[string]any
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&statusResp))
 	assert.NotNil(t, statusResp["anchors"])
 	assert.NotEmpty(t, statusResp["server_time"])

@@ -107,7 +107,7 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 
 	// Health check endpoint
 	e.GET("/", func(c *echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]interface{}{"Status": "running"})
+		return c.JSON(http.StatusOK, map[string]any{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
@@ -167,7 +167,7 @@ func (s *Server) startServer(e *echo.Echo) error {
 		Msg("server started")
 
 	sc := echo.StartConfig{
-		Address: addr,
+		Address:    addr,
 		HideBanner: true,
 		BeforeServeFunc: func(srv *http.Server) error {
 			s.httpServer = srv
