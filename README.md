@@ -96,6 +96,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
 | `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
 | `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
+| `authpf.SchedulerInterval` | The time interval in seconds when the scheduler loop runs. Default is 60 seconds when parameter is empty. | No |
 
 #### Server Section
 
