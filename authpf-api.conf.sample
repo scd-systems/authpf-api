@@ -48,6 +48,9 @@ authpf:
   # Global PF Table to use for the remote client IP addresses
   pfTable: authpf_users
 
+  # Set the time-interval for the Scheduler loop in seconds (default: 60 seconds)
+  # SchedulerInterval: 60
+
 # Server configuration
 server:
   # IP address to bind the server to (127.0.0.1 for localhost only)
