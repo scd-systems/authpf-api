@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -34,12 +35,52 @@ func (c *ConfigFile) LoadConfig(configFile string) error {
 		return fmt.Errorf("cannot parse config file: %v", err)
 	}
 
+	// The decoder above drops unknown keys silently, so a misspelled key
+	// disables its feature with no error. Collect them here; the caller
+	// logs them once the logger exists.
+	c.UnknownKeys = collectUnknownKeys(yamlFile)
+
 	// Validate Config
 	if err := c.validateRequiredSections(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// collectUnknownKeys returns warnings for config keys that match no field in
+// ConfigFile. It re-decodes the same bytes with KnownFields(true) and harvests
+// the resulting yaml.TypeError, so the key set is derived from the struct tags
+// themselves and cannot drift from them. Maps with arbitrary keys (role names,
+// usernames, macro names) are accepted by construction.
+//
+// The caller only reaches this after a successful lenient decode, so any
+// remaining messages describe unknown fields rather than type mismatches. The
+// filter keeps that true if the two decoders ever diverge.
+func collectUnknownKeys(yamlFile []byte) []string {
+	var throwaway ConfigFile
+	dec := yaml.NewDecoder(bytes.NewReader(yamlFile))
+	dec.KnownFields(true)
+
+	err := dec.Decode(&throwaway)
+	if err == nil {
+		return nil
+	}
+	typeErr, ok := err.(*yaml.TypeError)
+	if !ok {
+		return nil
+	}
+
+	// The filter is coupled to yaml.v3's wording. If a future version rewords
+	// it, warnings would silently disappear rather than misfire, so the tests
+	// assert on the message text to make a dependency bump break loudly.
+	var unknown []string
+	for _, msg := range typeErr.Errors {
+		if strings.Contains(msg, "not found in type") {
+			unknown = append(unknown, msg)
+		}
+	}
+	return unknown
 }
 
 // validateRequiredSections checks if all required configuration sections are defined

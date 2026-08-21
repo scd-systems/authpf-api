@@ -18,6 +18,10 @@ type ConfigFile struct {
 	Server   ConfigFileServer   `yaml:"server"`
 	AuthPF   ConfigFileAuthPF   `yaml:"authpf"`
 	Rbac     ConfigFileRbac     `yaml:"rbac"`
+
+	// Keys found in the config file that match no known field. Collected at
+	// load time, logged as warnings once the logger exists. Not persisted.
+	UnknownKeys []string `yaml:"-"`
 }
 
 type ConfigFileDefaults struct {
