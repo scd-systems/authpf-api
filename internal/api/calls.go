@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/internal/errors"
 )
 
 // Call Exec activate anchor
-func (h *Handler) CallExecActivateAnchor(c echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CallExecActivateAnchor(c *echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
 	result := h.exec.LoadAuthPFAnchor(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)

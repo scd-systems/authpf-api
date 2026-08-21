@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/internal/exec"
@@ -15,7 +15,7 @@ import (
 
 var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-func (h *Handler) CheckAnchorIsActivated(c echo.Context) (bool, *errors.APIError) {
+func (h *Handler) CheckAnchorIsActivated(c *echo.Context) (bool, *errors.APIError) {
 	sessionUsername, err := h.resolveAnchorUsername(c)
 	if err != nil {
 		return false, &errors.APIError{
@@ -37,7 +37,7 @@ func (h *Handler) CheckAnchorIsActivated(c echo.Context) (bool, *errors.APIError
 }
 
 // Check Username and JSON Payload
-func (h *Handler) CheckSessionUsername(c echo.Context) *errors.APIError {
+func (h *Handler) CheckSessionUsername(c *echo.Context) *errors.APIError {
 	if _, err := h.sessionUsername(c); err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func (h *Handler) CheckSessionUsername(c echo.Context) *errors.APIError {
 }
 
 // Get Username from request
-func (h *Handler) sessionUsername(c echo.Context) (string, *errors.APIError) {
+func (h *Handler) sessionUsername(c *echo.Context) (string, *errors.APIError) {
 	username, ok := c.Get("username").(string)
 	if !ok || username == "" {
 		return "", &errors.APIError{
@@ -59,7 +59,7 @@ func (h *Handler) sessionUsername(c echo.Context) (string, *errors.APIError) {
 }
 
 // Check if AuthPFAnchor can be bind to payload
-func (h *Handler) CheckJSONPayload(c echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CheckJSONPayload(c *echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
 	if err := c.Bind(r); err != nil {
 		return &errors.APIError{
 			HttpStatusCode: http.StatusBadRequest,
@@ -72,7 +72,7 @@ func (h *Handler) CheckJSONPayload(c echo.Context, r *authpf.AuthPFAnchor) *erro
 }
 
 // Validate User role permissions
-func (h *Handler) CheckSessionUserPermission(c echo.Context, action string) *errors.APIError {
+func (h *Handler) CheckSessionUserPermission(c *echo.Context, action string) *errors.APIError {
 	var permission string
 	sessionUsername, err := h.sessionUsername(c)
 	if err != nil {
@@ -174,7 +174,7 @@ func (h *Handler) validateUserPermissions(username string, permission string) er
 	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
 }
 
-func (h *Handler) CheckSessionUserIP(c echo.Context) *errors.APIError {
+func (h *Handler) CheckSessionUserIP(c *echo.Context) *errors.APIError {
 	if err := checkUserIP(c.RealIP()); err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func checkUserIP(ip string) *errors.APIError {
 }
 
 // Fill anchor struct by using context informations
-func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
+func (h *Handler) GetAnchorFromContext(c *echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
 	authpf_username, err := h.resolveAnchorUsername(c)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func (h *Handler) GetAnchorFromContext(c echo.Context) (*authpf.AuthPFAnchor, *e
 }
 
 // Extract the authpf_username from request query. If query is empty, the session username will be used.
-func (h *Handler) resolveAnchorUsername(c echo.Context) (string, *errors.APIError) {
+func (h *Handler) resolveAnchorUsername(c *echo.Context) (string, *errors.APIError) {
 	reqUser, err := h.sessionUsername(c)
 	if err != nil {
 		return "", err
@@ -262,7 +262,7 @@ func (h *Handler) resolveAnchorUsername(c echo.Context) (string, *errors.APIErro
 }
 
 // Resolve the Timeout from request if available, use default instead
-func (h *Handler) resolveAnchorTimeout(c echo.Context) (string, *errors.APIError) {
+func (h *Handler) resolveAnchorTimeout(c *echo.Context) (string, *errors.APIError) {
 	reqTimeout := c.QueryParam("timeout")
 	if reqTimeout != "" {
 		if len(reqTimeout) > 10 {

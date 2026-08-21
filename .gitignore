@@ -30,3 +30,11 @@ go.work.sum
 
 # AI
 .roo/
+.pi/
+.omo/
+.mcp.json
+AGENTS.md
+MEMORY.md
+
+# testing
+build

@@ -1,16 +1,16 @@
 package server
 
 import (
+	"context"
 	"fmt"
-	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/scd-systems/authpf-api/internal/api"
 	"github.com/scd-systems/authpf-api/internal/auth"
 	"github.com/scd-systems/authpf-api/internal/scheduler"
@@ -18,8 +18,6 @@ import (
 
 // setupServer configures the Echo server with middleware and routes
 func (s *Server) SetupServer(e *echo.Echo) error {
-	// Suppress Echo's startup banner
-	e.HideBanner = true
 	s.checkSSL()
 
 	// Add logger middleware to context
@@ -29,8 +27,7 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 	e.Use(s.requestLoggerMiddleware())
 
 	// Disable Echo's default logger (we use our own zerolog)
-	e.Logger.SetLevel(log.OFF)
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.DiscardHandler)
 
 	// Add HSTS Headers
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
@@ -58,7 +55,7 @@ func (s *Server) checkSSL() {
 // loggerMiddleware adds the zerolog logger to the Echo context
 func (s *Server) loggerMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			c.Set("logger", s.logger)
 			return next(c)
 		}
@@ -73,7 +70,7 @@ func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
 		LogUserAgent: true,
 		LogRemoteIP:  true,
 		LogLatency:   true,
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			username, _ := c.Get("username").(string)
 			authStatus, _ := c.Get("auth").(string)
 			authpfStatus, _ := c.Get("authpf").(string)
@@ -109,8 +106,8 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 	auth := auth.New(s.config, s.logger, jwtSecret)
 
 	// Health check endpoint
-	e.GET("/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, echo.Map{"Status": "running"})
+	e.GET("/", func(c *echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
@@ -169,9 +166,18 @@ func (s *Server) startServer(e *echo.Echo) error {
 		Str("address", addr).
 		Msg("server started")
 
-	if s.config.Server.SSL.Certificate != "" {
-		return e.StartTLS(addr, s.config.Server.SSL.Certificate, s.config.Server.SSL.Key)
+	sc := echo.StartConfig{
+		Address:    addr,
+		HideBanner: true,
+		BeforeServeFunc: func(srv *http.Server) error {
+			s.httpServer = srv
+			return nil
+		},
 	}
 
-	return e.Start(addr)
+	if s.config.Server.SSL.Certificate != "" {
+		return sc.StartTLS(context.Background(), e, s.config.Server.SSL.Certificate, s.config.Server.SSL.Key)
+	}
+
+	return sc.Start(context.Background(), e)
 }

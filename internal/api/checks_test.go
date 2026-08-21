@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/pkg/config"
@@ -692,7 +692,7 @@ func TestHandler_GetAnchorFromContext_UsesRealIP(t *testing.T) {
 func TestHandler_GetAnchorFromContext_UsesConfiguredIP(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Real-IP", "192.168.1.100")
+	req.RemoteAddr = "192.168.1.100:12345"
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set("username", "user1")
@@ -730,7 +730,7 @@ func TestHandler_GetAnchorFromContext_UsesConfiguredIP(t *testing.T) {
 func TestHandler_GetAnchorFromContext_QueryUser(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/?authpf_username=user2", nil)
-	req.Header.Set("X-Real-IP", "172.16.0.1")
+	req.RemoteAddr = "172.16.0.1:12345"
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set("username", "admin")
