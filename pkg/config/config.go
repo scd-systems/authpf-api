@@ -9,8 +9,15 @@ import (
 )
 
 func New() *ConfigFile {
-	configFile := ConfigFile{}
-	return &configFile
+	return &ConfigFile{
+		Server: ConfigFileServer{
+			RateLimit:      10,
+			RateLimitBurst: 30,
+		},
+		AuthPF: ConfigFileAuthPF{
+			SchedulerInterval: "60s",
+		},
+	}
 }
 
 func (c *ConfigFile) LoadConfig(configFile string) error {

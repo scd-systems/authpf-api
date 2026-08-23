@@ -110,6 +110,8 @@ The application is configured via a YAML configuration file. By default, it uses
 | `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. | No |
 | `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). | No |
 | `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. | Yes |
+| `server.rateLimit` | Maximum number of requests per second per client IP. Protects against DoS and brute-force attacks. Default: `10`. Set to `0` to **disable** rate limiting. | No |
+| `server.rateLimitBurst` | Maximum burst size allowed before rate limiting kicks in. A higher value allows short bursts of traffic. Default: `30`. | No |
 
 #### RBAC Section
 
