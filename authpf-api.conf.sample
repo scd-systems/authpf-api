@@ -107,6 +107,14 @@ server:
   # Path to the server logfile
   logfile: /var/log/authpf-api.log
 
+  # Rate limiting (per client IP)
+  # Set rateLimit to 0 to disable rate limiting entirely
+  #
+  # Maximum number of requests per second per client IP
+  # rateLimit: 10
+  # Maximum burst size allowed before rate limiting kicks in
+  # rateLimitBurst: 30
+
 # Role-Based Access Control (RBAC) configuration
 rbac:
   # Role definitions with associated permissions

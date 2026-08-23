@@ -44,6 +44,8 @@ type ConfigFileServer struct {
 	Logfile         string              `yaml:"logfile"`
 	JwtTokenTimeout string              `yaml:"jwtTokenTimeout"`
 	JwtSecret       string              `yaml:"jwtSecret,omitempty"`
+	RateLimit       float64             `yaml:"rateLimit"`
+	RateLimitBurst  int                 `yaml:"rateLimitBurst"`
 }
 
 type ConfigFileServerSSL struct {

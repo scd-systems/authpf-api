@@ -38,6 +38,28 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 		HSTSPreloadEnabled: true,
 	}))
 
+	// Rate Limiter (per-IP, protects against DoS and brute-force)
+	// rateLimit: 0 disables rate limiting
+	if s.config.Server.RateLimit > 0 {
+		store := middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{
+				Rate:  s.config.Server.RateLimit,
+				Burst: s.config.Server.RateLimitBurst,
+			},
+		)
+		e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+			Store: store,
+			DenyHandler: func(c *echo.Context, identifier string, err error) error {
+				s.logger.Warn().Str("ip", identifier).Msg("rate limit exceeded")
+				return c.JSON(http.StatusTooManyRequests, map[string]interface{}{
+					"status":  "failed",
+					"message": "rate limit exceeded, try again later",
+				})
+			},
+		}))
+		s.logger.Info().Msg("RateLimit activated")
+	}
+
 	// Register routes
 	if err := s.registerRoutes(e); err != nil {
 		return err

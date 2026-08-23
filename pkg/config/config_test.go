@@ -355,3 +355,110 @@ func TestConfigFileTypes(t *testing.T) {
 	assert.Equal(t, 1, len(cfg.Rbac.Roles))
 	assert.Equal(t, 1, len(cfg.Rbac.Users))
 }
+
+// TestRateLimit tests that rate limit defaults are applied when not set
+func TestRateLimit(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configWithoutRateLimit := `
+defaults:
+  pfctlBinary: /sbin/pfctl
+
+server:
+  bind: 127.0.0.1
+  port: 8080
+  logfile: /var/log/authpf-api.log
+  elevatorMode: sudo
+
+authpf:
+  timeout: 1h
+  userRulesRootFolder: /etc/authpf
+  userRulesFile: rules
+  anchorName: authpf
+  flushFilter:
+    - nat
+`
+	err := os.WriteFile(configPath, []byte(configWithoutRateLimit), 0640)
+	assert.NoError(t, err)
+
+	cfg := New()
+	err = cfg.LoadConfig(configPath)
+	assert.NoError(t, err)
+
+	// Defaults should be applied
+	assert.Equal(t, float64(10), cfg.Server.RateLimit)
+	assert.Equal(t, 30, cfg.Server.RateLimitBurst)
+}
+
+// TestRateLimitOverride tests that explicit rate limit values are preserved
+func TestRateLimitOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configWithRateLimit := `
+defaults:
+  pfctlBinary: /sbin/pfctl
+
+server:
+  bind: 127.0.0.1
+  port: 8080
+  logfile: /var/log/authpf-api.log
+  elevatorMode: sudo
+  rateLimit: 50
+  rateLimitBurst: 100
+
+authpf:
+  timeout: 1h
+  userRulesRootFolder: /etc/authpf
+  userRulesFile: rules
+  anchorName: authpf
+  flushFilter:
+    - nat
+`
+	err := os.WriteFile(configPath, []byte(configWithRateLimit), 0640)
+	assert.NoError(t, err)
+
+	cfg := New()
+	err = cfg.LoadConfig(configPath)
+	assert.NoError(t, err)
+
+	// Explicit values should be preserved
+	assert.Equal(t, float64(50), cfg.Server.RateLimit)
+	assert.Equal(t, 100, cfg.Server.RateLimitBurst)
+}
+
+// TestRateLimitDisabled tests that rateLimit: 0 is preserved (disables rate limiting in server)
+func TestRateLimitDisabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configWithRateLimitZero := `
+defaults:
+  pfctlBinary: /sbin/pfctl
+
+server:
+  bind: 127.0.0.1
+  port: 8080
+  logfile: /var/log/authpf-api.log
+  elevatorMode: sudo
+  rateLimit: 0
+
+authpf:
+  timeout: 1h
+  userRulesRootFolder: /etc/authpf
+  userRulesFile: rules
+  anchorName: authpf
+  flushFilter:
+    - nat
+`
+	err := os.WriteFile(configPath, []byte(configWithRateLimitZero), 0640)
+	assert.NoError(t, err)
+
+	cfg := New()
+	err = cfg.LoadConfig(configPath)
+	assert.NoError(t, err)
+
+	// 0 should be preserved (server skips rate limiter middleware when RateLimit == 0)
+	assert.Equal(t, float64(0), cfg.Server.RateLimit)
+}
