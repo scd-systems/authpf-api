@@ -18,11 +18,12 @@ type dummyExt struct {
 	validateErr error
 }
 
-func (d *dummyExt) Name() string                                       { return d.name }
-func (d *dummyExt) Validate(cfg map[string]any) error                  { return d.validateErr }
-func (d *dummyExt) Setup(ctx SetupContext, cfg map[string]any) error   { return d.setupErr }
-func (d *dummyExt) Routes() []Route                                    { return d.routes }
-func (d *dummyExt) OverrideRoutes() map[string]echo.HandlerFunc        { return d.overrides }
+func (d *dummyExt) Name() string                                     { return d.name }
+func (d *dummyExt) Validate(cfg map[string]any) error                { return d.validateErr }
+func (d *dummyExt) Setup(ctx SetupContext, cfg map[string]any) error { return d.setupErr }
+func (d *dummyExt) Routes() []Route                                  { return d.routes }
+func (d *dummyExt) OverrideRoutes() map[string]echo.HandlerFunc      { return d.overrides }
+func (d *dummyExt) Middleware() []echo.MiddlewareFunc                { return nil }
 
 // ---------- Registry tests ----------
 

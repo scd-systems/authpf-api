@@ -38,6 +38,13 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 		HSTSPreloadEnabled: true,
 	}))
 
+	// Apply global middleware from extensions (registration order)
+	for _, ext := range s.extensions {
+		for _, mw := range ext.Middleware() {
+			e.Use(mw)
+		}
+	}
+
 	// Register routes
 	if err := s.registerRoutes(e); err != nil {
 		return err

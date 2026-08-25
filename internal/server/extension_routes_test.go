@@ -25,6 +25,7 @@ func (t *testOverrideExt) Validate(cfg map[string]any) error                    
 func (t *testOverrideExt) Setup(ctx extension.SetupContext, cfg map[string]any) error { return nil }
 func (t *testOverrideExt) Routes() []extension.Route                                  { return t.routes }
 func (t *testOverrideExt) OverrideRoutes() map[string]echo.HandlerFunc                { return t.overrides }
+func (t *testOverrideExt) Middleware() []echo.MiddlewareFunc                          { return nil }
 
 func TestRegisterRoutes_OverrideReplacesCore(t *testing.T) {
 	// Register a test extension that overrides the POST login route (no middleware)
@@ -167,6 +168,60 @@ func TestLoadExtensions_SetupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "setup failed")
 }
 
+func TestRegisterRoutes_GlobalMiddlewareApplied(t *testing.T) {
+	// Middleware that sets a flag on the context
+	mwCalled := false
+	mw := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			mwCalled = true
+			return next(c)
+		}
+	}
+
+	ext := &testOverrideExt{
+		name: "test-mw-" + t.Name(),
+	}
+	wrapped := &testOverrideExtWithMW{
+		base: ext,
+		mw:   []echo.MiddlewareFunc{mw},
+	}
+
+	s := &Server{
+		config:     config.New(),
+		db:         authpf.New(),
+		extensions: []extension.Extension{wrapped},
+	}
+
+	e := echo.New()
+	err := s.SetupServer(e)
+	assert.NoError(t, err)
+
+	// Hit the health check endpoint — core route, should still trigger extension middleware
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.True(t, mwCalled, "global middleware should have been called")
+}
+
+// testOverrideExtWithMW wraps testOverrideExt and returns custom middleware
+type testOverrideExtWithMW struct {
+	base *testOverrideExt
+	mw   []echo.MiddlewareFunc
+}
+
+func (w *testOverrideExtWithMW) Name() string                      { return w.base.Name() }
+func (w *testOverrideExtWithMW) Validate(cfg map[string]any) error { return w.base.Validate(cfg) }
+func (w *testOverrideExtWithMW) Setup(ctx extension.SetupContext, cfg map[string]any) error {
+	return w.base.Setup(ctx, cfg)
+}
+func (w *testOverrideExtWithMW) Routes() []extension.Route { return w.base.Routes() }
+func (w *testOverrideExtWithMW) OverrideRoutes() map[string]echo.HandlerFunc {
+	return w.base.OverrideRoutes()
+}
+func (w *testOverrideExtWithMW) Middleware() []echo.MiddlewareFunc { return w.mw }
+
 func TestLoadExtensions_ValidateError(t *testing.T) {
 	name := "test-validate-err-" + t.Name()
 	extension.Register(name, func() extension.Extension {
@@ -192,19 +247,27 @@ type dummyExtWithSetupError struct {
 	name string
 }
 
-func (d *dummyExtWithSetupError) Name() string                                               { return d.name }
-func (d *dummyExtWithSetupError) Validate(cfg map[string]any) error                          { return nil }
-func (d *dummyExtWithSetupError) Setup(ctx extension.SetupContext, cfg map[string]any) error { return fmt.Errorf("setup failed") }
-func (d *dummyExtWithSetupError) Routes() []extension.Route                                  { return nil }
-func (d *dummyExtWithSetupError) OverrideRoutes() map[string]echo.HandlerFunc                { return nil }
+func (d *dummyExtWithSetupError) Name() string                      { return d.name }
+func (d *dummyExtWithSetupError) Validate(cfg map[string]any) error { return nil }
+func (d *dummyExtWithSetupError) Setup(ctx extension.SetupContext, cfg map[string]any) error {
+	return fmt.Errorf("setup failed")
+}
+func (d *dummyExtWithSetupError) Routes() []extension.Route                   { return nil }
+func (d *dummyExtWithSetupError) OverrideRoutes() map[string]echo.HandlerFunc { return nil }
+func (d *dummyExtWithSetupError) Middleware() []echo.MiddlewareFunc           { return nil }
 
 // dummyExtWithValidateError always returns an error on Validate
 type dummyExtWithValidateError struct {
 	name string
 }
 
-func (d *dummyExtWithValidateError) Name() string                                               { return d.name }
-func (d *dummyExtWithValidateError) Validate(cfg map[string]any) error                          { return fmt.Errorf("validation failed") }
-func (d *dummyExtWithValidateError) Setup(ctx extension.SetupContext, cfg map[string]any) error { return nil }
-func (d *dummyExtWithValidateError) Routes() []extension.Route                                  { return nil }
-func (d *dummyExtWithValidateError) OverrideRoutes() map[string]echo.HandlerFunc                { return nil }
+func (d *dummyExtWithValidateError) Name() string { return d.name }
+func (d *dummyExtWithValidateError) Validate(cfg map[string]any) error {
+	return fmt.Errorf("validation failed")
+}
+func (d *dummyExtWithValidateError) Setup(ctx extension.SetupContext, cfg map[string]any) error {
+	return nil
+}
+func (d *dummyExtWithValidateError) Routes() []extension.Route                   { return nil }
+func (d *dummyExtWithValidateError) OverrideRoutes() map[string]echo.HandlerFunc { return nil }
+func (d *dummyExtWithValidateError) Middleware() []echo.MiddlewareFunc           { return nil }

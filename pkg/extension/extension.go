@@ -13,8 +13,9 @@ type SetupContext struct {
 	// Config is the server's config file. Extensions may modify it
 	// (e.g., to inject RBAC data from an external source).
 	Config *config.ConfigFile
-	// DB is the in-memory AnchorsDB. Extensions may read from it.
-	DB *authpf.AnchorsDB
+	// DB is a read-only view of the in-memory AnchorsDB.
+	// Extensions cannot call Add, Remove, or Flush.
+	DB authpf.ReadOnlyAnchorsDB
 	// Logger for extension-level logging.
 	Logger zerolog.Logger
 }
@@ -42,6 +43,11 @@ type Extension interface {
 	// The core middleware chain (e.g. JwtMiddleware) is preserved.
 	// Return nil or empty map if not needed.
 	OverrideRoutes() map[string]echo.HandlerFunc
+
+	// Middleware returns echo middleware applied to every route via e.Use().
+	// Middleware is applied in extension registration order, before route-specific
+	// middleware. Return nil or empty slice if not needed.
+	Middleware() []echo.MiddlewareFunc
 }
 
 // Route defines an additional HTTP route provided by an extension.
