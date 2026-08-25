@@ -105,24 +105,58 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 
 	auth := auth.New(s.config, s.logger, jwtSecret)
 
+	// Collect route overrides from extensions
+	overrides := make(map[string]echo.HandlerFunc)
+	for _, ext := range s.extensions {
+		for k, v := range ext.OverrideRoutes() {
+			overrides[k] = v
+		}
+	}
+
+	// Helper: resolve handler (override or core)
+	resolved := func(method, path string, core echo.HandlerFunc) echo.HandlerFunc {
+		if override, ok := overrides[method+" "+path]; ok {
+			return override
+		}
+		return core
+	}
+
 	// Health check endpoint
 	e.GET("/", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
-	e.POST(ROUTE_LOGIN, auth.Login)
-	e.GET(ROUTE_LOGIN, handler.HandleGetLogin, auth.JwtMiddleware)
+	e.POST(ROUTE_LOGIN, resolved("POST", ROUTE_LOGIN, auth.Login))
+	e.GET(ROUTE_LOGIN, resolved("GET", ROUTE_LOGIN, handler.HandleGetLogin), auth.JwtMiddleware)
 
 	// AuthPF API endpoints (JWT required)
-	e.GET(ROUTE_AUTHPF, handler.HandleGetActivate, auth.JwtMiddleware)
-	e.GET(ROUTE_AUTHPF_ALL, handler.HandleGetAllActivePFAnchors, auth.JwtMiddleware)
-	e.POST(ROUTE_AUTHPF, handler.HandlePostActivate, auth.JwtMiddleware)
-	e.DELETE(ROUTE_AUTHPF, handler.HandleDeleteDeactivate, auth.JwtMiddleware)
-	e.DELETE(ROUTE_AUTHPF_ALL, handler.HandleDeleteAllDeactivate, auth.JwtMiddleware)
+	e.GET(ROUTE_AUTHPF, resolved("GET", ROUTE_AUTHPF, handler.HandleGetActivate), auth.JwtMiddleware)
+	e.GET(ROUTE_AUTHPF_ALL, resolved("GET", ROUTE_AUTHPF_ALL, handler.HandleGetAllActivePFAnchors), auth.JwtMiddleware)
+	e.POST(ROUTE_AUTHPF, resolved("POST", ROUTE_AUTHPF, handler.HandlePostActivate), auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF, resolved("DELETE", ROUTE_AUTHPF, handler.HandleDeleteDeactivate), auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF_ALL, resolved("DELETE", ROUTE_AUTHPF_ALL, handler.HandleDeleteAllDeactivate), auth.JwtMiddleware)
 
 	// Info Endpoint
 	e.GET("/info", info)
+
+	// Register extension routes (new endpoints)
+	for _, ext := range s.extensions {
+		for _, route := range ext.Routes() {
+			switch route.Method {
+			case "GET":
+				e.GET(route.Path, route.Handler, route.Middleware...)
+			case "POST":
+				e.POST(route.Path, route.Handler, route.Middleware...)
+			case "DELETE":
+				e.DELETE(route.Path, route.Handler, route.Middleware...)
+			case "PUT":
+				e.PUT(route.Path, route.Handler, route.Middleware...)
+			case "PATCH":
+				e.PATCH(route.Path, route.Handler, route.Middleware...)
+			}
+		}
+	}
 
 	scheduler := scheduler.New(s.db, lock, s.logger, s.config)
 	// Start background rule cleaner

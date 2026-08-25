@@ -17,6 +17,7 @@ import (
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
+	"github.com/scd-systems/authpf-api/pkg/extension"
 	"golang.org/x/term"
 )
 
@@ -29,6 +30,7 @@ type Server struct {
 	db         *authpf.AnchorsDB
 	logger     zerolog.Logger
 	httpServer *http.Server
+	extensions []extension.Extension
 }
 
 func NewServer() *Server {
@@ -40,6 +42,10 @@ func NewServer() *Server {
 func (s *Server) Start() {
 	// Bootstrap: Flags, Config, Validierung
 	if err := s.Bootstrap(); err != nil {
+		log.Fatalf("%s", err.Error())
+	}
+	// Load extensions
+	if err := s.loadExtensions(); err != nil {
 		log.Fatalf("%s", err.Error())
 	}
 	// Server: Setup and Start
@@ -343,6 +349,30 @@ func collectRequiredPfTables(cfg *config.ConfigFile) []string {
 		}
 	}
 	return tables
+}
+
+// loadExtensions loads and initializes extensions from config.
+func (s *Server) loadExtensions() error {
+	ctx := extension.SetupContext{
+		Config: s.config,
+		DB:     s.db,
+		Logger: s.logger,
+	}
+	for _, extCfg := range s.config.Extensions {
+		ext, ok := extension.Get(extCfg.Name)
+		if !ok {
+			return fmt.Errorf("extension %q not found", extCfg.Name)
+		}
+		if err := ext.Validate(extCfg.Config); err != nil {
+			return fmt.Errorf("extension %q validation failed: %w", extCfg.Name, err)
+		}
+		if err := ext.Setup(ctx, extCfg.Config); err != nil {
+			return fmt.Errorf("extension %q setup failed: %w", extCfg.Name, err)
+		}
+		s.extensions = append(s.extensions, ext)
+		s.logger.Info().Str("extension", extCfg.Name).Msg("extension loaded")
+	}
+	return nil
 }
 
 // Check if all pfTables are exists
