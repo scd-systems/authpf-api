@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+// ReadOnlyAnchorsDB is the read-only interface exposed to extensions.
+// Extensions can inspect anchors but cannot mutate the DB.
+type ReadOnlyAnchorsDB interface {
+	Get(username string) *AuthPFAnchor
+	Len() int
+	Range(fn func(*AuthPFAnchor) bool)
+	IsActivated(username string) bool
+	Snapshot() map[string]*AuthPFAnchor
+}
+
 // AuthPFAnchor represents an anchor to store in anchorsDB
 type AuthPFAnchor struct {
 	Username  string    `json:"username"`
@@ -48,6 +58,34 @@ func (a *AnchorsDB) IsActivated(username string) bool {
 		}
 	}
 	return false
+}
+
+// Get returns the anchor for the given username, or nil if not found.
+func (a *AnchorsDB) Get(username string) *AuthPFAnchor {
+	return (*a)[username]
+}
+
+// Len returns the number of active anchors.
+func (a *AnchorsDB) Len() int {
+	return len(*a)
+}
+
+// Range iterates over all active anchors.
+func (a *AnchorsDB) Range(fn func(*AuthPFAnchor) bool) {
+	for _, v := range *a {
+		if !fn(v) {
+			break
+		}
+	}
+}
+
+// Snapshot returns a copy of the anchors map.
+func (a *AnchorsDB) Snapshot() map[string]*AuthPFAnchor {
+	result := make(AnchorsDB, len(*a))
+	for k, v := range *a {
+		result[k] = v
+	}
+	return result
 }
 
 func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*AuthPFAnchor, error) {
