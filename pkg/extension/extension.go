@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
-	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/pkg/authpf"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
