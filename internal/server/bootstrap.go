@@ -118,6 +118,7 @@ func (s *Server) parseFlags() error {
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
 	version := flag.Bool("version", false, "Show version and exit")
 	genUserPassword := flag.Bool("gen-user-password", false, "Generate a bcrypt password hash (reads password from stdin)")
+	listExtensions := flag.Bool("list-extensions", false, "List registered extensions and exit")
 	cfgFile := flag.String("configFile", "", "Filepath to the authpf-api.conf file")
 	cfgFileShort := flag.String("c", "", "Filepath to the authpf-api.conf file (short form)")
 	logLevel := flag.String("v", "", "Log level (debug, info, warn, error, fatal)")
@@ -125,6 +126,13 @@ func (s *Server) parseFlags() error {
 
 	if *version {
 		displayVersionInfo()
+		os.Exit(0)
+	}
+
+	if *listExtensions {
+		for _, ext := range extension.ListRegistered() {
+			fmt.Printf("%s (v%s)\n", ext.Name, ext.Version)
+		}
 		os.Exit(0)
 	}
 

@@ -19,3 +19,19 @@ func Get(name string) (Extension, bool) {
 	}
 	return f(), true
 }
+
+// RegisteredExtension holds the name and version of a registered extension.
+type RegisteredExtension struct {
+	Name    string
+	Version string
+}
+
+// ListRegistered returns the name and version of all registered extensions.
+func ListRegistered() []RegisteredExtension {
+	result := make([]RegisteredExtension, 0, len(extensions))
+	for name, factory := range extensions {
+		inst := factory()
+		result = append(result, RegisteredExtension{Name: name, Version: inst.Version()})
+	}
+	return result
+}

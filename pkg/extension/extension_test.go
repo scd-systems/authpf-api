@@ -19,6 +19,7 @@ type dummyExt struct {
 }
 
 func (d *dummyExt) Name() string                                     { return d.name }
+func (d *dummyExt) Version() string                                  { return "0.0.0" }
 func (d *dummyExt) Validate(cfg map[string]any) error                { return d.validateErr }
 func (d *dummyExt) Setup(ctx SetupContext, cfg map[string]any) error { return d.setupErr }
 func (d *dummyExt) Routes() []Route                                  { return d.routes }

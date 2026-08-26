@@ -21,6 +21,7 @@ type testOverrideExt struct {
 }
 
 func (t *testOverrideExt) Name() string                                               { return t.name }
+func (t *testOverrideExt) Version() string                                            { return "0.0.0" }
 func (t *testOverrideExt) Validate(cfg map[string]any) error                          { return nil }
 func (t *testOverrideExt) Setup(ctx extension.SetupContext, cfg map[string]any) error { return nil }
 func (t *testOverrideExt) Routes() []extension.Route                                  { return t.routes }
@@ -212,6 +213,7 @@ type testOverrideExtWithMW struct {
 }
 
 func (w *testOverrideExtWithMW) Name() string                      { return w.base.Name() }
+func (w *testOverrideExtWithMW) Version() string                   { return "0.0.0" }
 func (w *testOverrideExtWithMW) Validate(cfg map[string]any) error { return w.base.Validate(cfg) }
 func (w *testOverrideExtWithMW) Setup(ctx extension.SetupContext, cfg map[string]any) error {
 	return w.base.Setup(ctx, cfg)
@@ -248,6 +250,7 @@ type dummyExtWithSetupError struct {
 }
 
 func (d *dummyExtWithSetupError) Name() string                      { return d.name }
+func (d *dummyExtWithSetupError) Version() string                   { return "0.0.0" }
 func (d *dummyExtWithSetupError) Validate(cfg map[string]any) error { return nil }
 func (d *dummyExtWithSetupError) Setup(ctx extension.SetupContext, cfg map[string]any) error {
 	return fmt.Errorf("setup failed")
@@ -262,6 +265,7 @@ type dummyExtWithValidateError struct {
 }
 
 func (d *dummyExtWithValidateError) Name() string { return d.name }
+func (d *dummyExtWithValidateError) Version() string { return "0.0.0" }
 func (d *dummyExtWithValidateError) Validate(cfg map[string]any) error {
 	return fmt.Errorf("validation failed")
 }

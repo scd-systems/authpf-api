@@ -25,6 +25,9 @@ type Extension interface {
 	// Name returns the unique extension identifier, e.g. "billing", "custom-routes".
 	Name() string
 
+	// Version returns the extension version string, e.g. "1.0.0".
+	Version() string
+
 	// Validate is called before Setup and allows the extension to check
 	// its own config (required fields, file existence, etc.).
 	// Return error to prevent the extension from loading.
