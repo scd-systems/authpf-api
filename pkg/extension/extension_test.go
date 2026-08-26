@@ -16,12 +16,12 @@ type dummyExt struct {
 	middleware []func(http.Handler) http.Handler
 }
 
-func (d *dummyExt) Name() string        { return d.name }
-func (d *dummyExt) Version() string     { return "0.0.0" }
+func (d *dummyExt) Name() string                               { return d.name }
+func (d *dummyExt) Version() string                            { return "0.0.0" }
 func (d *dummyExt) Init(ctx Context, cfg map[string]any) error { return d.initErr }
 
 // Optional interfaces
-func (d *dummyExt) Routes() []Route { return d.routes }
+func (d *dummyExt) Routes() []Route                               { return d.routes }
 func (d *dummyExt) Middleware() []func(http.Handler) http.Handler { return d.middleware }
 
 // ---------- Registry tests ----------
