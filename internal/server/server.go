@@ -14,6 +14,7 @@ import (
 	"github.com/scd-systems/authpf-api/internal/api"
 	"github.com/scd-systems/authpf-api/internal/auth"
 	"github.com/scd-systems/authpf-api/internal/scheduler"
+	"github.com/scd-systems/authpf-api/pkg/extension"
 )
 
 // setupServer configures the Echo server with middleware and routes
@@ -40,8 +41,10 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 
 	// Apply global middleware from extensions (registration order)
 	for _, ext := range s.extensions {
-		for _, mw := range ext.Middleware() {
-			e.Use(mw)
+		if mp, ok := ext.(extension.MiddlewareProvider); ok {
+			for _, mw := range mp.Middleware() {
+				e.Use(adaptMiddleware(mw))
+			}
 		}
 	}
 
@@ -51,6 +54,41 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 	}
 
 	return nil
+}
+
+// adaptMiddleware converts a stdlib func(http.Handler)http.Handler to echo.MiddlewareFunc.
+func adaptMiddleware(mw func(http.Handler) http.Handler) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			tracker := &committedResponse{ResponseWriter: c.Response()}
+			mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.SetRequest(r)
+				c.SetResponse(w)
+				next(c)
+			})).ServeHTTP(tracker, c.Request())
+			if !tracker.committed {
+				return nil
+			}
+			// Response was committed by middleware (e.g., 429 deny)
+			return nil
+		}
+	}
+}
+
+// committedResponse tracks whether a response has been written.
+type committedResponse struct {
+	http.ResponseWriter
+	committed bool
+}
+
+func (w *committedResponse) WriteHeader(code int) {
+	w.committed = true
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *committedResponse) Write(p []byte) (int, error) {
+	w.committed = true
+	return w.ResponseWriter.Write(p)
 }
 
 func (s *Server) checkSSL() {
@@ -112,55 +150,41 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 
 	auth := auth.New(s.config, s.logger, jwtSecret)
 
-	// Collect route overrides from extensions
-	overrides := make(map[string]echo.HandlerFunc)
-	for _, ext := range s.extensions {
-		for k, v := range ext.OverrideRoutes() {
-			overrides[k] = v
-		}
-	}
-
-	// Helper: resolve handler (override or core)
-	resolved := func(method, path string, core echo.HandlerFunc) echo.HandlerFunc {
-		if override, ok := overrides[method+" "+path]; ok {
-			return override
-		}
-		return core
-	}
-
 	// Health check endpoint
 	e.GET("/", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{"Status": "running"})
 	})
 
 	// Authentication endpoint (no JWT required)
-	e.POST(ROUTE_LOGIN, resolved("POST", ROUTE_LOGIN, auth.Login))
-	e.GET(ROUTE_LOGIN, resolved("GET", ROUTE_LOGIN, handler.HandleGetLogin), auth.JwtMiddleware)
+	e.POST(ROUTE_LOGIN, auth.Login)
+	e.GET(ROUTE_LOGIN, handler.HandleGetLogin, auth.JwtMiddleware)
 
 	// AuthPF API endpoints (JWT required)
-	e.GET(ROUTE_AUTHPF, resolved("GET", ROUTE_AUTHPF, handler.HandleGetActivate), auth.JwtMiddleware)
-	e.GET(ROUTE_AUTHPF_ALL, resolved("GET", ROUTE_AUTHPF_ALL, handler.HandleGetAllActivePFAnchors), auth.JwtMiddleware)
-	e.POST(ROUTE_AUTHPF, resolved("POST", ROUTE_AUTHPF, handler.HandlePostActivate), auth.JwtMiddleware)
-	e.DELETE(ROUTE_AUTHPF, resolved("DELETE", ROUTE_AUTHPF, handler.HandleDeleteDeactivate), auth.JwtMiddleware)
-	e.DELETE(ROUTE_AUTHPF_ALL, resolved("DELETE", ROUTE_AUTHPF_ALL, handler.HandleDeleteAllDeactivate), auth.JwtMiddleware)
+	e.GET(ROUTE_AUTHPF, handler.HandleGetActivate, auth.JwtMiddleware)
+	e.GET(ROUTE_AUTHPF_ALL, handler.HandleGetAllActivePFAnchors, auth.JwtMiddleware)
+	e.POST(ROUTE_AUTHPF, handler.HandlePostActivate, auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF, handler.HandleDeleteDeactivate, auth.JwtMiddleware)
+	e.DELETE(ROUTE_AUTHPF_ALL, handler.HandleDeleteAllDeactivate, auth.JwtMiddleware)
 
 	// Info Endpoint
 	e.GET("/info", info)
 
 	// Register extension routes (new endpoints)
 	for _, ext := range s.extensions {
-		for _, route := range ext.Routes() {
-			switch route.Method {
-			case "GET":
-				e.GET(route.Path, route.Handler, route.Middleware...)
-			case "POST":
-				e.POST(route.Path, route.Handler, route.Middleware...)
-			case "DELETE":
-				e.DELETE(route.Path, route.Handler, route.Middleware...)
-			case "PUT":
-				e.PUT(route.Path, route.Handler, route.Middleware...)
-			case "PATCH":
-				e.PATCH(route.Path, route.Handler, route.Middleware...)
+		if rp, ok := ext.(extension.RouteProvider); ok {
+			for _, route := range rp.Routes() {
+				switch route.Method {
+				case "GET":
+					e.GET(route.Path, adaptHandler(route.Handler))
+				case "POST":
+					e.POST(route.Path, adaptHandler(route.Handler))
+				case "DELETE":
+					e.DELETE(route.Path, adaptHandler(route.Handler))
+				case "PUT":
+					e.PUT(route.Path, adaptHandler(route.Handler))
+				case "PATCH":
+					e.PATCH(route.Path, adaptHandler(route.Handler))
+				}
 			}
 		}
 	}
@@ -169,6 +193,14 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 	// Start background rule cleaner
 	go scheduler.Run()
 	return nil
+}
+
+// adaptHandler converts a stdlib http.HandlerFunc to echo.HandlerFunc.
+func adaptHandler(h http.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		h.ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
 }
 
 // Start Graceful Server

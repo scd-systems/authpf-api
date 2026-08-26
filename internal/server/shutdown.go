@@ -9,6 +9,9 @@ import (
 )
 
 func (s *Server) gracefulShutdown(e *echo.Echo) error {
+	// Signal extensions to stop
+	s.cancel()
+
 	if s.config.AuthPF.OnShutdown == "flushall" {
 		s.logger.Info().Msg("Deactivating all active authpf anchors...")
 		if err := s.deactivateAllActiveUsers(); err != nil {

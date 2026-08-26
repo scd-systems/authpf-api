@@ -1,62 +1,60 @@
 package extension
 
 import (
-	"github.com/labstack/echo/v5"
+	"context"
+	"net/http"
+
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
-// SetupContext is passed to Extension.Setup() and gives the extension
+// Context is passed to Extension.Init() and gives the extension
 // access to server-level resources.
-type SetupContext struct {
+type Context struct {
+	// Extensions with  background goroutines should select on ctx.Done() to stop cleanly.
+	context.Context
 	// Config is the server's config file. Extensions may modify it
 	// (e.g., to inject RBAC data from an external source).
 	Config *config.ConfigFile
 	// DB is a read-only view of the in-memory AnchorsDB.
-	// Extensions cannot call Add, Remove, or Flush.
 	DB authpf.ReadOnlyAnchorsDB
 	// Logger for extension-level logging.
 	Logger zerolog.Logger
 }
 
-// Extension is the interface that all extensions must implement.
+// Extension is the minimal interface all extensions must implement.
 type Extension interface {
-	// Name returns the unique extension identifier, e.g. "billing", "custom-routes".
+	// Name returns the unique extension identifier
 	Name() string
 
-	// Version returns the extension version string, e.g. "1.0.0".
+	// Version returns the extension version string
 	Version() string
 
-	// Validate is called before Setup and allows the extension to check
-	// its own config (required fields, file existence, etc.).
-	// Return error to prevent the extension from loading.
-	Validate(cfg map[string]any) error
-
-	// Setup is called once at bootstrap with the extension's config block.
-	// Return error to disable the extension.
-	Setup(ctx SetupContext, cfg map[string]any) error
-
-	// Routes returns additional HTTP routes to register.
-	// Return nil or empty slice if not needed.
-	Routes() []Route
-
-	// OverrideRoutes returns handlers that replace core routes.
-	// Key is "METHOD /path", e.g. "POST /api/v1/authpf/activate".
-	// The core middleware chain (e.g. JwtMiddleware) is preserved.
-	// Return nil or empty map if not needed.
-	OverrideRoutes() map[string]echo.HandlerFunc
-
-	// Middleware returns echo middleware applied to every route via e.Use().
-	// Middleware is applied in extension registration order, before route-specific
-	// middleware. Return nil or empty slice if not needed.
-	Middleware() []echo.MiddlewareFunc
+	// Init is called once at bootstrap. Extensions should validate their
+	// config and perform setup here. Return error to prevent loading.
+	// Use ctx.Done() to detect shutdown and stop background goroutines.
+	Init(ctx Context, cfg map[string]any) error
 }
 
 // Route defines an additional HTTP route provided by an extension.
+// Handler uses stdlib http.HandlerFunc so the route survives framework swaps.
 type Route struct {
-	Method     string
-	Path       string
-	Handler    echo.HandlerFunc
-	Middleware []echo.MiddlewareFunc
+	Method  string
+	Path    string
+	Handler http.HandlerFunc
+}
+
+// RouteProvider is an optional interface. Extensions that want to
+// register HTTP routes should implement it.
+type RouteProvider interface {
+	Routes() []Route
+}
+
+// MiddlewareProvider is an optional interface. Extensions that want
+// to inject global middleware should implement it.
+// Middleware uses stdlib func(http.Handler)http.Handler so it survives
+// framework swaps.
+type MiddlewareProvider interface {
+	Middleware() []func(http.Handler) http.Handler
 }

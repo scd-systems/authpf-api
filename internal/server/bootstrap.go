@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/rand"
 	"flag"
 	"fmt"
@@ -31,6 +32,7 @@ type Server struct {
 	logger     zerolog.Logger
 	httpServer *http.Server
 	extensions []extension.Extension
+	cancel     context.CancelFunc
 }
 
 func NewServer() *Server {
@@ -44,13 +46,19 @@ func (s *Server) Start() {
 	if err := s.Bootstrap(); err != nil {
 		log.Fatalf("%s", err.Error())
 	}
-	// Load extensions
-	if err := s.loadExtensions(); err != nil {
-		log.Fatalf("%s", err.Error())
-	}
 	// Server: Setup and Start
 	e := echo.New()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+
+	// Load extensions
+	if err := s.loadExtensions(e, ctx); err != nil {
+		cancel()
+		log.Fatalf("%s", err.Error())
+	}
 	if err := s.SetupServer(e); err != nil {
+		cancel()
 		log.Fatalf("%s", err.Error())
 	}
 	s.StartServerWithGracefulShutdown(e)
@@ -360,22 +368,20 @@ func collectRequiredPfTables(cfg *config.ConfigFile) []string {
 }
 
 // loadExtensions loads and initializes extensions from config.
-func (s *Server) loadExtensions() error {
-	ctx := extension.SetupContext{
-		Config: s.config,
-		DB:     s.db,
-		Logger: s.logger,
+func (s *Server) loadExtensions(e *echo.Echo, ctx context.Context) error {
+	extCtx := extension.Context{
+		Context: ctx,
+		Config:  s.config,
+		DB:      s.db,
+		Logger:  s.logger,
 	}
 	for _, extCfg := range s.config.Extensions {
 		ext, ok := extension.Get(extCfg.Name)
 		if !ok {
 			return fmt.Errorf("extension %q not found", extCfg.Name)
 		}
-		if err := ext.Validate(extCfg.Config); err != nil {
-			return fmt.Errorf("extension %q validation failed: %w", extCfg.Name, err)
-		}
-		if err := ext.Setup(ctx, extCfg.Config); err != nil {
-			return fmt.Errorf("extension %q setup failed: %w", extCfg.Name, err)
+		if err := ext.Init(extCtx, extCfg.Config); err != nil {
+			return fmt.Errorf("extension %q init failed: %w", extCfg.Name, err)
 		}
 		s.extensions = append(s.extensions, ext)
 		s.logger.Info().Str("extension", extCfg.Name).Msg("extension loaded")

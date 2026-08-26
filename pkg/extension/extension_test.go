@@ -4,32 +4,29 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 // ---------- dummy extension for tests ----------
 
 type dummyExt struct {
-	name        string
-	routes      []Route
-	overrides   map[string]echo.HandlerFunc
-	setupErr    error
-	validateErr error
+	name       string
+	routes     []Route
+	initErr    error
+	middleware []func(http.Handler) http.Handler
 }
 
-func (d *dummyExt) Name() string                                     { return d.name }
-func (d *dummyExt) Version() string                                  { return "0.0.0" }
-func (d *dummyExt) Validate(cfg map[string]any) error                { return d.validateErr }
-func (d *dummyExt) Setup(ctx SetupContext, cfg map[string]any) error { return d.setupErr }
-func (d *dummyExt) Routes() []Route                                  { return d.routes }
-func (d *dummyExt) OverrideRoutes() map[string]echo.HandlerFunc      { return d.overrides }
-func (d *dummyExt) Middleware() []echo.MiddlewareFunc                { return nil }
+func (d *dummyExt) Name() string        { return d.name }
+func (d *dummyExt) Version() string     { return "0.0.0" }
+func (d *dummyExt) Init(ctx Context, cfg map[string]any) error { return d.initErr }
+
+// Optional interfaces
+func (d *dummyExt) Routes() []Route { return d.routes }
+func (d *dummyExt) Middleware() []func(http.Handler) http.Handler { return d.middleware }
 
 // ---------- Registry tests ----------
 
 func TestRegisterAndGet(t *testing.T) {
-	// Use a unique name per test to avoid polluting other tests
 	name := "test-reg-" + t.Name()
 	Register(name, func() Extension { return &dummyExt{name: name} })
 
@@ -52,14 +49,13 @@ func TestRegisterDuplicatePanics(t *testing.T) {
 	})
 }
 
-// ---------- Extension interface tests ----------
+// ---------- RouteProvider tests ----------
 
-func TestExtensionRoutes(t *testing.T) {
-	h := func(c *echo.Context) error { return c.String(http.StatusOK, "ext") }
+func TestRouteProvider(t *testing.T) {
 	ext := &dummyExt{
 		name: "routes-test",
 		routes: []Route{
-			{Method: "GET", Path: "/api/v1/ext", Handler: h},
+			{Method: "GET", Path: "/api/v1/ext", Handler: func(w http.ResponseWriter, r *http.Request) {}},
 		},
 	}
 
@@ -69,57 +65,28 @@ func TestExtensionRoutes(t *testing.T) {
 	assert.Equal(t, "/api/v1/ext", routes[0].Path)
 }
 
-func TestExtensionOverrideRoutes(t *testing.T) {
-	customHandler := func(c *echo.Context) error {
-		return c.String(http.StatusOK, "overridden")
-	}
-	ext := &dummyExt{
-		name: "override-test",
-		overrides: map[string]echo.HandlerFunc{
-			"POST /api/v1/authpf/activate": customHandler,
-		},
+// ---------- MiddlewareProvider tests ----------
+
+func TestMiddlewareProvider(t *testing.T) {
+	mw := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
 	}
 
-	overrides := ext.OverrideRoutes()
-	assert.Len(t, overrides, 1)
-	handler, ok := overrides["POST /api/v1/authpf/activate"]
-	assert.True(t, ok)
-	assert.NotNil(t, handler)
+	ext := &dummyExt{name: "mw-test", middleware: []func(http.Handler) http.Handler{mw}}
+	mws := ext.Middleware()
+	assert.Len(t, mws, 1)
 }
 
-func TestExtensionEmptyOverrides(t *testing.T) {
-	ext := &dummyExt{name: "empty-overrides"}
-	assert.Nil(t, ext.OverrideRoutes())
+// ---------- Init tests ----------
+
+func TestInitError(t *testing.T) {
+	ext := &dummyExt{name: "init-err", initErr: assert.AnError}
+	assert.Equal(t, assert.AnError, ext.Init(Context{}, nil))
 }
 
-func TestExtensionSetupError(t *testing.T) {
-	ext := &dummyExt{name: "setup-err", setupErr: assert.AnError}
-	assert.Equal(t, assert.AnError, ext.Setup(SetupContext{}, nil))
-}
-
-func TestExtensionSetupSuccess(t *testing.T) {
-	ext := &dummyExt{name: "setup-ok"}
-	assert.NoError(t, ext.Setup(SetupContext{}, map[string]any{"key": "value"}))
-}
-
-func TestExtensionValidateSuccess(t *testing.T) {
-	ext := &dummyExt{name: "validate-ok"}
-	assert.NoError(t, ext.Validate(map[string]any{"key": "value"}))
-}
-
-func TestExtensionValidateError(t *testing.T) {
-	ext := &dummyExt{name: "validate-err", validateErr: assert.AnError}
-	assert.Equal(t, assert.AnError, ext.Validate(nil))
-}
-
-// ---------- Hook constants tests ----------
-
-func TestHookConstants(t *testing.T) {
-	assert.Equal(t, "pre-activate", HookPreActivate)
-	assert.Equal(t, "post-activate", HookPostActivate)
-	assert.Equal(t, "pre-deactivate", HookPreDeactivate)
-	assert.Equal(t, "post-deactivate", HookPostDeactivate)
-	assert.Equal(t, "post-login", HookPostLogin)
-	assert.Equal(t, "server-start", HookServerStart)
-	assert.Equal(t, "server-stop", HookServerStop)
+func TestInitSuccess(t *testing.T) {
+	ext := &dummyExt{name: "init-ok"}
+	assert.NoError(t, ext.Init(Context{}, map[string]any{"key": "value"}))
 }
