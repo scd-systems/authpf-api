@@ -33,7 +33,7 @@ func TestRegisterRoutes_ExtensionRoutesAdded(t *testing.T) {
 		routes: []extension.Route{
 			{Method: "GET", Path: "/api/v1/custom", Handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("custom-endpoint"))
+				_, _ = w.Write([]byte("custom-endpoint"))
 			}},
 		},
 	}

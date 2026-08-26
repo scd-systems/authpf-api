@@ -64,7 +64,7 @@ func adaptMiddleware(mw func(http.Handler) http.Handler) echo.MiddlewareFunc {
 			mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				c.SetRequest(r)
 				c.SetResponse(w)
-				next(c)
+				_ = next(c)
 			})).ServeHTTP(tracker, c.Request())
 			if !tracker.committed {
 				return nil
