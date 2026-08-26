@@ -23,6 +23,7 @@ type testExt struct {
 
 func (t *testExt) Name() string                                         { return t.name }
 func (t *testExt) Version() string                                      { return "0.0.0" }
+func (t *testExt) InterfaceVersion() int                                { return 1 }
 func (t *testExt) Init(ctx extension.Context, cfg map[string]any) error { return t.initErr }
 func (t *testExt) Routes() []extension.Route                            { return t.routes }
 func (t *testExt) Middleware() []func(http.Handler) http.Handler        { return t.middleware }

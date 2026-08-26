@@ -380,6 +380,10 @@ func (s *Server) loadExtensions(e *echo.Echo, ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("extension %q not found", extCfg.Name)
 		}
+		if ext.InterfaceVersion() != extension.RequiredInterfaceVersion {
+			return fmt.Errorf("extension %q requires interface v%d, supported v%d",
+				extCfg.Name, ext.InterfaceVersion(), extension.RequiredInterfaceVersion)
+		}
 		if err := ext.Init(extCtx, extCfg.Config); err != nil {
 			return fmt.Errorf("extension %q init failed: %w", extCfg.Name, err)
 		}

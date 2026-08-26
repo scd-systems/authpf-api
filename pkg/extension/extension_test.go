@@ -18,6 +18,7 @@ type dummyExt struct {
 
 func (d *dummyExt) Name() string                               { return d.name }
 func (d *dummyExt) Version() string                            { return "0.0.0" }
+func (d *dummyExt) InterfaceVersion() int                      { return 1 }
 func (d *dummyExt) Init(ctx Context, cfg map[string]any) error { return d.initErr }
 
 // Optional interfaces
@@ -89,4 +90,23 @@ func TestInitError(t *testing.T) {
 func TestInitSuccess(t *testing.T) {
 	ext := &dummyExt{name: "init-ok"}
 	assert.NoError(t, ext.Init(Context{}, map[string]any{"key": "value"}))
+}
+
+// ---------- InterfaceVersion tests ----------
+
+type legacyExt struct {
+	dummyExt
+}
+
+func (l *legacyExt) InterfaceVersion() int { return 0 }
+
+func TestInterfaceVersion_Mismatch(t *testing.T) {
+	ext := &legacyExt{dummyExt: dummyExt{name: "legacy"}}
+	assert.Equal(t, 0, ext.InterfaceVersion())
+	assert.NotEqual(t, RequiredInterfaceVersion, ext.InterfaceVersion())
+}
+
+func TestInterfaceVersion_Match(t *testing.T) {
+	ext := &dummyExt{name: "current"}
+	assert.Equal(t, RequiredInterfaceVersion, ext.InterfaceVersion())
 }

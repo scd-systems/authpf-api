@@ -9,6 +9,10 @@ import (
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
+// RequiredInterfaceVersion is the interface version the core supports.
+// Extensions must return this value from InterfaceVersion() or be rejected.
+const RequiredInterfaceVersion = 1
+
 // Context is passed to Extension.Init() and gives the extension
 // access to server-level resources.
 type Context struct {
@@ -28,8 +32,12 @@ type Extension interface {
 	// Name returns the unique extension identifier
 	Name() string
 
-	// Version returns the extension version string
+	// Version returns the extension version string (e.g., "1.2.0")
 	Version() string
+
+	// InterfaceVersion returns the version of the Extension interface
+	// this extension implements. Must match RequiredInterfaceVersion.
+	InterfaceVersion() int
 
 	// Init is called once at bootstrap. Extensions should validate their
 	// config and perform setup here. Return error to prevent loading.
