@@ -29,9 +29,9 @@ type RegisteredExtension struct {
 // ListRegistered returns the name and version of all registered extensions.
 func ListRegistered() []RegisteredExtension {
 	result := make([]RegisteredExtension, 0, len(extensions))
-	for name, factory := range extensions {
+	for _, factory := range extensions {
 		inst := factory()
-		result = append(result, RegisteredExtension{Name: name, Version: inst.Version()})
+		result = append(result, RegisteredExtension{Name: inst.Name(), Version: inst.Version()})
 	}
 	return result
 }
