@@ -2,6 +2,7 @@ package exec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -46,59 +47,32 @@ func New(logger zerolog.Logger, config *config.ConfigFile, db *authpf.AnchorsDB)
 
 // Call system exec.Command() -> os command
 func (e *Exec) executeSystemCommand(command string, args ...string) *SystemCommandResult {
-	const commandExecutionTimeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	msg := fmt.Sprintf("Running command: %s %s", command, args)
-	e.logger.Trace().Msg(msg)
+	e.logger.Trace().Str("cmd", command).Strs("args", args).Msg("running command")
 
-	cmd := exec.Command(command, args...)
-
-	// Capture stdout and stderr
+	cmd := exec.CommandContext(ctx, command, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Execute command with timeout
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Run()
-	}()
+	err := cmd.Run()
+	exitCode := 0
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		exitCode = exitErr.ExitCode()
+	} else if err != nil {
+		exitCode = -1
+		stderr.WriteString(err.Error())
+	}
 
-	// Wait for command with 30 second timeout
-	select {
-	case err := <-done:
-		exitCode := 0
-
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			} else {
-				// Return -1 and error if exec cannot run
-				exitCode = -1
-				stderr.WriteString(err.Error())
-			}
-		}
-
-		return &SystemCommandResult{
-			Command:  command,
-			Args:     args,
-			Stdout:   strings.TrimSpace(stdout.String()),
-			Stderr:   strings.TrimSpace(stderr.String()),
-			ExitCode: exitCode,
-			Error:    err,
-		}
-	case <-time.After(commandExecutionTimeout):
-		if err := cmd.Process.Kill(); err != nil {
-			e.logger.Error().Err(err).Msg(fmt.Sprintln("Cannot kill process"))
-		}
-		return &SystemCommandResult{
-			Command:  command,
-			Args:     args,
-			Stdout:   strings.TrimSpace(stdout.String()),
-			Stderr:   strings.TrimSpace(stderr.String()),
-			ExitCode: -1,
-			Error:    fmt.Errorf("command execution timeout (30s)"),
-		}
+	return &SystemCommandResult{
+		Command:  command,
+		Args:     args,
+		Stdout:   strings.TrimSpace(stdout.String()),
+		Stderr:   strings.TrimSpace(stderr.String()),
+		ExitCode: exitCode,
+		Error:    err,
 	}
 }
 
