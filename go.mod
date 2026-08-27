@@ -7,7 +7,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/labstack/echo/v5 v5.3.1
 	github.com/rs/zerolog v1.34.0
-	github.com/scd-systems/authpf-api-extensions v0.0.0-20260826131930-8f4a0136f518
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/term v0.38.0
