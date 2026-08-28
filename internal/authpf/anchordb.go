@@ -24,13 +24,11 @@ func (a *AnchorsDB) Add(r *authpf.AuthPFAnchor) {
 }
 
 func (a *AnchorsDB) Remove(username string) error {
-	for idx, v := range *a {
-		if v.Username == username {
-			delete(*a, idx)
-			return nil
-		}
+	if (*a)[username] == nil {
+		return fmt.Errorf("username not found in DB: %s", username)
 	}
-	return fmt.Errorf("username not found in DB: %s", username)
+	delete(*a, username)
+	return nil
 }
 
 // Clear DB
@@ -39,12 +37,7 @@ func (a *AnchorsDB) Flush() {
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
-	for _, v := range *a {
-		if v.Username == username {
-			return true
-		}
-	}
-	return false
+	return (*a)[username] != nil
 }
 
 // Get returns the anchor for the given username, or nil if not found.
