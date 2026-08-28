@@ -27,17 +27,17 @@ func (d *dummyExt) Middleware() []func(http.Handler) http.Handler { return d.mid
 
 // ---------- Registry tests ----------
 
-func TestRegisterAndGet(t *testing.T) {
+func TestRegisterAndCreate(t *testing.T) {
 	name := "test-reg-" + t.Name()
 	Register(name, func() Extension { return &dummyExt{name: name} })
 
-	ext, ok := Get(name)
+	ext, ok := Create(name)
 	assert.True(t, ok)
 	assert.Equal(t, name, ext.Name())
 }
 
-func TestGetUnknown(t *testing.T) {
-	_, ok := Get("nonexistent-extension-" + t.Name())
+func TestCreateUnknown(t *testing.T) {
+	_, ok := Create("nonexistent-extension-" + t.Name())
 	assert.False(t, ok)
 }
 

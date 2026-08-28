@@ -381,7 +381,7 @@ func (s *Server) loadExtensions(framework *echo.Echo, ctx context.Context) error
 		Framework: framework,
 	}
 	for _, extCfg := range s.config.Extensions {
-		ext, ok := extension.Get(extCfg.Name)
+		ext, ok := extension.Create(extCfg.Name)
 		if !ok {
 			return fmt.Errorf("extension %q not found", extCfg.Name)
 		}
