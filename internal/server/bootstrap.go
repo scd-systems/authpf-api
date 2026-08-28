@@ -49,6 +49,10 @@ func (s *Server) Start() {
 	// Server: Setup and Start
 	e := echo.New()
 
+	// Logger middleware before extensions so blocked requests are still logged
+	e.Use(s.loggerMiddleware())
+	e.Use(s.requestLoggerMiddleware())
+
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
@@ -368,12 +372,13 @@ func collectRequiredPfTables(cfg *config.ConfigFile) []string {
 }
 
 // loadExtensions loads and initializes extensions from config.
-func (s *Server) loadExtensions(e *echo.Echo, ctx context.Context) error {
+func (s *Server) loadExtensions(framework *echo.Echo, ctx context.Context) error {
 	extCtx := extension.Context{
-		Context: ctx,
-		Config:  s.config,
-		DB:      s.db,
-		Logger:  s.logger,
+		Context:   ctx,
+		Config:    s.config,
+		DB:        s.db,
+		Logger:    s.logger,
+		Framework: framework,
 	}
 	for _, extCfg := range s.config.Extensions {
 		ext, ok := extension.Get(extCfg.Name)

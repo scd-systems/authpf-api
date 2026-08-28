@@ -25,6 +25,9 @@ type Context struct {
 	DB authpf.ReadOnlyAnchorsDB
 	// Logger for extension-level logging.
 	Logger zerolog.Logger
+	// Extensions can type-assert to use framework-specific features
+	// like middleware.RateLimiter. nil if no framework is available.
+	Framework any
 }
 
 // Extension is the minimal interface all extensions must implement.

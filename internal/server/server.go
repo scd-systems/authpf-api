@@ -21,12 +21,6 @@ import (
 func (s *Server) SetupServer(e *echo.Echo) error {
 	s.checkSSL()
 
-	// Add logger middleware to context
-	e.Use(s.loggerMiddleware())
-
-	// Add request logging middleware
-	e.Use(s.requestLoggerMiddleware())
-
 	// Disable Echo's default logger (we use our own zerolog)
 	e.Logger = slog.New(slog.DiscardHandler)
 
