@@ -54,35 +54,14 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 func adaptMiddleware(mw func(http.Handler) http.Handler) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			tracker := &committedResponse{ResponseWriter: c.Response()}
 			mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				c.SetRequest(r)
 				c.SetResponse(w)
 				_ = next(c)
-			})).ServeHTTP(tracker, c.Request())
-			if !tracker.committed {
-				return nil
-			}
-			// Response was committed by middleware (e.g., 429 deny)
+			})).ServeHTTP(c.Response(), c.Request())
 			return nil
 		}
 	}
-}
-
-// committedResponse tracks whether a response has been written.
-type committedResponse struct {
-	http.ResponseWriter
-	committed bool
-}
-
-func (w *committedResponse) WriteHeader(code int) {
-	w.committed = true
-	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *committedResponse) Write(p []byte) (int, error) {
-	w.committed = true
-	return w.ResponseWriter.Write(p)
 }
 
 func (s *Server) checkSSL() {
@@ -103,34 +82,31 @@ func (s *Server) loggerMiddleware() echo.MiddlewareFunc {
 
 // requestLoggerMiddleware logs incoming requests with details
 func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
-	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:       true,
-		LogStatus:    true,
-		LogUserAgent: true,
-		LogRemoteIP:  true,
-		LogLatency:   true,
-		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
-			username, _ := c.Get("username").(string)
-			authStatus, _ := c.Get("auth").(string)
-			authpfStatus, _ := c.Get("authpf").(string)
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			result := next(c)
+			status := http.StatusOK
+			if resp, ok := c.Response().(*echo.Response); ok && resp.Status > 0 {
+				status = resp.Status
+			}
 			logEntry := s.logger.Info().
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
-				Str("URI", v.URI).
-				Int("status", v.Status)
-			if username != "" {
+				Str("URI", c.Request().URL.Path).
+				Int("status", status)
+			if username, _ := c.Get("username").(string); username != "" {
 				logEntry.Str("user", username)
 			}
-			if authStatus != "" {
+			if authStatus, _ := c.Get("auth").(string); authStatus != "" {
 				logEntry.Str("auth", authStatus)
 			}
-			if authpfStatus != "" {
+			if authpfStatus, _ := c.Get("authpf").(string); authpfStatus != "" {
 				logEntry.Str("authpf", authpfStatus)
 			}
 			logEntry.Msg("request")
-			return nil
-		},
-	})
+			return result
+		}
+	}
 }
 
 // registerRoutes sets up all API endpoints

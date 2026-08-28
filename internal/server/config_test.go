@@ -340,7 +340,7 @@ func TestCollectRequiredPfTables_Empty(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Empty(t, result, "should return empty slice when no pfTable configured anywhere")
 }
 
@@ -353,7 +353,7 @@ func TestCollectRequiredPfTables_GlobalOnly(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Equal(t, []string{"global_table"}, result)
 }
 
@@ -366,7 +366,7 @@ func TestCollectRequiredPfTables_UserOnly(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Len(t, result, 1)
 	assert.Contains(t, result, "user1_table")
 }
@@ -380,7 +380,7 @@ func TestCollectRequiredPfTables_GlobalAndUser(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Len(t, result, 2)
 	assert.Contains(t, result, "global_table")
 	assert.Contains(t, result, "user1_table")
@@ -396,7 +396,7 @@ func TestCollectRequiredPfTables_DeduplicatesSameTableName(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Len(t, result, 1, "duplicate table names must be deduplicated")
 	assert.Contains(t, result, "shared_table")
 }
@@ -413,7 +413,7 @@ func TestCollectRequiredPfTables_MultipleUsersDistinctTables(t *testing.T) {
 			},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Len(t, result, 3)
 	assert.Contains(t, result, "global_table")
 	assert.Contains(t, result, "table_a")
@@ -427,6 +427,6 @@ func TestCollectRequiredPfTables_NoUsers(t *testing.T) {
 			Users: map[string]config.ConfigFileRbacUsers{},
 		},
 	}
-	result := collectRequiredPfTables(cfg)
+	result := gatherPfTables(cfg)
 	assert.Equal(t, []string{"global_table"}, result)
 }
