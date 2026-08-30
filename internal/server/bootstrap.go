@@ -316,7 +316,7 @@ func (s *Server) generateUserPasswordHash() error {
 }
 
 // get all pfTables in config file and put into an array
-func gatherPfTables(cfg *config.ConfigFile) []string {
+func gatherPfTablesFromConfig(cfg *config.ConfigFile) []string {
 	var tables []string
 	seen := make(map[string]bool)
 
@@ -368,7 +368,7 @@ func (s *Server) loadExtensions(framework *echo.Echo, ctx context.Context) error
 
 // Check if all pfTables are exists
 func (s *Server) validatePfTables(e *exec.Exec) error {
-	tables := gatherPfTables(s.config)
+	tables := gatherPfTablesFromConfig(s.config)
 	if len(tables) == 0 {
 		return nil
 	}

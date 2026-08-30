@@ -3,6 +3,7 @@ package server
 import (
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/scd-systems/authpf-api/pkg/config"
@@ -340,7 +341,7 @@ func TestCollectRequiredPfTables_Empty(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Empty(t, result, "should return empty slice when no pfTable configured anywhere")
 }
 
@@ -353,7 +354,7 @@ func TestCollectRequiredPfTables_GlobalOnly(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Equal(t, []string{"global_table"}, result)
 }
 
@@ -366,7 +367,7 @@ func TestCollectRequiredPfTables_UserOnly(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Len(t, result, 1)
 	assert.Contains(t, result, "user1_table")
 }
@@ -380,7 +381,7 @@ func TestCollectRequiredPfTables_GlobalAndUser(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Len(t, result, 2)
 	assert.Contains(t, result, "global_table")
 	assert.Contains(t, result, "user1_table")
@@ -396,7 +397,7 @@ func TestCollectRequiredPfTables_DeduplicatesSameTableName(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Len(t, result, 1, "duplicate table names must be deduplicated")
 	assert.Contains(t, result, "shared_table")
 }
@@ -413,7 +414,7 @@ func TestCollectRequiredPfTables_MultipleUsersDistinctTables(t *testing.T) {
 			},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Len(t, result, 3)
 	assert.Contains(t, result, "global_table")
 	assert.Contains(t, result, "table_a")
@@ -427,6 +428,47 @@ func TestCollectRequiredPfTables_NoUsers(t *testing.T) {
 			Users: map[string]config.ConfigFileRbacUsers{},
 		},
 	}
-	result := gatherPfTables(cfg)
+	result := gatherPfTablesFromConfig(cfg)
 	assert.Equal(t, []string{"global_table"}, result)
+}
+
+// Goes through validateConfig rather than the validator directly, so the same
+// test compiles before and after the fix and demonstrates the behavior change.
+func TestValidateConfig_RejectsHostileMacroKeys(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		wantErr bool
+	}{
+		{name: "plain key accepted", key: "server_1_port", wantErr: false},
+		{name: "argv injection shape rejected", key: "x=1 -F all", wantErr: true},
+		{name: "hyphen rejected", key: "my-macro", wantErr: true},
+		{name: "shell metacharacter rejected", key: "x;rm", wantErr: true},
+		{name: "user_ip rejected even when userIp is unset", key: "user_ip", wantErr: true},
+		{name: "user_id rejected even when userId is unset", key: "user_id", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				logger: zerolog.Nop(),
+				config: &config.ConfigFile{
+					Rbac: config.ConfigFileRbac{
+						Users: map[string]config.ConfigFileRbacUsers{
+							"alice": {
+								Role:   "user",
+								Macros: map[string]string{tt.key: "value"},
+							},
+						},
+					},
+				},
+			}
+			err := s.validateConfig()
+			if tt.wantErr {
+				assert.Error(t, err, "macro key %q must be rejected", tt.key)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
