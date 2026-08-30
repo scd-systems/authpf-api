@@ -14,17 +14,12 @@ import (
 	"github.com/scd-systems/authpf-api/internal/api"
 	"github.com/scd-systems/authpf-api/internal/auth"
 	"github.com/scd-systems/authpf-api/internal/scheduler"
+	"github.com/scd-systems/authpf-api/pkg/extension"
 )
 
 // setupServer configures the Echo server with middleware and routes
 func (s *Server) SetupServer(e *echo.Echo) error {
 	s.checkSSL()
-
-	// Add logger middleware to context
-	e.Use(s.loggerMiddleware())
-
-	// Add request logging middleware
-	e.Use(s.requestLoggerMiddleware())
 
 	// Disable Echo's default logger (we use our own zerolog)
 	e.Logger = slog.New(slog.DiscardHandler)
@@ -38,12 +33,35 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 		HSTSPreloadEnabled: true,
 	}))
 
+	// Apply global middleware from extensions (registration order)
+	for _, ext := range s.extensions {
+		if mp, ok := ext.(extension.MiddlewareProvider); ok {
+			for _, mw := range mp.Middleware() {
+				e.Use(adaptMiddleware(mw))
+			}
+		}
+	}
+
 	// Register routes
 	if err := s.registerRoutes(e); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// adaptMiddleware converts a stdlib func(http.Handler)http.Handler to echo.MiddlewareFunc.
+func adaptMiddleware(mw func(http.Handler) http.Handler) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				c.SetRequest(r)
+				c.SetResponse(w)
+				_ = next(c)
+			})).ServeHTTP(c.Response(), c.Request())
+			return nil
+		}
+	}
 }
 
 func (s *Server) checkSSL() {
@@ -64,34 +82,31 @@ func (s *Server) loggerMiddleware() echo.MiddlewareFunc {
 
 // requestLoggerMiddleware logs incoming requests with details
 func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
-	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:       true,
-		LogStatus:    true,
-		LogUserAgent: true,
-		LogRemoteIP:  true,
-		LogLatency:   true,
-		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
-			username, _ := c.Get("username").(string)
-			authStatus, _ := c.Get("auth").(string)
-			authpfStatus, _ := c.Get("authpf").(string)
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			result := next(c)
+			status := http.StatusOK
+			if resp, ok := c.Response().(*echo.Response); ok && resp.Status > 0 {
+				status = resp.Status
+			}
 			logEntry := s.logger.Info().
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
-				Str("URI", v.URI).
-				Int("status", v.Status)
-			if username != "" {
+				Str("URI", c.Request().URL.Path).
+				Int("status", status)
+			if username, _ := c.Get("username").(string); username != "" {
 				logEntry.Str("user", username)
 			}
-			if authStatus != "" {
+			if authStatus, _ := c.Get("auth").(string); authStatus != "" {
 				logEntry.Str("auth", authStatus)
 			}
-			if authpfStatus != "" {
+			if authpfStatus, _ := c.Get("authpf").(string); authpfStatus != "" {
 				logEntry.Str("authpf", authpfStatus)
 			}
 			logEntry.Msg("request")
-			return nil
-		},
-	})
+			return result
+		}
+	}
 }
 
 // registerRoutes sets up all API endpoints
@@ -124,10 +139,38 @@ func (s *Server) registerRoutes(e *echo.Echo) error {
 	// Info Endpoint
 	e.GET("/info", info)
 
+	// Register extension routes (new endpoints)
+	for _, ext := range s.extensions {
+		if rp, ok := ext.(extension.RouteProvider); ok {
+			for _, route := range rp.Routes() {
+				switch route.Method {
+				case "GET":
+					e.GET(route.Path, adaptHandler(route.Handler))
+				case "POST":
+					e.POST(route.Path, adaptHandler(route.Handler))
+				case "DELETE":
+					e.DELETE(route.Path, adaptHandler(route.Handler))
+				case "PUT":
+					e.PUT(route.Path, adaptHandler(route.Handler))
+				case "PATCH":
+					e.PATCH(route.Path, adaptHandler(route.Handler))
+				}
+			}
+		}
+	}
+
 	scheduler := scheduler.New(s.db, lock, s.logger, s.config)
 	// Start background rule cleaner
 	go scheduler.Run()
 	return nil
+}
+
+// adaptHandler converts a stdlib http.HandlerFunc to echo.HandlerFunc.
+func adaptHandler(h http.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		h.ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
 }
 
 // Start Graceful Server

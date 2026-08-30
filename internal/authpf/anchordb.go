@@ -3,37 +3,32 @@ package authpf
 import (
 	"fmt"
 	"time"
+
+	"github.com/scd-systems/authpf-api/pkg/authpf"
 )
 
-// AuthPFAnchor represents an anchor to store in anchorsDB
-type AuthPFAnchor struct {
-	Username  string    `json:"username"`
-	Timeout   string    `json:"timeout,omitempty"`
-	UserIP    string    `json:"user_ip"`
-	UserID    int       `json:"user_id"`
-	ExpiresAt time.Time `json:"expire_at"`
-}
+// Re-export public types so existing internal imports continue to work.
+type AuthPFAnchor = authpf.AuthPFAnchor
+type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
 
 // Map of AuthPFAnchors
-type AnchorsDB map[string]*AuthPFAnchor
+type AnchorsDB map[string]*authpf.AuthPFAnchor
 
 func New() *AnchorsDB {
 	anchorsDB := make(AnchorsDB)
 	return &anchorsDB
 }
 
-func (a *AnchorsDB) Add(r *AuthPFAnchor) {
+func (a *AnchorsDB) Add(r *authpf.AuthPFAnchor) {
 	(*a)[r.Username] = r
 }
 
 func (a *AnchorsDB) Remove(username string) error {
-	for idx, v := range *a {
-		if v.Username == username {
-			delete(*a, idx)
-			return nil
-		}
+	if (*a)[username] == nil {
+		return fmt.Errorf("username not found in DB: %s", username)
 	}
-	return fmt.Errorf("username not found in DB: %s", username)
+	delete(*a, username)
+	return nil
 }
 
 // Clear DB
@@ -42,17 +37,40 @@ func (a *AnchorsDB) Flush() {
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
-	for _, v := range *a {
-		if v.Username == username {
-			return true
-		}
-	}
-	return false
+	return (*a)[username] != nil
 }
 
-func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*AuthPFAnchor, error) {
-	if len(username) < 1 || len(timeout) < 1 || len(userIp) < 1 || userId < 0 || userId > 65535 {
-		return &AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
+// Get returns the anchor for the given username, or nil if not found.
+func (a *AnchorsDB) Get(username string) *authpf.AuthPFAnchor {
+	return (*a)[username]
+}
+
+// Len returns the number of active anchors.
+func (a *AnchorsDB) Len() int {
+	return len(*a)
+}
+
+// Range iterates over all active anchors.
+func (a *AnchorsDB) Range(fn func(*authpf.AuthPFAnchor) bool) {
+	for _, v := range *a {
+		if !fn(v) {
+			break
+		}
 	}
-	return &AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
+}
+
+// Snapshot returns a copy of the anchors map.
+func (a *AnchorsDB) Snapshot() map[string]*authpf.AuthPFAnchor {
+	result := make(AnchorsDB, len(*a))
+	for k, v := range *a {
+		result[k] = v
+	}
+	return result
+}
+
+func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*authpf.AuthPFAnchor, error) {
+	if len(username) < 1 || len(timeout) < 1 || len(userIp) < 1 || userId < 0 || userId > 65535 {
+		return &authpf.AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
+	}
+	return &authpf.AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
 }

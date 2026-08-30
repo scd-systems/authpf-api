@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/rand"
 	"flag"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/scd-systems/authpf-api/internal/authpf"
 	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
+	"github.com/scd-systems/authpf-api/pkg/extension"
 	"golang.org/x/term"
 )
 
@@ -29,6 +31,8 @@ type Server struct {
 	db         *authpf.AnchorsDB
 	logger     zerolog.Logger
 	httpServer *http.Server
+	extensions []extension.Extension
+	cancel     context.CancelFunc
 }
 
 func NewServer() *Server {
@@ -44,7 +48,21 @@ func (s *Server) Start() {
 	}
 	// Server: Setup and Start
 	e := echo.New()
+
+	// Logger middleware before extensions so blocked requests are still logged
+	e.Use(s.loggerMiddleware())
+	e.Use(s.requestLoggerMiddleware())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+
+	// Load extensions
+	if err := s.loadExtensions(e, ctx); err != nil {
+		cancel()
+		log.Fatalf("%s", err.Error())
+	}
 	if err := s.SetupServer(e); err != nil {
+		cancel()
 		log.Fatalf("%s", err.Error())
 	}
 	s.StartServerWithGracefulShutdown(e)
@@ -112,6 +130,7 @@ func (s *Server) parseFlags() error {
 	foreground := flag.Bool("foreground", false, "Log to stdout instead of logfile")
 	version := flag.Bool("version", false, "Show version and exit")
 	genUserPassword := flag.Bool("gen-user-password", false, "Generate a bcrypt password hash (reads password from stdin)")
+	listExtensions := flag.Bool("list-extensions", false, "List registered extensions and exit")
 	cfgFile := flag.String("configFile", "", "Filepath to the authpf-api.conf file")
 	cfgFileShort := flag.String("c", "", "Filepath to the authpf-api.conf file (short form)")
 	logLevel := flag.String("v", "", "Log level (debug, info, warn, error, fatal)")
@@ -119,6 +138,13 @@ func (s *Server) parseFlags() error {
 
 	if *version {
 		displayVersionInfo()
+		os.Exit(0)
+	}
+
+	if *listExtensions {
+		for _, ext := range extension.ListRegistered() {
+			fmt.Printf("%s (v%s)\n", ext.Name, ext.Version)
+		}
 		os.Exit(0)
 	}
 
@@ -226,19 +252,11 @@ func (s *Server) initializeLogger() error {
 
 // getLogWriter determines where logs should be written
 func (s *Server) getLogWriter() (io.Writer, error) {
-	if globalForeground {
+	if globalForeground || s.config.Server.Logfile == "" {
 		return os.Stdout, nil
 	}
-
-	if s.config.Server.Logfile != "" {
-		file, err := os.OpenFile(s.config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
-		if err != nil {
-			return os.Stdout, fmt.Errorf("failed to open file: %s", err.Error())
-		}
-		return file, nil
-	}
-
-	return os.Stdout, nil
+	f, err := os.OpenFile(s.config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+	return f, err
 }
 
 // validateSSLFiles checks if SSL certificate and key files exist and are readable
@@ -268,28 +286,23 @@ func validateSSLFiles(certPath, keyPath string) error {
 
 // generateUserPasswordHash reads a password from stdin and generates a bcrypt hash
 func (s *Server) generateUserPasswordHash() error {
-	// Check if stdin is a terminal or piped
-	isTerminal := term.IsTerminal(int(os.Stdin.Fd()))
-
 	var password string
 	var err error
 
-	if isTerminal {
-		// Interactive mode: prompt and read without echo
+	if term.IsTerminal(int(os.Stdin.Fd())) {
 		fmt.Fprint(os.Stderr, "Enter password: ")
-		password, err = s.readPasswordNoEcho()
-		if err != nil {
-			return fmt.Errorf("failed to read password: %w", err)
-		}
+		pw, readErr := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Fprint(os.Stderr, "\n")
+		password = string(pw)
+		err = readErr
 	} else {
-		// Piped mode: read from stdin
-		password, err = readPasswordFromStdin()
-		if err != nil {
-			return fmt.Errorf("failed to read password: %w", err)
-		}
+		data, readErr := io.ReadAll(os.Stdin)
+		password = strings.TrimSpace(string(data))
+		err = readErr
 	}
-
+	if err != nil {
+		return fmt.Errorf("failed to read password: %w", err)
+	}
 	if password == "" {
 		return fmt.Errorf("password cannot be empty")
 	}
@@ -298,56 +311,64 @@ func (s *Server) generateUserPasswordHash() error {
 	if err != nil {
 		return fmt.Errorf("failed to generate password hash: %w", err)
 	}
-
 	fmt.Println(hash)
 	return nil
 }
 
-// readPasswordNoEcho reads a password from terminal without echoing it
-func (s *Server) readPasswordNoEcho() (string, error) {
-	// Read password
-	password, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", err
-	}
-
-	return string(password), nil
-}
-
-// readPasswordFromStdin reads a password from stdin (for piped input)
-func readPasswordFromStdin() (string, error) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", err
-	}
-	password := strings.TrimSpace(string(data))
-	return password, nil
-}
-
 // get all pfTables in config file and put into an array
-func collectRequiredPfTables(cfg *config.ConfigFile) []string {
-	seen := make(map[string]struct{})
+func gatherPfTablesFromConfig(cfg *config.ConfigFile) []string {
 	var tables []string
+	seen := make(map[string]bool)
 
-	if cfg.AuthPF.PfTable != "" {
-		seen[cfg.AuthPF.PfTable] = struct{}{}
-		tables = append(tables, cfg.AuthPF.PfTable)
-	}
-
-	for _, user := range cfg.Rbac.Users {
-		if user.PfTable != "" {
-			if _, exists := seen[user.PfTable]; !exists {
-				seen[user.PfTable] = struct{}{}
-				tables = append(tables, user.PfTable)
-			}
+	add := func(t string) {
+		if t != "" && !seen[t] {
+			seen[t] = true
+			tables = append(tables, t)
 		}
 	}
+
+	add(cfg.AuthPF.PfTable)
+	for _, user := range cfg.Rbac.Users {
+		add(user.PfTable)
+	}
+
 	return tables
+}
+
+// loadExtensions loads and initializes extensions from config.
+func (s *Server) loadExtensions(framework *echo.Echo, ctx context.Context) error {
+	extCtx := extension.Context{
+		Context:   ctx,
+		Config:    s.config,
+		DB:        s.db,
+		Logger:    s.logger,
+		Framework: framework,
+	}
+	for _, extCfg := range s.config.Extensions {
+		ext, ok := extension.Create(extCfg.Name)
+		if !ok {
+			return fmt.Errorf("extension %q not found", extCfg.Name)
+		}
+		if ext.InterfaceVersion() != extension.RequiredInterfaceVersion {
+			s.logger.Warn().
+				Str("extension", extCfg.Name).
+				Int("required", ext.InterfaceVersion()).
+				Int("supported", extension.RequiredInterfaceVersion).
+				Msg("skipping extension: interface version mismatch")
+			continue
+		}
+		if err := ext.Init(extCtx, extCfg.Config); err != nil {
+			return fmt.Errorf("extension %q init failed: %w", extCfg.Name, err)
+		}
+		s.extensions = append(s.extensions, ext)
+		s.logger.Info().Str("extension", extCfg.Name).Msg("extension loaded")
+	}
+	return nil
 }
 
 // Check if all pfTables are exists
 func (s *Server) validatePfTables(e *exec.Exec) error {
-	tables := collectRequiredPfTables(s.config)
+	tables := gatherPfTablesFromConfig(s.config)
 	if len(tables) == 0 {
 		return nil
 	}
