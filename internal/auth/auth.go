@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,31 +51,14 @@ func parseJwtTokenTimeout(timeout string) (time.Duration, error) {
 		return 0, fmt.Errorf("timeout cannot be empty")
 	}
 
-	// Regex pattern to match number + unit (m, h, d)
-	pattern := `^(\d+)([mhd])$`
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(strings.TrimSpace(timeout))
-
-	if len(matches) != 3 {
+	s := strings.TrimSpace(timeout)
+	s = strings.ReplaceAll(s, "d", "24h")
+	duration, err := time.ParseDuration(s)
+	if err != nil {
 		return 0, fmt.Errorf("invalid timeout format: %s (expected format: 30m, 1h, or 2d)", timeout)
 	}
 
-	value, _ := strconv.Atoi(matches[1])
-	unit := matches[2]
-
-	var duration time.Duration
-	switch unit {
-	case "m":
-		duration = time.Duration(value) * time.Minute
-	case "h":
-		duration = time.Duration(value) * time.Hour
-	case "d":
-		duration = time.Duration(value) * 24 * time.Hour
-	}
-
-	// Check if duration exceeds 30 days
-	maxDuration := 30 * 24 * time.Hour
-	if duration > maxDuration {
+	if duration > 30*24*time.Hour {
 		return 0, fmt.Errorf("timeout exceeds maximum allowed duration of 30 days: %s", timeout)
 	}
 

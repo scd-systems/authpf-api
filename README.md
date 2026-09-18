@@ -74,7 +74,7 @@ make coverage-html
 
 ## Configuration
 
-The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api-config.yaml`.
+The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api.conf`.
 
 ### Configuration Parameters
 
@@ -95,8 +95,8 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
 | `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
 | `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
-| `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
 | `authpf.SchedulerInterval` | The time interval in seconds when the scheduler loop runs. Default is 60 seconds when parameter is empty. | No |
+| `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
 
 #### Server Section
 
@@ -152,6 +152,15 @@ export LOG_LEVEL=info
 
 # Generate User Password (bcrypted)
 ./authpf-api -gen-user-password
+
+# List registered extensions
+./authpf-api -list-extensions
+
+# Override config file path
+./authpf-api -c /path/to/config.yaml
+
+# Override log level
+./authpf-api -v debug
 ```
 
 ## API Endpoints
@@ -550,6 +559,128 @@ authpf:
 1. It is currently not possible to detect the UserIP macro value. The UserIP will be set to "NaN/imported". It does not have any effect.
    Deactivation works without IP Address.
 2. The Expire datetime will be calculated by the `authpf.timeout` and current server time.
+
+## Extension System
+
+AuthPF-API supports a modular extension system that allows you to add custom HTTP routes, inject global middleware, and access server configuration — all without modifying the core codebase.
+
+### Architecture
+
+The core `Extension` interface is **framework-agnostic**, using only `net/http` types.
+
+```
+Extension (core)
+├── Name() string
+├── Version() string
+└── Init(Context, map[string]any) error
+└── InterfaceVersion() int
+
+RouteProvider (optional)
+└── Routes() []Route  — stdlib http.HandlerFunc
+
+MiddlewareProvider (optional)
+└── Middleware() []func(http.Handler) http.Handler
+```
+
+### ReadOnlyAnchorsDB
+
+Extensions receive a **read-only** view of the in-memory AnchorsDB via `Context.DB`. This interface (`authpf.ReadOnlyAnchorsDB`) exposes:
+
+| Method | Description |
+|--------|-------------|
+| `Get(username)` | Return the anchor for a user, or `nil` |
+| `Len()` | Number of active anchors |
+| `IsActivated(username)` | Check if a user has an active anchor |
+| `Range(fn)` | Iterate over all active anchors |
+
+### Enabling Extensions
+
+Extensions can be enabled in the config file under the `extensions` key:
+
+```yaml
+extensions:
+  - name: prometheus-metrics
+  - name: ratelimit
+    config:
+      rate: 10        # requests per second
+      burst: 30       # burst allowance
+      expiresIn: 10m  # stale entry cleanup interval
+  - name: file-rbac
+    config:
+      file: /usr/local/etc/authpf-api/rbac.yaml
+      watch: true     # enable fsnotify hot-reload
+```
+
+### Creating an Extension
+
+An extension is a Go package that implements the `extension.Extension` interface and registers itself via `init()`:
+
+```go
+package myextension
+
+import (
+	"net/http"
+
+	"github.com/scd-systems/authpf-api/pkg/extension"
+)
+
+func init() {
+	extension.Register("my-extension", func() extension.Extension {
+		return &myExtension{}
+	})
+}
+
+type myExtension struct {
+	// fields initialized in Init()
+}
+
+// Extension Name and Version
+func (e *myExtension) Name() string  { return "my-extension" }
+func (e *myExtension) Version() string { return "1.0.0" }
+
+// Extension Interface Version
+func (e *myExtension) InterfaceVersion() int { return 1 }
+
+func (e *myExtension) Init(ctx extension.Context, cfg map[string]any) error {
+	// ctx.Config  — server config (writable)
+	// ctx.DB      — read-only AnchorsDB
+	// ctx.Logger  — zerolog logger
+	// ctx.Done()  — shutdown signal (stdlib context.Context)
+	return nil
+}
+
+func (e *myExtension) Routes() []extension.Route {
+	return []extension.Route{
+		{Method: "GET", Path: "/my-route", Handler: e.handleMyRoute},
+	}
+}
+
+func (e *myExtension) handleMyRoute(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("hello"))
+}
+```
+
+### Building with Extensions
+
+To include an extension, add a blank import in `cmd/main.go`:
+
+```go
+import _ "github.com/repo/my-extension"
+```
+
+The `init()` function registers the extension, and it is loaded at startup when its name appears in the config.
+
+### Example Extensions
+
+Three example extensions are included in the repository:
+
+| Extension | Path | Description |
+|-----------|------|-------------|
+| **Prometheus Metrics** | `github.com/scd-systems/authpf-api-extensions/v1/prometheus-metrics` | Exposes `/metrics` with active anchor and user counts |
+| **Rate Limiting** | `github.com/scd-systems/authpf-api-extensions/v1/rate-limit` | Global per-IP rate limiter with configurable rate/burst |
+| **File RBAC** | `github.com/scd-systems/authpf-api-extensions/v1/file-rbac` | External RBAC YAML file with optional fsnotify hot-reload |
+
+---
 
 ## Development
 

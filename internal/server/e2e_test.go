@@ -46,8 +46,8 @@ func generateTestConfig(t *testing.T, port uint16) string {
 
 	// Add tmpDir to PATH so mock sudo is found
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+":"+oldPath)
-	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", tmpDir+":"+oldPath)
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
 
 	yamlContent := fmt.Sprintf(`server:
   bind: 127.0.0.1
@@ -166,7 +166,7 @@ func loginAs(t *testing.T, baseURL, username, password string) string {
 
 	resp, err := http.Post(baseURL+"/login", "application/json", bytes.NewReader(loginBody))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -192,7 +192,7 @@ func activateAs(t *testing.T, baseURL, token, username string) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
@@ -204,7 +204,7 @@ func TestE2E_HealthCheck(t *testing.T) {
 
 	resp, err := http.Get(baseURL + "/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Health check should return 200")
 
@@ -236,7 +236,7 @@ func TestE2E_LoginInvalidCredentials(t *testing.T) {
 
 	resp, err := http.Post(baseURL+"/login", "application/json", bytes.NewReader(loginBody))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Login with wrong password should return 401")
 }
@@ -254,7 +254,7 @@ func TestE2E_LoginMissingFields(t *testing.T) {
 
 	resp, err := http.Post(baseURL+"/login", "application/json", bytes.NewReader(loginBody))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Login with missing password should return 401")
 }
@@ -270,7 +270,7 @@ func TestE2E_ActivateWithoutToken(t *testing.T) {
 
 	resp, err := http.Post(baseURL+"/api/v1/authpf/activate", "application/json", bytes.NewReader(activateBody))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Activate without token should return 401")
 }
@@ -308,7 +308,7 @@ func TestE2E_GetStatus(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "GET status should return 200")
 
@@ -325,7 +325,7 @@ func TestE2E_InfoEndpoint(t *testing.T) {
 
 	resp, err := http.Get(baseURL + "/info")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Info endpoint should return 200")
 
@@ -359,7 +359,7 @@ func TestE2E_ActivateDuplicate(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusAlreadyReported, resp.StatusCode, "Duplicate activation should return 507")
 }

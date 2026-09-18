@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/rs/zerolog"
 	"github.com/scd-systems/authpf-api/internal/authpf"
+	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
@@ -47,6 +48,12 @@ func (h *Handler) AddToDB(r *authpf.AuthPFAnchor) error {
 	return nil
 }
 
+// abort sets the authpf context value and returns a standard "failed" JSON response.
+func (h *Handler) abort(c *echo.Context, err *errors.APIError) error {
+	c.Set("authpf", err.Message)
+	return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+}
+
 func (h *Handler) HandleGetLogin(c *echo.Context) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -63,25 +70,20 @@ func (h *Handler) HandlePostActivate(c *echo.Context) error {
 
 	// Check Username & JSON Payload
 	if err := h.CheckSessionUsername(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
-
 	if err := h.CheckJSONPayload(c, anchor); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check Permissions
 	if err := h.CheckSessionUserPermission(c, config.SESSION_REGISTER); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check UserIP from Requester
 	if err := h.CheckSessionUserIP(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check if user/anchor already activated
@@ -93,14 +95,12 @@ func (h *Handler) HandlePostActivate(c *echo.Context) error {
 
 	anchor, err = h.GetAnchorFromContext(c)
 	if err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Exec
 	if err := h.CallExecActivateAnchor(c, anchor); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Store status into DB
@@ -129,8 +129,7 @@ func (h *Handler) HandleGetActivate(c *echo.Context) error {
 
 	// Check Username & JSON Payload
 	if err := h.CheckSessionUsername(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check Permissions
@@ -141,8 +140,7 @@ func (h *Handler) HandleGetActivate(c *echo.Context) error {
 
 	reqUser, err := h.resolveAnchorUsername(c)
 	if err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	response := &AuthPFAnchorResponse{
@@ -158,8 +156,7 @@ func (h *Handler) HandleGetAllActivePFAnchors(c *echo.Context) error {
 
 	// Check Username & JSON Payload
 	if err := h.CheckSessionUsername(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Set Flag to define required permission in CheckSessionUserPermission()
@@ -187,25 +184,20 @@ func (h *Handler) HandleDeleteDeactivate(c *echo.Context) error {
 
 	// Check Username & JSON Payload
 	if err := h.CheckSessionUsername(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
-
 	if err := h.CheckJSONPayload(c, anchor); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check Permissions
 	if err := h.CheckSessionUserPermission(c, config.SESSION_UNREGISTER); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	anchor, err := h.GetAnchorFromContext(c)
 	if err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Check if user/anchor already activated
@@ -239,21 +231,18 @@ func (h *Handler) HandleDeleteAllDeactivate(c *echo.Context) error {
 
 	// Check Username
 	if err := h.CheckSessionUsername(c); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	c.Set("Flag", "delete-all")
 	// Check Permissions
 	if err := h.CheckSessionUserPermission(c, config.SESSION_UNREGISTER); err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	anchor, err := h.GetAnchorFromContext(c)
 	if err != nil {
-		c.Set("authpf", err.Message)
-		return c.JSON(err.HttpStatusCode, map[string]any{"status": "failed", "message": err.Details})
+		return h.abort(c, err)
 	}
 
 	// Exec

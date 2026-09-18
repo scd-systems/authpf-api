@@ -106,7 +106,7 @@ func TestDisplayVersionInfo(t *testing.T) {
 
 	displayVersionInfo()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer

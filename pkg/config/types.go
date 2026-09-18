@@ -14,10 +14,16 @@ const (
 )
 
 type ConfigFile struct {
-	Defaults ConfigFileDefaults `yaml:"defaults"`
-	Server   ConfigFileServer   `yaml:"server"`
-	AuthPF   ConfigFileAuthPF   `yaml:"authpf"`
-	Rbac     ConfigFileRbac     `yaml:"rbac"`
+	Defaults   ConfigFileDefaults    `yaml:"defaults"`
+	Server     ConfigFileServer      `yaml:"server"`
+	AuthPF     ConfigFileAuthPF      `yaml:"authpf"`
+	Rbac       ConfigFileRbac        `yaml:"rbac"`
+	Extensions []ConfigFileExtension `yaml:"extensions"`
+}
+
+type ConfigFileExtension struct {
+	Name   string         `yaml:"name"`
+	Config map[string]any `yaml:"config"`
 }
 
 type ConfigFileDefaults struct {
