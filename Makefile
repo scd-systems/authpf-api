@@ -1,4 +1,4 @@
-.PHONY: help build test clean lint fmt vet coverage build-all build-freebsd build-openbsd
+.PHONY: help build test clean lint fmt fmt-check vet coverage build-all build-freebsd build-openbsd
 
 # Variables
 APP_NAME := authpf-api
@@ -38,6 +38,7 @@ help:
 	@echo ""
 	@echo "  make lint              Run linter (golangci-lint)"
 	@echo "  make fmt               Format code (gofmt)"
+	@echo "  make fmt-check         Fail if any file is unformatted (does not write)"
 	@echo "  make vet               Run go vet"
 	@echo ""
 	@echo "  make clean             Remove build artifacts"
@@ -126,6 +127,16 @@ fmt:
 	@echo "Formatting code..."
 	@$(GO) fmt ./...
 	@echo "✓ Code formatted"
+
+# Check formatting without writing. Needed because `go fmt` exits 0 even when it changes
+# files. The `|| exit 1` is not redundant: on a syntax error gofmt reports to stderr and
+# prints nothing on stdout, so the command substitution alone would look like "all clean".
+fmt-check:
+	@unformatted=$$(gofmt -l cmd internal pkg scripts) || exit 1; \
+	if [ -n "$$unformatted" ]; then \
+		echo "Unformatted files:"; echo "$$unformatted"; exit 1; \
+	fi
+	@echo "✓ Formatting OK"
 
 # Run go vet
 vet:

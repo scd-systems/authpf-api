@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,36 +9,26 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/scd-systems/authpf-api/internal/authpf"
-	"github.com/scd-systems/authpf-api/internal/errors"
 	"github.com/scd-systems/authpf-api/internal/exec"
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
 var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-func (h *Handler) CheckAnchorIsActivated(c *echo.Context) (bool, *errors.APIError) {
+func (h *Handler) CheckAnchorIsActivated(c *echo.Context) (bool, error) {
 	sessionUsername, err := h.resolveAnchorUsername(c)
 	if err != nil {
-		return false, &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "unable to lookup username",
-			Details:        "No username in context found",
-		}
+		return false, echo.NewHTTPError(http.StatusInternalServerError, "unable to lookup username").Wrap(err)
 	}
 	if h.db.IsActivated(sessionUsername) {
-		return true, &errors.APIError{
-			HttpStatusCode: http.StatusAlreadyReported,
-			StatusCode:     -1,
-			Message:        "Anchor already activated",
-			Details:        "Anchor from user already in AnchorDB",
-		}
+		return true, echo.NewHTTPError(http.StatusAlreadyReported, "Anchor already activated").
+			Wrap(errors.New("anchor from user already in AnchorDB"))
 	}
 	return false, nil
 }
 
 // Check Username and JSON Payload
-func (h *Handler) CheckSessionUsername(c *echo.Context) *errors.APIError {
+func (h *Handler) CheckSessionUsername(c *echo.Context) error {
 	if _, err := h.sessionUsername(c); err != nil {
 		return err
 	}
@@ -45,53 +36,34 @@ func (h *Handler) CheckSessionUsername(c *echo.Context) *errors.APIError {
 }
 
 // Get Username from request
-func (h *Handler) sessionUsername(c *echo.Context) (string, *errors.APIError) {
+func (h *Handler) sessionUsername(c *echo.Context) (string, error) {
 	username, ok := c.Get("username").(string)
 	if !ok || username == "" {
-		return "", &errors.APIError{
-			HttpStatusCode: http.StatusUnauthorized,
-			StatusCode:     -1,
-			Message:        "invalid username in token",
-			Details:        "username not found or empty in JWT claims",
-		}
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "invalid username in token").
+			Wrap(errors.New("username not found or empty in JWT claims"))
 	}
 	return username, nil
 }
 
 // Check if AuthPFAnchor can be bind to payload
-func (h *Handler) CheckJSONPayload(c *echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CheckJSONPayload(c *echo.Context, r *authpf.AuthPFAnchor) error {
 	if err := c.Bind(r); err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid JSON payload",
-			Details:        err.Error(),
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON payload").Wrap(err)
 	}
 	return nil
 }
 
 // Validate User role permissions
-func (h *Handler) CheckSessionUserPermission(c *echo.Context, action string) *errors.APIError {
+func (h *Handler) CheckSessionUserPermission(c *echo.Context, action string) error {
 	var permission string
 	sessionUsername, err := h.sessionUsername(c)
 	if err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusForbidden,
-			StatusCode:     -1,
-			Message:        "permission denied",
-			Details:        err.Error(),
-		}
+		return echo.NewHTTPError(http.StatusForbidden, "permission denied").Wrap(err)
 	}
 
 	authpfUsername, err := h.resolveAnchorUsername(c)
 	if err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusForbidden,
-			StatusCode:     -1,
-			Message:        "permission denied",
-			Details:        err.Error(),
-		}
+		return echo.NewHTTPError(http.StatusForbidden, "permission denied").Wrap(err)
 	}
 
 	flag := c.Get("Flag")
@@ -103,23 +75,13 @@ func (h *Handler) CheckSessionUserPermission(c *echo.Context, action string) *er
 	default:
 		result, err := resolvePermission(sessionUsername, authpfUsername, action)
 		if err != nil {
-			return &errors.APIError{
-				HttpStatusCode: http.StatusForbidden,
-				StatusCode:     -1,
-				Message:        "permission denied",
-				Details:        err.Error(),
-			}
+			return echo.NewHTTPError(http.StatusForbidden, "permission denied").Wrap(err)
 		}
 		permission = result
 	}
 
 	if err := h.validateUserPermissions(sessionUsername, permission); err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusForbidden,
-			StatusCode:     -1,
-			Message:        "permission denied",
-			Details:        err.Error(),
-		}
+		return echo.NewHTTPError(http.StatusForbidden, "permission denied").Wrap(err)
 	}
 
 	return nil
@@ -174,38 +136,27 @@ func (h *Handler) validateUserPermissions(username string, permission string) er
 	return fmt.Errorf("user %q does not have the permission [%q] (Role: %s)", username, permission, user.Role)
 }
 
-func (h *Handler) CheckSessionUserIP(c *echo.Context) *errors.APIError {
-	if err := checkUserIP(c.RealIP()); err != nil {
-		return err
-	}
-	return nil
+func (h *Handler) CheckSessionUserIP(c *echo.Context) error {
+	return checkUserIP(c.RealIP())
 }
 
-func checkUserIP(ip string) *errors.APIError {
+func checkUserIP(ip string) error {
 	if ip == "" {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid IP address",
-			Details:        "IP address cannot be empty",
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid IP address").
+			Wrap(errors.New("IP address cannot be empty"))
 	}
 
 	// Parse the IP address - net.ParseIP returns nil if the IP is invalid
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid IP address",
-			Details:        fmt.Sprintf("'%s' is not a valid IPv4 or IPv6 address", ip),
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid IP address").
+			Wrap(fmt.Errorf("'%s' is not a valid IPv4 or IPv6 address", ip))
 	}
 	return nil
 }
 
 // Fill anchor struct by using context informations
-func (h *Handler) GetAnchorFromContext(c *echo.Context) (*authpf.AuthPFAnchor, *errors.APIError) {
+func (h *Handler) GetAnchorFromContext(c *echo.Context) (*authpf.AuthPFAnchor, error) {
 	authpf_username, err := h.resolveAnchorUsername(c)
 	if err != nil {
 		return nil, err
@@ -225,28 +176,18 @@ func (h *Handler) GetAnchorFromContext(c *echo.Context) (*authpf.AuthPFAnchor, *
 
 	expireAt, err1 := exec.CalculateAnchorExpire(timeout)
 	if err1 != nil {
-		return nil, &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "Unable to set Anchor for user",
-			Details:        err1.Error(),
-		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Unable to set Anchor for user").Wrap(err1)
 	}
 
 	anchor, err2 := authpf.SetAnchor(authpf_username, timeout, userIp, userId, expireAt)
 	if err2 != nil {
-		return nil, &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "Unable to set Anchor for user",
-			Details:        err2.Error(),
-		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Unable to set Anchor for user").Wrap(err2)
 	}
 	return anchor, nil
 }
 
 // Extract the authpf_username from request query. If query is empty, the session username will be used.
-func (h *Handler) resolveAnchorUsername(c *echo.Context) (string, *errors.APIError) {
+func (h *Handler) resolveAnchorUsername(c *echo.Context) (string, error) {
 	reqUser, err := h.sessionUsername(c)
 	if err != nil {
 		return "", err
@@ -262,24 +203,16 @@ func (h *Handler) resolveAnchorUsername(c *echo.Context) (string, *errors.APIErr
 }
 
 // Resolve the Timeout from request if available, use default instead
-func (h *Handler) resolveAnchorTimeout(c *echo.Context) (string, *errors.APIError) {
+func (h *Handler) resolveAnchorTimeout(c *echo.Context) (string, error) {
 	reqTimeout := c.QueryParam("timeout")
 	if reqTimeout != "" {
 		if len(reqTimeout) > 10 {
-			return "", &errors.APIError{
-				HttpStatusCode: http.StatusBadRequest,
-				StatusCode:     -1,
-				Message:        "timeout parameter too long",
-				Details:        "maximum 10 characters allowed",
-			}
+			return "", echo.NewHTTPError(http.StatusBadRequest, "timeout parameter too long").
+				Wrap(errors.New("maximum 10 characters allowed"))
 		}
 
 		if err := exec.ValidateTimeout(reqTimeout); err != nil {
-			return "", &errors.APIError{
-				HttpStatusCode: http.StatusBadRequest,
-				Message:        "invalid timeout format",
-				Details:        err.Error(),
-			}
+			return "", echo.NewHTTPError(http.StatusBadRequest, "invalid timeout format").Wrap(err)
 		}
 		return reqTimeout, nil
 	}
@@ -301,31 +234,19 @@ func (h *Handler) getUserIP(username string) string {
 }
 
 // Validate the username string and if exist
-func (h *Handler) validateUsername(username string) *errors.APIError {
+func (h *Handler) validateUsername(username string) error {
 	if len(username) > 255 {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid username",
-			Details:        "username too long",
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid username").
+			Wrap(errors.New("username too long"))
 	}
 	if !usernameRegex.MatchString(username) {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "invalid username format",
-			Details:        "username contains invalid characters",
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid username format").
+			Wrap(errors.New("username contains invalid characters"))
 	}
 
 	if _, ok := h.config.Rbac.Users[username]; !ok {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusBadRequest,
-			StatusCode:     -1,
-			Message:        "user not found",
-			Details:        "requested user does not exist",
-		}
+		return echo.NewHTTPError(http.StatusBadRequest, "user not found").
+			Wrap(errors.New("requested user does not exist"))
 	}
 	return nil
 }

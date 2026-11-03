@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,15 @@ import (
 	"github.com/scd-systems/authpf-api/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
+
+// httpErr returns the HTTPError carried by err, so tests can assert on the client
+// message and the internal cause separately.
+func httpErr(t *testing.T, err error) *echo.HTTPError {
+	t.Helper()
+	var he *echo.HTTPError
+	assert.True(t, errors.As(err, &he), "expected *echo.HTTPError, got %v", err)
+	return he
+}
 
 // TestResolvePermission_ActivateOwnRule tests permission resolution for own rule activation
 func TestResolvePermission_ActivateOwnRule(t *testing.T) {
@@ -147,7 +157,7 @@ func TestHandler_SessionUsername_Missing(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Empty(t, username)
-	assert.Equal(t, http.StatusUnauthorized, err.HttpStatusCode)
+	assert.Equal(t, http.StatusUnauthorized, echo.StatusCode(err))
 }
 
 // TestHandler_CheckSessionUsername
@@ -187,7 +197,7 @@ func TestHandler_CheckSessionUsername_Invalid(t *testing.T) {
 	err := handler.CheckSessionUsername(c)
 
 	assert.Error(t, err)
-	assert.Equal(t, http.StatusUnauthorized, err.HttpStatusCode)
+	assert.Equal(t, http.StatusUnauthorized, echo.StatusCode(err))
 }
 
 // TestHandler_CheckAnchorIsActivated_NotActivated
@@ -242,7 +252,7 @@ func TestHandler_CheckAnchorIsActivated_AlreadyActivated(t *testing.T) {
 
 	assert.True(t, isActivated)
 	assert.Error(t, err)
-	assert.Equal(t, http.StatusAlreadyReported, err.HttpStatusCode)
+	assert.Equal(t, http.StatusAlreadyReported, echo.StatusCode(err))
 }
 
 // TestHandler_ResolveAnchorUsername_SessionUser
@@ -574,9 +584,10 @@ func TestHandler_ValidateUsername(t *testing.T) {
 
 			if tt.expectError {
 				assert.Error(t, err)
-				assert.Equal(t, tt.expectedStatus, err.HttpStatusCode)
-				assert.Equal(t, tt.expectedMsg, err.Message)
-				assert.Equal(t, tt.expectedDetail, err.Details)
+				assert.Equal(t, tt.expectedStatus, echo.StatusCode(err))
+				he := httpErr(t, err)
+				assert.Equal(t, tt.expectedMsg, he.Message)
+				assert.EqualError(t, he.Unwrap(), tt.expectedDetail)
 			} else {
 				assert.Nil(t, err)
 			}
@@ -784,7 +795,7 @@ func TestHandler_GetAnchorFromContext_MissingUsername(t *testing.T) {
 	anchor, apiErr := handler.GetAnchorFromContext(c)
 
 	assert.NotNil(t, apiErr)
-	assert.Equal(t, http.StatusUnauthorized, apiErr.HttpStatusCode)
+	assert.Equal(t, http.StatusUnauthorized, echo.StatusCode(apiErr))
 	assert.Nil(t, anchor) // returns empty anchor on error
 }
 
@@ -814,7 +825,7 @@ func TestHandler_GetAnchorFromContext_InvalidTimeout(t *testing.T) {
 	anchor, apiErr := handler.GetAnchorFromContext(c)
 
 	assert.NotNil(t, apiErr)
-	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
+	assert.Equal(t, http.StatusBadRequest, echo.StatusCode(apiErr))
 	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
 	assert.Nil(t, anchor)
 }
@@ -845,8 +856,8 @@ func TestHandler_GetAnchorFromContext_TimeoutTooLong(t *testing.T) {
 	anchor, apiErr := handler.GetAnchorFromContext(c)
 
 	assert.NotNil(t, apiErr)
-	assert.Equal(t, http.StatusBadRequest, apiErr.HttpStatusCode)
-	assert.Equal(t, "timeout parameter too long", apiErr.Message)
+	assert.Equal(t, http.StatusBadRequest, echo.StatusCode(apiErr))
+	assert.Equal(t, "timeout parameter too long", httpErr(t, apiErr).Message)
 	// resolveAnchorTimeout error path returns the empty anchor struct, not nil
 	assert.Nil(t, anchor)
 }

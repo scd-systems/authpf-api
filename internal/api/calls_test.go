@@ -59,7 +59,7 @@ func TestCallExecActivateAnchor_RollsBackAnchorOnTableAddFailure(t *testing.T) {
 	apiErr := h.CallExecActivateAnchor(c, anchor)
 
 	assert.NotNil(t, apiErr, "table add failure must surface as an APIError")
-	assert.Equal(t, http.StatusInternalServerError, apiErr.HttpStatusCode)
+	assert.Equal(t, http.StatusInternalServerError, echo.StatusCode(apiErr))
 
 	out, err := os.ReadFile(argLog)
 	assert.NoError(t, err)

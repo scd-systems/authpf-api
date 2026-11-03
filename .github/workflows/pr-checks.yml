@@ -52,7 +52,7 @@ jobs:
         run: make lint
       
       - name: Check formatting
-        run: make fmt
+        run: make fmt-check
       
       - name: Run go vet
         run: make vet
