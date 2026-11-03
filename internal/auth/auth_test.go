@@ -495,7 +495,7 @@ func BenchmarkValidateJWTClaims(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = auth.validateJWTClaims(claims, "192.168.1.1")
 	}
 }
@@ -506,7 +506,7 @@ func TestValidateJWTClaimsPerformance(t *testing.T) {
 
 	// Create config with many users
 	users := make(map[string]config.ConfigFileRbacUsers)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		username := "user" + fmt.Sprintf("%d", i)
 		users[username] = config.ConfigFileRbacUsers{
 			Password: "hash",
