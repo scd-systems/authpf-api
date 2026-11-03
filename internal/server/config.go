@@ -6,10 +6,19 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/scd-systems/authpf-api/pkg/config"
 )
 
 // Validate ConfigFile Values
 func (s *Server) validateConfig() (err error) {
+	// An empty value is valid: auth.Login falls back to its own 8h default.
+	if s.config.Server.JwtTokenTimeout != "" {
+		if _, err = config.ValidateTokenTimeoutValue(s.config.Server.JwtTokenTimeout); err != nil {
+			return fmt.Errorf("invalid server.jwtTokenTimeout: %w", err)
+		}
+	}
+
 	if len(s.config.AuthPF.PfTable) > 0 {
 		if err = validateAlphanumericASCII("authpf.pfTable", s.config.AuthPF.PfTable); err != nil {
 			return err

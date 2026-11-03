@@ -432,6 +432,43 @@ func TestCollectRequiredPfTables_NoUsers(t *testing.T) {
 	assert.Equal(t, []string{"global_table"}, result)
 }
 
+// TestValidateConfig_JwtTokenTimeout checks that a broken jwtTokenTimeout is
+// reported at startup instead of failing the first login with HTTP 500.
+func TestValidateConfig_JwtTokenTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout string
+		wantErr bool
+	}{
+		{name: "unset falls back to the login default", timeout: "", wantErr: false},
+		{name: "bare number is hours", timeout: "8", wantErr: false},
+		{name: "days accepted", timeout: "2d", wantErr: false},
+		{name: "maximum accepted", timeout: "30d", wantErr: false},
+		{name: "unknown unit rejected", timeout: "8x", wantErr: true},
+		{name: "above maximum rejected", timeout: "31d", wantErr: true},
+		{name: "zero rejected", timeout: "0", wantErr: true},
+		{name: "negative rejected", timeout: "-1h", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				logger: zerolog.Nop(),
+				config: &config.ConfigFile{
+					Server: config.ConfigFileServer{JwtTokenTimeout: tt.timeout},
+				},
+			}
+			err := s.validateConfig()
+			if tt.wantErr {
+				assert.Error(t, err, "jwtTokenTimeout %q must be rejected", tt.timeout)
+				assert.ErrorContains(t, err, "server.jwtTokenTimeout")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 // Goes through validateConfig rather than the validator directly, so the same
 // test compiles before and after the fix and demonstrates the behavior change.
 func TestValidateConfig_RejectsHostileMacroKeys(t *testing.T) {

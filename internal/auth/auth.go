@@ -6,9 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -45,44 +42,10 @@ func New(config *config.ConfigFile, logger zerolog.Logger, jwtSecret []byte) *Au
 	return &Auth{config: config, logger: logger, jwtSecret: jwtSecret}
 }
 
-// maxTokenTimeout is the longest JWT token timeout accepted from the config.
-const maxTokenTimeout = 30 * 24 * time.Hour
-
-// tokenTimeoutPattern matches a whole number with an optional m, h or d unit.
-// A missing unit means hours.
-var tokenTimeoutPattern = regexp.MustCompile(`^([\d]+)([dhm]?)$`)
-
-// parseJwtTokenTimeout parses the JWT token timeout string and returns a time.Duration
-// Supported formats: "30m", "1h", "2d", "8" (bare number means hours, maximal 30d)
-// Returns error if format is invalid or exceeds 30 days
+// parseJwtTokenTimeout validates the configured JWT token timeout and returns
+// it as a duration. Supported formats: "8", "30m", "1h", "2d" (maximal 30d).
 func parseJwtTokenTimeout(timeout string) (time.Duration, error) {
-	matches := tokenTimeoutPattern.FindStringSubmatch(strings.TrimSpace(timeout))
-	if matches == nil {
-		return 0, fmt.Errorf("invalid token timeout %q (expected format: 8, 30m, 1h or 2d)", timeout)
-	}
-
-	value, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, fmt.Errorf("invalid token timeout %q: number out of range", timeout)
-	}
-
-	duration := time.Duration(value) * time.Hour
-	switch matches[2] {
-	case "m":
-		duration = time.Duration(value) * time.Minute
-	case "d":
-		duration = time.Duration(value) * 24 * time.Hour
-	}
-
-	if duration == 0 {
-		return 0, fmt.Errorf("invalid token timeout %q: must be longer than zero", timeout)
-	}
-
-	if duration > maxTokenTimeout {
-		return 0, fmt.Errorf("token timeout %q exceeds maximum allowed duration of 30 days", timeout)
-	}
-
-	return duration, nil
+	return config.ValidateTokenTimeoutValue(timeout)
 }
 
 // login handles POST /login with username and password

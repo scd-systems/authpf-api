@@ -3,10 +3,20 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v3"
 )
+
+// maxTokenTimeout is the longest JWT token timeout accepted from the config.
+const maxTokenTimeout = 30 * 24 * time.Hour
+
+// tokenTimeoutPattern matches a whole number with an optional m, h or d unit.
+// A missing unit means hours.
+var tokenTimeoutPattern = regexp.MustCompile(`^([\d]+)([dhm]?)$`)
 
 func New() *ConfigFile {
 	configFile := ConfigFile{}
@@ -40,6 +50,39 @@ func (c *ConfigFile) LoadConfig(configFile string) error {
 	}
 
 	return nil
+}
+
+// ValidateTokenTimeoutValue converts a token timeout such as "8", "30m", "1h"
+// or "2d" into a duration. A value without a unit is read as hours, so "8"
+// equals "8h". The result must be longer than zero and at most 30 days.
+func ValidateTokenTimeoutValue(timeout string) (time.Duration, error) {
+	matches := tokenTimeoutPattern.FindStringSubmatch(strings.TrimSpace(timeout))
+	if matches == nil {
+		return 0, fmt.Errorf("invalid token timeout %q (expected format: 8, 30m, 1h or 2d)", timeout)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid token timeout %q: number out of range", timeout)
+	}
+
+	duration := time.Duration(value) * time.Hour
+	switch matches[2] {
+	case "m":
+		duration = time.Duration(value) * time.Minute
+	case "d":
+		duration = time.Duration(value) * 24 * time.Hour
+	}
+
+	if duration == 0 {
+		return 0, fmt.Errorf("invalid token timeout %q: must be longer than zero", timeout)
+	}
+
+	if duration > maxTokenTimeout {
+		return 0, fmt.Errorf("token timeout %q exceeds maximum allowed duration of 30 days", timeout)
+	}
+
+	return duration, nil
 }
 
 // validateRequiredSections checks if all required configuration sections are defined
