@@ -648,3 +648,86 @@ func TestValidateJWTClaimsSecurityScenarios(t *testing.T) {
 		})
 	}
 }
+
+// maxValidTimeout is the documented upper bound for a token timeout: 30 days.
+const maxValidTimeout = 30 * 24 * time.Hour
+
+// TestValidateTokenTimeoutValueValid covers accepted timeout values.
+func TestValidateTokenTimeoutValueValid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  time.Duration
+	}{
+		{"hours only", "8", 8 * time.Hour},
+		{"hours with unit", "8h", 8 * time.Hour},
+		{"single minute", "1m", time.Minute},
+		{"minutes", "30m", 30 * time.Minute},
+		{"single hour", "1h", time.Hour},
+		{"single day", "1d", 24 * time.Hour},
+		{"two days", "2d", 48 * time.Hour},
+		{"week in days", "7d", 168 * time.Hour},
+		{"max as days", "30d", maxValidTimeout},
+		{"max as hours", "720h", maxValidTimeout},
+		{"leading zero", "08", 8 * time.Hour},
+		{"surrounded by spaces", " 8h ", 8 * time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseJwtTokenTimeout(tt.input)
+			assert.NoError(t, err, "input %q must be accepted", tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestValidateTokenTimeoutValueInvalid covers rejected timeout values.
+// Only digits plus the unit letters d, h and m are allowed; anything above
+// 30 days or not strictly positive is rejected.
+func TestValidateTokenTimeoutValueInvalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty", ""},
+		{"spaces only", "   "},
+		{"no digits", "hours"},
+		{"unit only", "d"},
+		{"unknown unit", "8x"},
+		{"week unit", "1w"},
+		{"uppercase day", "1D"},
+		{"seconds unit", "30s"},
+		{"combined units", "1d12h"},
+		{"double unit", "30mm"},
+		{"unit before digits", "m30"},
+		{"inner space", "30 h"},
+		{"fraction", "1.5h"},
+		{"minus sign", "-1h"},
+		{"plus sign", "+8"},
+		{"zero hours", "0"},
+		{"zero minutes", "0m"},
+		{"one hour over max", "721h"},
+		{"one day over max", "31d"},
+		{"far over max", "1000h"},
+		{"digit overflow", "99999999999999999999h"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseJwtTokenTimeout(tt.input)
+			assert.Error(t, err, "input %q must be rejected", tt.input)
+			assert.Equal(t, time.Duration(0), got, "must return zero duration on error")
+		})
+	}
+}
+
+// TestValidateTokenTimeoutValueErrorMessages locks in the hints users see in
+// the server log when their config is wrong.
+func TestValidateTokenTimeoutValueErrorMessages(t *testing.T) {
+	_, err := parseJwtTokenTimeout("8x")
+	assert.ErrorContains(t, err, "invalid token timeout")
+
+	_, err = parseJwtTokenTimeout("31d")
+	assert.ErrorContains(t, err, "maximum")
+}
