@@ -11,7 +11,10 @@ import (
 type AuthPFAnchor = authpf.AuthPFAnchor
 type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
 
-// Map of AuthPFAnchors
+// AnchorsDB is a map of AuthPFAnchors keyed by username.
+//
+// AnchorsDB performs no synchronization of its own. Every method must be called
+// with the server lock held (internal/server/types.go)
 type AnchorsDB map[string]*authpf.AuthPFAnchor
 
 func New() *AnchorsDB {
@@ -33,7 +36,7 @@ func (a *AnchorsDB) Remove(username string) error {
 
 // Clear DB
 func (a *AnchorsDB) Flush() {
-	*a = make(AnchorsDB)
+	clear(*a)
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
