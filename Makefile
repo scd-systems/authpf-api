@@ -1,4 +1,4 @@
-.PHONY: help build test clean lint fmt vet coverage build-all build-freebsd build-openbsd
+.PHONY: help build test test-race clean lint fmt vet coverage build-all build-freebsd build-openbsd
 
 # Variables
 APP_NAME := authpf-api
@@ -32,6 +32,7 @@ help:
 	@echo "  make build-openbsd     Build for all OpenBSD architectures"
 	@echo ""
 	@echo "  make test              Run all tests"
+	@echo "  make test-race         Run all tests with the Go race detector (requires cgo + C compiler)"
 	@echo "  make test-verbose      Run tests with verbose output"
 	@echo "  make coverage          Run tests with coverage report"
 	@echo "  make coverage-html     Generate HTML coverage report"
@@ -101,6 +102,12 @@ test:
 	@echo "Running tests..."
 	@$(GO) test -v ./...
 	@echo "✓ Tests passed"
+
+# Run all tests with Go's race detector (requires cgo and a C compiler)
+test-race:
+	@echo "Running tests with the Go race detector..."
+	@CGO_ENABLED=1 $(GO) test -race -count=1 ./...
+	@echo "✓ Race tests passed"
 
 # Run tests with verbose output
 test-verbose:

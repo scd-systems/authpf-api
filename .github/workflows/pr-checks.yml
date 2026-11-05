@@ -26,6 +26,9 @@ jobs:
       
       - name: Run tests
         run: make test
+
+      - name: Run race detector
+        run: make test-race
       
       - name: Run go vet
         run: make vet
@@ -47,6 +50,9 @@ jobs:
       
       - name: Run tests
         run: make test
+
+      - name: Run race detector
+        run: make test-race
       
       - name: Run linter
         run: make lint
