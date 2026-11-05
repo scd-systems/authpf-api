@@ -14,7 +14,7 @@ type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
 
 // AnchorsDB is an object with AuthPFAnchors keyed by username.
 type AnchorsDB struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	data map[string]*authpf.AuthPFAnchor
 }
 
@@ -86,10 +86,7 @@ func (a *AnchorsDB) Len() int {
 
 // Range iterates over all active anchors.
 func (a *AnchorsDB) Range(fn func(*authpf.AuthPFAnchor) bool) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	for _, v := range a.data {
+	for _, v := range a.GetAll() {
 		if !fn(v) {
 			break
 		}
@@ -98,14 +95,7 @@ func (a *AnchorsDB) Range(fn func(*authpf.AuthPFAnchor) bool) {
 
 // Snapshot returns a copy of the anchors map.
 func (a *AnchorsDB) Snapshot() map[string]*authpf.AuthPFAnchor {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	result := make(map[string]*authpf.AuthPFAnchor, len(a.data))
-	for k, v := range a.data {
-		result[k] = v
-	}
-	return result
+	return a.GetAll()
 }
 
 func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*authpf.AuthPFAnchor, error) {
