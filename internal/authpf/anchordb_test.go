@@ -206,8 +206,8 @@ func TestAuthPFAnchor_Structure(t *testing.T) {
 }
 
 func TestAnchorsDBGetAll(t *testing.T) {
-	first := &AuthPFAnchor{}
-	second := &AuthPFAnchor{}
+	first := &AuthPFAnchor{Username: "first"}
+	second := &AuthPFAnchor{Username: "second"}
 
 	db := &AnchorsDB{
 		data: map[string]*AuthPFAnchor{
@@ -221,16 +221,33 @@ func TestAnchorsDBGetAll(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("GetAll() returned %d entries, want 2", len(got))
 	}
-	if got["first"] != first {
-		t.Errorf(`GetAll()["first"] = %p, want %p`, got["first"], first)
+	if got["first"] == first || *got["first"] != *first {
+		t.Errorf(`GetAll()["first"] = %v, want an equal but independent copy of %v`, got["first"], first)
 	}
-	if got["second"] != second {
-		t.Errorf(`GetAll()["second"] = %p, want %p`, got["second"], second)
+	if got["second"] == second || *got["second"] != *second {
+		t.Errorf(`GetAll()["second"] = %v, want an equal but independent copy of %v`, got["second"], second)
 	}
 
-	// The returned map should be independent of the internal map.
+	// Mutating either returned layer must not affect the database.
 	delete(got, "first")
-	if _, ok := db.GetAll()["first"]; !ok {
-		t.Error("modifying the returned map changed the internal map")
+	got["second"].Username = "changed"
+	fresh := db.GetAll()
+	if _, ok := fresh["first"]; !ok {
+		t.Error("deleting from the returned map changed the internal map")
+	}
+	if fresh["second"].Username != "second" {
+		t.Error("mutating a returned anchor changed the internal anchor")
+	}
+}
+
+func TestAnchorsDBAddCopiesAnchor(t *testing.T) {
+	db := New()
+	anchor := &AuthPFAnchor{Username: "alice", Timeout: "1h"}
+
+	db.Add(anchor)
+	anchor.Timeout = "0s"
+
+	if got := db.Get("alice").Timeout; got != "1h" {
+		t.Fatalf("stored timeout = %q, want %q", got, "1h")
 	}
 }

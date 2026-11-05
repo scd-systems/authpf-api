@@ -25,10 +25,11 @@ func New() *AnchorsDB {
 }
 
 func (a *AnchorsDB) Add(r *authpf.AuthPFAnchor) {
+	copy := *r
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	a.data[r.Username] = r
+	a.data[copy.Username] = &copy
 }
 
 func (a *AnchorsDB) Remove(username string) error {
@@ -51,35 +52,35 @@ func (a *AnchorsDB) Flush() {
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
 	return a.data[username] != nil
 }
 
 // Get returns the anchor for the given username, or nil if not found.
 func (a *AnchorsDB) Get(username string) *authpf.AuthPFAnchor {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
-	return a.data[username]
+	return cloneAnchor(a.data[username])
 }
 
 func (a *AnchorsDB) GetAll() map[string]*AuthPFAnchor {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
 	result := make(map[string]*AuthPFAnchor, len(a.data))
 	for key, anchor := range a.data {
-		result[key] = anchor
+		result[key] = cloneAnchor(anchor)
 	}
 	return result
 }
 
 // Len returns the number of active anchors.
 func (a *AnchorsDB) Len() int {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
 	return len(a.data)
 }
@@ -103,4 +104,13 @@ func SetAnchor(username string, timeout string, userIp string, userId int, expir
 		return &authpf.AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
 	}
 	return &authpf.AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
+}
+
+func cloneAnchor(anchor *authpf.AuthPFAnchor) *authpf.AuthPFAnchor {
+	if anchor == nil {
+		return nil
+	}
+
+	copy := *anchor
+	return &copy
 }
