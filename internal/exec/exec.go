@@ -190,7 +190,7 @@ func (e *Exec) buildPfctlDeactivateAllCmdParameters() [][]string {
 	commands := make([][]string, 0)
 
 	// Iterate over all users in anchorsDB
-	for _, v := range *e.db {
+	for _, v := range e.db.GetAll() {
 		anchor := fmt.Sprintf("%s/%s(%d)", e.config.AuthPF.AnchorName, v.Username, v.UserID)
 		for _, f := range filter {
 			commands = append(commands, []string{"-a", anchor, "-F", f})
@@ -220,7 +220,7 @@ func (e *Exec) unloadAllAuthPFAnchors() *MultiCommandResult {
 
 // Flush Anchor
 func (e *Exec) FlushAnchor(r *authpf.AuthPFAnchor) error {
-	if len(*e.db) < 1 {
+	if e.db.Len() < 1 {
 		e.logger.Debug().Msg("No anchors to flush")
 		return nil
 	}
@@ -249,12 +249,12 @@ func (e *Exec) UnloadAnchor(r *authpf.AuthPFAnchor) error {
 
 // Flush all Anchors
 func (e *Exec) FlushAllAnchors(username string) error {
-	if len(*e.db) < 1 {
+	if e.db.Len() < 1 {
 		e.logger.Debug().Msg("No anchors to flush")
 		return nil
 	}
 
-	msg := fmt.Sprintf("Found %d user anchors to flush", len(*e.db))
+	msg := fmt.Sprintf("Found %d user anchors to flush", e.db.Len())
 	e.logger.Debug().Msg(msg)
 
 	multiResult := e.unloadAllAuthPFAnchors()
@@ -327,7 +327,7 @@ func (e *Exec) FlushPFTable(r *authpf.AuthPFAnchor) error {
 
 // Clear all pf tables from all known user_ip's
 func (e *Exec) FlushAllPFTables() *SystemCommandResult {
-	for _, v := range *e.db {
+	for _, v := range e.db.GetAll() {
 		result := e.removeIPFromPfTable(v)
 		if result != nil {
 			msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)

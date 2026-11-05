@@ -38,7 +38,7 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 
 	// Create a list of expired rules to avoid modifying map during iteration
 	var expiredRules []*authpf.AuthPFAnchor
-	for _, r := range *s.db {
+	for _, r := range s.db.GetAll() {
 		s.logger.Trace().Msgf("Expire check user: %s, timeout: %s, ExpireAt: %s", r.Username, r.Timeout, r.ExpiresAt)
 		if !r.ExpiresAt.IsZero() && now.After(r.ExpiresAt) {
 			expiredRules = append(expiredRules, r)

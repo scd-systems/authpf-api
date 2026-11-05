@@ -91,13 +91,13 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 		return err
 	}
 
-	if len(*e.db) > 0 {
-		for _, v := range *e.db {
+	if e.db.Len() > 0 {
+		for _, v := range e.db.GetAll() {
 			msg := fmt.Sprintf("Anchor: %s/%s(%d) imported, ExpireAt: %s", e.config.AuthPF.AnchorName, v.Username, v.UserID, v.ExpiresAt)
 			e.logger.Trace().Msg(msg)
 		}
 	}
-	e.logger.Debug().Int("count", len(*e.db)).Msg("Import anchor(s) done")
+	e.logger.Debug().Int("count", e.db.Len()).Msg("Import anchor(s) done")
 	return nil
 }
 

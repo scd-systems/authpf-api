@@ -121,12 +121,12 @@ Anchor 'authpf' not found.
 		"user5": 2222,
 	}
 
-	if len(*exec.db) != len(expected) {
-		t.Fatalf("expected %d entries, got %d", len(expected), len(*exec.db))
+	if exec.db.Len() != len(expected) {
+		t.Fatalf("expected %d entries, got %d", len(expected), exec.db.Len())
 	}
 
 	for user, expID := range expected {
-		rule, ok := (*exec.db)[user]
+		rule, ok := exec.db.GetAll()[user]
 		if !ok {
 			t.Fatalf("expected user %q to be present", user)
 		}
@@ -154,8 +154,8 @@ func TestParsePfctlOutputEmptyOutput(t *testing.T) {
 	exec := createTestExecForImporter(t)
 	err := exec.parsePfctlOutput(testResult)
 	assert.NoError(t, err)
-	if len(*exec.db) != 0 {
-		t.Fatalf("expected anchorsDB to be empty, got %d entries", len(*exec.db))
+	if exec.db.Len() != 0 {
+		t.Fatalf("expected anchorsDB to be empty, got %d entries", exec.db.Len())
 	}
 }
 
@@ -176,7 +176,7 @@ func TestParsePfctlOutputMalformedLines(t *testing.T) {
 	err := exec.parsePfctlOutput(testResult)
 	assert.NoError(t, err)
 	// Only valid lines should be added; in this sample none are valid.
-	if len(*exec.db) != 0 {
-		t.Fatalf("expected no valid entries, got %d", len(*exec.db))
+	if exec.db.Len() != 0 {
+		t.Fatalf("expected no valid entries, got %d", exec.db.Len())
 	}
 }

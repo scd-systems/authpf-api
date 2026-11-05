@@ -52,7 +52,7 @@ func TestScheduler_CleanupExpiredRules_NoExpiredRules(t *testing.T) {
 
 	// Rule should still be in database
 	assert.True(t, db.IsActivated("testuser"))
-	assert.Equal(t, 1, len(*db))
+	assert.Equal(t, 1, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_WithExpiredRules tests cleanup with expired rules
@@ -83,7 +83,7 @@ func TestScheduler_CleanupExpiredRules_WithExpiredRules(t *testing.T) {
 
 	// Rule should be removed from database
 	assert.False(t, db.IsActivated("testuser"))
-	assert.Equal(t, 0, len(*db))
+	assert.Equal(t, 0, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_MultipleRules tests cleanup with multiple rules
@@ -119,7 +119,7 @@ func TestScheduler_CleanupExpiredRules_MultipleRules(t *testing.T) {
 	db.Add(expiredAnchor)
 	db.Add(validAnchor)
 
-	assert.Equal(t, 2, len(*db))
+	assert.Equal(t, 2, db.Len())
 
 	// Run cleanup
 	scheduler.cleanupExpiredRules(time.Now())
@@ -127,7 +127,7 @@ func TestScheduler_CleanupExpiredRules_MultipleRules(t *testing.T) {
 	// Only expired rule should be removed
 	assert.False(t, db.IsActivated("expireduser"))
 	assert.True(t, db.IsActivated("validuser"))
-	assert.Equal(t, 1, len(*db))
+	assert.Equal(t, 1, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_ZeroExpirationTime tests cleanup with zero expiration time
@@ -155,7 +155,7 @@ func TestScheduler_CleanupExpiredRules_ZeroExpirationTime(t *testing.T) {
 
 	// Rule should still be in database
 	assert.True(t, db.IsActivated("testuser"))
-	assert.Equal(t, 1, len(*db))
+	assert.Equal(t, 1, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_ExactExpirationTime tests cleanup at exact expiration time
@@ -184,7 +184,7 @@ func TestScheduler_CleanupExpiredRules_ExactExpirationTime(t *testing.T) {
 
 	// Rule should still be in database
 	assert.True(t, db.IsActivated("testuser"))
-	assert.Equal(t, 1, len(*db))
+	assert.Equal(t, 1, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_JustAfterExpirationTime tests cleanup just after expiration
@@ -214,7 +214,7 @@ func TestScheduler_CleanupExpiredRules_JustAfterExpirationTime(t *testing.T) {
 
 	// Rule should be removed from database
 	assert.False(t, db.IsActivated("testuser"))
-	assert.Equal(t, 0, len(*db))
+	assert.Equal(t, 0, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_EmptyDatabase tests cleanup with empty database
@@ -231,7 +231,7 @@ func TestScheduler_CleanupExpiredRules_EmptyDatabase(t *testing.T) {
 	scheduler.cleanupExpiredRules(time.Now())
 
 	// Database should still be empty
-	assert.Equal(t, 0, len(*db))
+	assert.Equal(t, 0, db.Len())
 }
 
 // TestScheduler_CleanupExpiredRules_AllExpired tests cleanup when all rules are expired
@@ -258,11 +258,11 @@ func TestScheduler_CleanupExpiredRules_AllExpired(t *testing.T) {
 		db.Add(anchor)
 	}
 
-	assert.Equal(t, 5, len(*db))
+	assert.Equal(t, 5, db.Len())
 
 	// Run cleanup
 	scheduler.cleanupExpiredRules(time.Now())
 
 	// All rules should be removed
-	assert.Equal(t, 0, len(*db))
+	assert.Equal(t, 0, db.Len())
 }

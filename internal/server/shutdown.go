@@ -32,12 +32,12 @@ func (s *Server) deactivateAllActiveUsers() error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if len(*s.db) == 0 {
+	if s.db.Len() == 0 {
 		s.logger.Info().Msg("No active authpf anchors found")
 		return nil
 	}
 
-	s.logger.Info().Int("count", len(*s.db)).Msg("Deactivating authpf anchors")
+	s.logger.Info().Int("count", s.db.Len()).Msg("Deactivating authpf anchors")
 	e, err := exec.New(s.logger, s.config, s.db)
 	if err != nil {
 		s.logger.Debug().Msgf("Cannot create new Exec: %v", err.Error())
