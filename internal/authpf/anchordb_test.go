@@ -240,6 +240,22 @@ func TestAnchorsDBGetAll(t *testing.T) {
 	}
 }
 
+func TestAnchorsDBFlushClearsInPlace(t *testing.T) {
+	db := New()
+	db.Add(&AuthPFAnchor{Username: "alice"})
+
+	// Keep a view of the current map to detect replacing it instead of clearing it.
+	original := db.data
+	db.Flush()
+
+	if len(original) != 0 {
+		t.Fatal("Flush left entries in the original map")
+	}
+	if db.Len() != 0 {
+		t.Fatalf("Flush left %d entries in the DB", db.Len())
+	}
+}
+
 func TestAnchorsDBAddCopiesAnchor(t *testing.T) {
 	db := New()
 	anchor := &AuthPFAnchor{Username: "alice", Timeout: "1h"}

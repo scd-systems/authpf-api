@@ -13,6 +13,7 @@ type AuthPFAnchor = authpf.AuthPFAnchor
 type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
 
 // AnchorsDB is an object with AuthPFAnchors keyed by username.
+// Its methods protect map access by mutex and return copies of stored anchors.
 type AnchorsDB struct {
 	mu   sync.RWMutex
 	data map[string]*authpf.AuthPFAnchor
@@ -25,10 +26,10 @@ func New() *AnchorsDB {
 }
 
 func (a *AnchorsDB) Add(r *authpf.AuthPFAnchor) {
-	copy := *r
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	copy := *r
 	a.data[copy.Username] = &copy
 }
 
