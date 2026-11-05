@@ -94,8 +94,8 @@ func TestAnchorsDB_Add(t *testing.T) {
 
 	db.Add(anchor)
 
-	assert.Equal(t, 1, len(*db))
-	assert.Equal(t, anchor, (*db)["testuser"])
+	assert.Equal(t, 1, len(db.data))
+	assert.Equal(t, anchor, db.data["testuser"])
 }
 
 // TestAnchorsDB_Remove_Success tests removing an existing anchor
@@ -108,12 +108,12 @@ func TestAnchorsDB_Remove_Success(t *testing.T) {
 	}
 
 	db.Add(anchor)
-	assert.Equal(t, 1, len(*db))
+	assert.Equal(t, 1, len(db.data))
 
 	err := db.Remove("testuser")
 
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(*db))
+	assert.Equal(t, 0, len(db.data))
 }
 
 // TestAnchorsDB_Remove_NotFound tests removing a non-existent anchor
@@ -164,7 +164,7 @@ func TestAnchorsDB_MultipleAnchors(t *testing.T) {
 		db.Add(anchor)
 	}
 
-	assert.Equal(t, 3, len(*db))
+	assert.Equal(t, 3, len(db.data))
 
 	for _, anchor := range anchors {
 		assert.True(t, db.IsActivated(anchor.Username))
@@ -172,7 +172,7 @@ func TestAnchorsDB_MultipleAnchors(t *testing.T) {
 
 	err := db.Remove("user2")
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(*db))
+	assert.Equal(t, 2, len(db.data))
 	assert.False(t, db.IsActivated("user2"))
 	assert.True(t, db.IsActivated("user1"))
 	assert.True(t, db.IsActivated("user3"))
@@ -182,8 +182,8 @@ func TestAnchorsDB_MultipleAnchors(t *testing.T) {
 func TestAnchorsDB_New(t *testing.T) {
 	db := New()
 
-	assert.NotNil(t, db)
-	assert.Equal(t, 0, len(*db))
+	assert.NotNil(t, db.data)
+	assert.Equal(t, 0, len(db.data))
 }
 
 // TestAuthPFAnchor_Structure tests the AuthPFAnchor struct fields
@@ -203,4 +203,34 @@ func TestAuthPFAnchor_Structure(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", anchor.UserIP)
 	assert.Equal(t, 1000, anchor.UserID)
 	assert.Equal(t, expiresAt, anchor.ExpiresAt)
+}
+
+func TestAnchorsDBGetAll(t *testing.T) {
+	first := &AuthPFAnchor{}
+	second := &AuthPFAnchor{}
+
+	db := &AnchorsDB{
+		data: map[string]*AuthPFAnchor{
+			"first":  first,
+			"second": second,
+		},
+	}
+
+	got := db.GetAll()
+
+	if len(got) != 2 {
+		t.Fatalf("GetAll() returned %d entries, want 2", len(got))
+	}
+	if got["first"] != first {
+		t.Errorf(`GetAll()["first"] = %p, want %p`, got["first"], first)
+	}
+	if got["second"] != second {
+		t.Errorf(`GetAll()["second"] = %p, want %p`, got["second"], second)
+	}
+
+	// The returned map should be independent of the internal map.
+	delete(got, "first")
+	if _, ok := db.GetAll()["first"]; !ok {
+		t.Error("modifying the returned map changed the internal map")
+	}
 }

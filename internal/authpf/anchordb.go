@@ -2,6 +2,7 @@ package authpf
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/scd-systems/authpf-api/pkg/authpf"
@@ -11,51 +12,84 @@ import (
 type AuthPFAnchor = authpf.AuthPFAnchor
 type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
 
-// AnchorsDB is a map of AuthPFAnchors keyed by username.
-//
-// AnchorsDB performs no synchronization of its own. Every method must be called
-// with the server lock held (internal/server/types.go)
-type AnchorsDB map[string]*authpf.AuthPFAnchor
+// AnchorsDB is an object with AuthPFAnchors keyed by username.
+type AnchorsDB struct {
+	mu   sync.Mutex
+	data map[string]*authpf.AuthPFAnchor
+}
 
 func New() *AnchorsDB {
-	anchorsDB := make(AnchorsDB)
-	return &anchorsDB
+	return &AnchorsDB{
+		data: make(map[string]*authpf.AuthPFAnchor),
+	}
 }
 
 func (a *AnchorsDB) Add(r *authpf.AuthPFAnchor) {
-	(*a)[r.Username] = r
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.data[r.Username] = r
 }
 
 func (a *AnchorsDB) Remove(username string) error {
-	if (*a)[username] == nil {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.data[username] == nil {
 		return fmt.Errorf("username not found in DB: %s", username)
 	}
-	delete(*a, username)
+	delete(a.data, username)
 	return nil
 }
 
 // Clear DB
 func (a *AnchorsDB) Flush() {
-	clear(*a)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	clear(a.data)
 }
 
 func (a *AnchorsDB) IsActivated(username string) bool {
-	return (*a)[username] != nil
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.data[username] != nil
 }
 
 // Get returns the anchor for the given username, or nil if not found.
 func (a *AnchorsDB) Get(username string) *authpf.AuthPFAnchor {
-	return (*a)[username]
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.data[username]
+}
+
+func (a *AnchorsDB) GetAll() map[string]*AuthPFAnchor {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	result := make(map[string]*AuthPFAnchor, len(a.data))
+	for key, anchor := range a.data {
+		result[key] = anchor
+	}
+	return result
 }
 
 // Len returns the number of active anchors.
 func (a *AnchorsDB) Len() int {
-	return len(*a)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return len(a.data)
 }
 
 // Range iterates over all active anchors.
 func (a *AnchorsDB) Range(fn func(*authpf.AuthPFAnchor) bool) {
-	for _, v := range *a {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	for _, v := range a.data {
 		if !fn(v) {
 			break
 		}
@@ -64,8 +98,11 @@ func (a *AnchorsDB) Range(fn func(*authpf.AuthPFAnchor) bool) {
 
 // Snapshot returns a copy of the anchors map.
 func (a *AnchorsDB) Snapshot() map[string]*authpf.AuthPFAnchor {
-	result := make(AnchorsDB, len(*a))
-	for k, v := range *a {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	result := make(map[string]*authpf.AuthPFAnchor, len(a.data))
+	for k, v := range a.data {
 		result[k] = v
 	}
 	return result
