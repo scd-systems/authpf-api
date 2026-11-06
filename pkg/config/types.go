@@ -19,6 +19,10 @@ type ConfigFile struct {
 	AuthPF     ConfigFileAuthPF      `yaml:"authpf"`
 	Rbac       ConfigFileRbac        `yaml:"rbac"`
 	Extensions []ConfigFileExtension `yaml:"extensions"`
+
+	// Keys found in the config file that match no known field. Collected at
+	// load time, logged as warnings once the logger exists. Not persisted.
+	UnknownKeys []string `yaml:"-"`
 }
 
 type ConfigFileExtension struct {
