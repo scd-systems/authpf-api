@@ -44,9 +44,12 @@ func TestConcurrentActivateIsAtomic(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{}`))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
-			c := echo.New().NewContext(req, rec)
+			e := echo.New()
+			c := e.NewContext(req, rec)
 			c.Set("username", "alice")
-			_ = h.HandlePostActivate(c)
+			if err := h.HandlePostActivate(c); err != nil {
+				e.HTTPErrorHandler(c, err)
+			}
 			statuses <- rec.Code
 		}()
 	}

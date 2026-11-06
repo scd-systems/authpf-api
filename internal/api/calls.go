@@ -7,22 +7,17 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/scd-systems/authpf-api/internal/authpf"
-	"github.com/scd-systems/authpf-api/internal/errors"
 )
 
 // Call Exec activate anchor
-func (h *Handler) CallExecActivateAnchor(c *echo.Context, r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CallExecActivateAnchor(c *echo.Context, r *authpf.AuthPFAnchor) error {
 	result := h.exec.LoadAuthPFAnchor(r)
 	msg := fmt.Sprintf("Exec: '%s %s', ExitCode: %d, Stdout: %s, StdErr: %s", result.Command, strings.Join(result.Args, " "), result.ExitCode, result.Stdout, result.Stderr)
 	h.logger.Trace().Str("user", c.Get("username").(string)).Msg(msg)
 
 	if result.ExitCode != 0 {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     result.ExitCode,
-			Message:        "failed to load anchor rules",
-			Details:        result.Stderr,
-		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load anchor rules").
+			Wrap(fmt.Errorf("exit code %d: %s", result.ExitCode, result.Stderr))
 	}
 
 	// Add user_ip to pf table
@@ -40,17 +35,13 @@ func (h *Handler) CallExecActivateAnchor(c *echo.Context, r *authpf.AuthPFAnchor
 				"rollback failed, anchor is still loaded and untracked, remove it with: pfctl -a %s/%s(%d) -F all",
 				h.config.AuthPF.AnchorName, r.Username, r.UserID)
 		}
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     result.ExitCode,
-			Message:        "failed to add IP to pf table",
-			Details:        result.Stderr,
-		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to add IP to pf table").
+			Wrap(fmt.Errorf("exit code %d: %s", result.ExitCode, result.Stderr))
 	}
 	return nil
 }
 
-func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) error {
 	// Remove user_ip from pf table
 	if err := h.exec.FlushPFTable(r); err != nil {
 		h.logger.Error().Err(err).Str("user", r.Username).Msgf("failed to remove IP from pf table")
@@ -58,18 +49,13 @@ func (h *Handler) CallExecDeactivateAnchor(r *authpf.AuthPFAnchor) *errors.APIEr
 
 	// remove anchor
 	if err := h.exec.FlushAnchor(r); err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "failed to unload anchor rules",
-			Details:        "check server logs",
-		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to unload anchor rules").Wrap(err)
 	}
 
 	return nil
 }
 
-func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.APIError {
+func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) error {
 
 	// Remove all user_ip's from pf tables
 	result := h.exec.FlushAllPFTables()
@@ -80,12 +66,7 @@ func (h *Handler) CallExecDeactivateAllAnchors(r *authpf.AuthPFAnchor) *errors.A
 	}
 
 	if err := h.exec.FlushAllAnchors(r.Username); err != nil {
-		return &errors.APIError{
-			HttpStatusCode: http.StatusInternalServerError,
-			StatusCode:     -1,
-			Message:        "failed to unload anchor rules",
-			Details:        "check server logs",
-		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to unload anchor rules").Wrap(err)
 	}
 
 	h.db.Flush()

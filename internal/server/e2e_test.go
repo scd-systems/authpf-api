@@ -273,6 +273,12 @@ func TestE2E_ActivateWithoutToken(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Activate without token should return 401")
+
+	// The central error handler must keep our error schema and the client-safe message.
+	var errBody map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errBody))
+	assert.Equal(t, "failed", errBody["status"])
+	assert.Equal(t, "missing authorization header", errBody["message"])
 }
 
 // TestE2E_LoginAndActivate performs a full login → activate flow

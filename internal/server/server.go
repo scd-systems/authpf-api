@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -23,6 +24,9 @@ func (s *Server) SetupServer(e *echo.Echo) error {
 
 	// Disable Echo's default logger (we use our own zerolog)
 	e.Logger = slog.New(slog.DiscardHandler)
+
+	// Render all handler/middleware errors as our JSON error schema
+	e.HTTPErrorHandler = s.httpErrorHandler
 
 	// Add HSTS Headers
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
@@ -80,16 +84,24 @@ func (s *Server) loggerMiddleware() echo.MiddlewareFunc {
 	}
 }
 
-// requestLoggerMiddleware logs incoming requests with details
+// requestLoggerMiddleware logs one entry per request, with the level following the status class.
+//
+// The status is resolved from the pending error, not only from the response: Echo v5 runs
+// HTTPErrorHandler after the middleware chain, so resp.Status is still unset for errors here.
 func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			result := next(c)
-			status := http.StatusOK
-			if resp, ok := c.Response().(*echo.Response); ok && resp.Status > 0 {
-				status = resp.Status
+			err := next(c)
+			_, status := echo.ResolveResponseStatus(c.Response(), err)
+
+			logEntry := s.logger.Info()
+			switch {
+			case status >= http.StatusInternalServerError:
+				logEntry = s.logger.Error()
+			case status >= http.StatusBadRequest:
+				logEntry = s.logger.Warn()
 			}
-			logEntry := s.logger.Info().
+			logEntry = logEntry.
 				Str("IP", c.RealIP()).
 				Str("Method", c.Request().Method).
 				Str("URI", c.Request().URL.Path).
@@ -103,9 +115,40 @@ func (s *Server) requestLoggerMiddleware() echo.MiddlewareFunc {
 			if authpfStatus, _ := c.Get("authpf").(string); authpfStatus != "" {
 				logEntry.Str("authpf", authpfStatus)
 			}
+			if err != nil {
+				logEntry.Err(err)
+			}
 			logEntry.Msg("request")
-			return result
+			return err
 		}
+	}
+}
+
+// httpErrorHandler renders any handler or middleware error using the API error schema.
+// Only echo.HTTPError.Message is sent to the client; the wrapped error stays in the log.
+func (s *Server) httpErrorHandler(c *echo.Context, err error) {
+	if resp, uErr := echo.UnwrapResponse(c.Response()); uErr == nil && resp.Committed {
+		return
+	}
+
+	code := echo.StatusCode(err)
+	if code == 0 {
+		code = http.StatusInternalServerError
+	}
+	msg := http.StatusText(code)
+	var he *echo.HTTPError
+	if errors.As(err, &he) && he.Message != "" {
+		msg = he.Message
+	}
+
+	var cErr error
+	if c.Request().Method == http.MethodHead {
+		cErr = c.NoContent(code)
+	} else {
+		cErr = c.JSON(code, map[string]any{"status": "failed", "message": msg})
+	}
+	if cErr != nil {
+		s.logger.Error().Err(cErr).Msg("failed to send error response to client")
 	}
 }
 
