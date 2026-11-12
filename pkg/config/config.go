@@ -13,6 +13,7 @@ import (
 
 // maxTokenTimeout is the longest JWT token timeout accepted from the config.
 const maxTokenTimeout = 30 * 24 * time.Hour
+const minJwtSecretLength = 32
 
 // tokenTimeoutPattern matches a whole number with an optional m, h or d unit.
 // A missing unit means hours.
@@ -106,6 +107,15 @@ func (c *ConfigFile) validateRequiredSections() error {
 	}
 	if c.Server.ElevatorMode == "" {
 		missingFields = append(missingFields, "server.elevatorMode")
+	}
+
+	if c.Server.JwtSecret != "" {
+		if strings.TrimSpace(c.Server.JwtSecret) == "" {
+			return fmt.Errorf("server.jwtSecret is set but contains only whitespace")
+		}
+		if len(c.Server.JwtSecret) < minJwtSecretLength {
+			return fmt.Errorf("server.jwtSecret must be at least %d characters, got %d", minJwtSecretLength, len(c.Server.JwtSecret))
+		}
 	}
 
 	// Check authpf section
