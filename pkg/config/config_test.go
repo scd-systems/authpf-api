@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +35,7 @@ server:
   logfile: /var/log/authpf-api.log
   elevatorMode: sudo
   jwtTokenTimeout: 8h
-  jwtSecret: test-secret
+  jwtSecret: my-secret-key-1234567890-1337-12
 
 authpf:
   timeout: 1h
@@ -232,6 +234,166 @@ func TestValidateRequiredSections_ValidConfig(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// base64SampleSecret is what "openssl rand -base64 32" produces, the value the
+// docs recommend operators put into server.jwtSecret.
+const base64SampleSecret = "n9YaRcsGDs/zkkzCR3NkbnWS7yOe/KnUYgASazPojGM="
+
+// jwtSecretFixture returns a config that only differs in server.jwtSecret, so
+// each case exercises the secret rule and nothing else.
+func jwtSecretFixture(secret string) *ConfigFile {
+	cfg := &ConfigFile{
+		Defaults: ConfigFileDefaults{
+			PfctlBinary: "/sbin/pfctl",
+		},
+		Server: ConfigFileServer{
+			Bind:         "127.0.0.1",
+			Port:         8080,
+			Logfile:      "/var/log/authpf-api.log",
+			ElevatorMode: "sudo",
+			JwtSecret:    secret,
+		},
+		AuthPF: ConfigFileAuthPF{
+			Timeout:             "1h",
+			UserRulesRootFolder: "/etc/authpf",
+			UserRulesFile:       "rules",
+			AnchorName:          "authpf",
+			FlushFilter:         []string{"nat"},
+		},
+	}
+	return cfg
+}
+
+// TestValidateRequiredSections_JwtSecretStrength covers the RFC 7518 section
+// 3.2 floor for server.jwtSecret. A configured HS256 key below 32 bytes can be
+// recovered offline from a single issued token, which lets the attacker mint
+// tokens for any configured user including admin.
+func TestValidateRequiredSections_JwtSecretStrength(t *testing.T) {
+	tests := []struct {
+		name    string
+		secret  string
+		wantErr string
+	}{
+		{
+			name:    "single character from the reported attack",
+			secret:  "x",
+			wantErr: "server.jwtSecret must be at least 32 characters, got 1",
+		},
+		{
+			name:    "low entropy prose",
+			secret:  "changeme",
+			wantErr: "server.jwtSecret must be at least 32 characters, got 8",
+		},
+		{
+			name:    "one byte below the floor",
+			secret:  strings.Repeat("a", minJwtSecretLength-1),
+			wantErr: fmt.Sprintf("must be at least %d characters, got %d", minJwtSecretLength, minJwtSecretLength-1),
+		},
+		{
+			name:    "spaces only",
+			secret:  "   ",
+			wantErr: "server.jwtSecret is set but contains only whitespace",
+		},
+		{
+			name:    "tab and newline only",
+			secret:  "\t \n",
+			wantErr: "server.jwtSecret is set but contains only whitespace",
+		},
+		{
+			name:    "exactly at the floor",
+			secret:  strings.Repeat("a", minJwtSecretLength),
+			wantErr: "",
+		},
+		{
+			name:    "base64 sample from openssl rand",
+			secret:  base64SampleSecret,
+			wantErr: "",
+		},
+		{
+			name:    "unset keeps the random fallback",
+			secret:  "",
+			wantErr: "",
+		},
+		{
+			name:    "long secret with inner whitespace",
+			secret:  "correct horse battery staple hunter2",
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := jwtSecretFixture(tt.secret).validateRequiredSections()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+
+			require := assert.New(t)
+			require.Error(err)
+			require.Contains(err.Error(), tt.wantErr)
+			// The error text goes to stderr and into the log, so the secret
+			// itself must never appear in it.
+			require.NotContains(err.Error(), tt.secret)
+		})
+	}
+}
+
+// TestLoadConfig_RejectsWeakJwtSecret proves the strength check is wired into
+// LoadConfig, the only path that fills the signing key - a validator that is
+// never reached would leave the offline-crack path open.
+func TestLoadConfig_RejectsWeakJwtSecret(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name:    "single character",
+			yaml:    `jwtSecret: "x"`,
+			wantErr: "server.jwtSecret must be at least 32 characters, got 1",
+		},
+		{
+			name:    "quoted whitespace",
+			yaml:    `jwtSecret: "    "`,
+			wantErr: "server.jwtSecret is set but contains only whitespace",
+		},
+		{
+			name:    "quoted short prose",
+			yaml:    `jwtSecret: "your-secret-key"`,
+			wantErr: "server.jwtSecret must be at least 32 characters, got 15",
+		},
+		{
+			name:    "empty value falls back to a random secret",
+			yaml:    `jwtSecret:`,
+			wantErr: "",
+		},
+		{
+			name:    "base64 sample from openssl rand",
+			yaml:    `jwtSecret: "` + base64SampleSecret + `"`,
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configPath := filepath.Join(t.TempDir(), "config.yaml")
+			body := "defaults:\n  pfctlBinary: /sbin/pfctl\n\nserver:\n  bind: 127.0.0.1\n  port: 8080\n  logfile: /var/log/authpf-api.log\n  elevatorMode: sudo\n  " + tt.yaml + "\n\nauthpf:\n  timeout: 1h\n  userRulesRootFolder: /etc/authpf\n  userRulesFile: rules\n  anchorName: authpf\n  flushFilter:\n    - nat\n\nrbac:\n  roles:\n    admin:\n      permissions:\n        - read\n  users:\n    testuser:\n      password: test\n      role: admin\n"
+			require := assert.New(t)
+			require.NoError(os.WriteFile(configPath, []byte(body), 0640))
+
+			err := New().LoadConfig(configPath)
+
+			if tt.wantErr == "" {
+				require.NoError(err)
+				return
+			}
+			require.Error(err)
+			require.Contains(err.Error(), tt.wantErr)
+		})
+	}
+}
+
 // TestLoadConfig_CompleteValidConfig tests loading a complete valid configuration
 func TestLoadConfig_CompleteValidConfig(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -247,7 +409,7 @@ server:
   logfile: /var/log/authpf-api.log
   elevatorMode: doas
   jwtTokenTimeout: 24h
-  jwtSecret: my-secret-key
+  jwtSecret: my-secret-key-1234567890-1337-12
 
 authpf:
   timeout: 2h
@@ -295,7 +457,7 @@ rbac:
 	assert.Equal(t, "/var/log/authpf-api.log", cfg.Server.Logfile)
 	assert.Equal(t, "doas", cfg.Server.ElevatorMode)
 	assert.Equal(t, "24h", cfg.Server.JwtTokenTimeout)
-	assert.Equal(t, "my-secret-key", cfg.Server.JwtSecret)
+	assert.Equal(t, "my-secret-key-1234567890-1337-12", cfg.Server.JwtSecret)
 	assert.Equal(t, "2h", cfg.AuthPF.Timeout)
 	assert.Equal(t, "/etc/authpf/rules", cfg.AuthPF.UserRulesRootFolder)
 	assert.Equal(t, "user.rules", cfg.AuthPF.UserRulesFile)

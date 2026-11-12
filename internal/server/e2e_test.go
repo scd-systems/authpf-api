@@ -55,7 +55,7 @@ func generateTestConfig(t *testing.T, port uint16) string {
   logfile: "/tmp/authpf-api-e2e.log"
   elevatorMode: "sudo"
   jwtTokenTimeout: "1h"
-  jwtSecret: "e2e-test-secret-key-12345"
+  jwtSecret: "e2e-test-secret-key-123456789-1337"
 
 defaults:
   pfctlBinary: "echo"
