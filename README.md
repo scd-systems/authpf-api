@@ -126,7 +126,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `rbac.users.<name>.password` | Bcrypt password hash for this user. Generate with `./authpf-api -gen-user-password`. | Yes |
 | `rbac.users.<name>.role` | Role assigned to this user. Must match a key defined under `rbac.roles`. | Yes |
 | `rbac.users.<name>.userId` | Numeric user ID used as the pf anchor suffix (e.g., `authpf/username(1001)`). Defaults to `0` if not set. | No |
-| `rbac.users.<name>.userIp` | Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used. | No |
+| `rbac.users.<name>.userIp` | Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used. Also the address used for anchors adopted by `onStartup: import`. | No |
 | `rbac.users.<name>.userRulesFile` | Override the global `authpf.userRulesFile` for this specific user. | No |
 | `rbac.users.<name>.macros` | Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl`. Must also be declared in the user's pf rules file. | No |
 | `rbac.users.<name>.pfTable` | Override the global `authpf.pfTable` for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must exist in `pf.conf`. | No |
@@ -300,7 +300,9 @@ rbac:
 
 When `userIp` is set, the configured value is always passed as `-D user_ip=<value>` to `pfctl`, regardless of the actual source IP of the HTTP request. If `userIp` is omitted, the real client IP is used automatically.
 
-> **Note:** During anchor import on startup (`onStartup: import` / `importflush`), the `user_ip` cannot be recovered from pf and is set to `NaN/imported`. This has no functional impact — deactivation works without a valid IP.
+> **Note:** During anchor import on startup (`onStartup: import` / `importflush`) the `user_ip` cannot be recovered from pf and it takes its address from `rbac.users.<name>.userIp`. If that is not set, `user_ip` is defined as `unknown`.
+>
+> An anchor with address `unknown` is still unloaded on deactivate, expiry and shutdown, but the address that was added to `authpf.pfTable` when it was loaded cannot be revoked automatically. The API logs a warning naming the command (`pfctl -t <table> -T delete <ip>`). Set `userIp` for users whose activation may survive a restart to keep that revocation automatic.
 
 ---
 
@@ -556,8 +558,8 @@ authpf:
 
 ### Limitations
 
-1. It is currently not possible to detect the UserIP macro value. The UserIP will be set to "NaN/imported". It does not have any effect.
-   Deactivation works without IP Address.
+1. It is currently not possible to detect the UserIP macro value from pf. The imported anchor takes its address from `rbac.users.<name>.userIp`. If that is not configured, UserIP will set to  "unknown".
+The anchor itself is deactivated without an IP address, but a leftover `pfTable` entry of such a user can only be removed manually (`pfctl -t <table> -T delete <ip>`). The api logs a warning about it.
 2. The Expire datetime will be calculated by the `authpf.timeout` and current server time.
 
 ## Extension System

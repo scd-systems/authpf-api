@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -99,22 +100,19 @@ func (e *Exec) executePfctlCommand(args []string) *SystemCommandResult {
 
 // Run multiple pfctl commands with arguments
 func (e *Exec) executePfctlCommands(commands [][]string) *MultiCommandResult {
-	results := make([]*SystemCommandResult, 0)
+	results := make([]*SystemCommandResult, 0, len(commands))
+	var firstErr error
 
 	for _, cmd := range commands {
 		result := e.executePfctlCommand(cmd)
 		results = append(results, result)
-		if result.Error != nil {
-			return &MultiCommandResult{
-				Results: results,
-				Error:   result.Error,
-			}
+		// Keep going: aborting here leaves the remaining flush filters, and in the
+		// flush-all case the remaining anchors, loaded in pf.
+		if result.Error != nil && firstErr == nil {
+			firstErr = result.Error
 		}
 	}
-	return &MultiCommandResult{
-		Results: results,
-		Error:   nil,
-	}
+	return &MultiCommandResult{Results: results, Error: firstErr}
 }
 
 // Create and return the authpf user rules filepath for pfctl command
@@ -295,6 +293,21 @@ func (e *Exec) removeIPFromPfTable(r *authpf.AuthPFAnchor) *SystemCommandResult 
 			ExitCode: 0,
 		}
 	}
+	// Anchors adopted at startup have no recoverable address (see ImportAuthPF).
+	// Passing that value as the address operand always fails, and inside
+	// FlushAllPFTables it used to cost every other user their entry.
+	if r.UserIP == authpf.UserIPUnknown {
+		e.logger.Warn().Str("user", r.Username).Msgf("cannot remove user_ip %q from pf table %s", r.UserIP, table)
+		return &SystemCommandResult{Command: "pfctl", Args: []string{}, ExitCode: 0}
+
+	}
+	if net.ParseIP(r.UserIP) == nil {
+		e.logger.Warn().Str("user", r.Username).Msgf(
+			"cannot remove user_ip %q from pf table %s, revoke it manually: pfctl -t %s -T delete %s",
+			r.UserIP, table, table, r.UserIP)
+		return &SystemCommandResult{Command: "pfctl", Args: []string{}, ExitCode: 0}
+	}
+
 	return e.executePfctlCommand([]string{"-t", table, "-T", "delete", r.UserIP})
 }
 
@@ -327,6 +340,8 @@ func (e *Exec) FlushPFTable(r *authpf.AuthPFAnchor) error {
 
 // Clear all pf tables from all known user_ip's
 func (e *Exec) FlushAllPFTables() *SystemCommandResult {
+	var firstFailure *SystemCommandResult
+
 	for _, v := range e.db.GetAll() {
 		result := e.removeIPFromPfTable(v)
 		if result != nil {
@@ -334,11 +349,15 @@ func (e *Exec) FlushAllPFTables() *SystemCommandResult {
 			e.logger.Trace().Str("user", v.Username).Msg(msg)
 			if result.ExitCode != 0 {
 				e.logger.Warn().Str("user", v.Username).Msgf("failed to remove IP %s from pf table: %s", v.UserIP, result.Stderr)
-				return result
+				// Every other user's entry still has to be revoked, so report the first
+				// failure after the loop instead of aborting it.
+				if firstFailure == nil {
+					firstFailure = result
+				}
 			}
 		}
 	}
-	return nil
+	return firstFailure
 }
 
 // Validate pfTable

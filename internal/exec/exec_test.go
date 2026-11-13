@@ -961,3 +961,73 @@ func TestCheckPfTableExists_ErrorMessageContainsTableName(t *testing.T) {
 	assert.Contains(t, err.Error(), tableName,
 		"error message must contain the table name for clear diagnostics")
 }
+
+// One failing flush must not skip the remaining ones: FlushFilter holds several
+// entries, and a failing "-F nat" used to leave rules, states and queues loaded.
+func TestExecutePfctlCommands_ContinuesAfterFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	stub := filepath.Join(tmpDir, "pfctl-failing-stub")
+	argLog := filepath.Join(tmpDir, "args.log")
+	script := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + argLog + "\n" +
+		"for a in \"$@\"; do [ \"$a\" = \"nat\" ] && exit 1; done\n" +
+		"exit 0\n"
+	if err := os.WriteFile(stub, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := createTestConfig(t, tmpDir)
+	cfg.Defaults.PfctlBinary = stub
+	cfg.AuthPF.FlushFilter = []string{"rules", "nat", "states"}
+
+	e := createTestExec(t, cfg)
+	anchor := &authpf.AuthPFAnchor{Username: "testuser", UserID: 1000, UserIP: "192.0.2.10"}
+
+	assert.Error(t, e.UnloadAnchor(anchor), "the failing flush must still be reported")
+
+	out, err := os.ReadFile(argLog)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "-a authpf/testuser(1000) -F rules")
+	assert.Contains(t, string(out), "-a authpf/testuser(1000) -F states",
+		"flushes after the failing one must still run")
+}
+
+// An adopted anchor has no recoverable address, so the table delete must be
+// reported with the manual command instead of handing a bogus address operand to
+// pfctl, which fails and would abort a flush-all batch.
+func TestRemoveIPFromPfTable_SkipsNonAddress(t *testing.T) {
+	tmpDir := t.TempDir()
+	stub, argLog := writeRecordingStub(t, tmpDir)
+
+	cfg := createTestConfig(t, tmpDir)
+	cfg.Defaults.PfctlBinary = stub
+	cfg.AuthPF.PfTable = "authpf_users"
+
+	e := createTestExec(t, cfg)
+	anchor := &authpf.AuthPFAnchor{Username: "testuser", UserID: 1000, UserIP: authpf.UserIPUnknown}
+
+	result := e.removeIPFromPfTable(anchor)
+	assert.Equal(t, 0, result.ExitCode, "reported as success so the caller keeps cleaning up")
+
+	_, err := os.ReadFile(argLog)
+	assert.True(t, os.IsNotExist(err), "pfctl must not be called with a non-address operand")
+}
+
+// A valid address must still reach pfctl, the guard above must not swallow it.
+func TestRemoveIPFromPfTable_DeletesValidAddress(t *testing.T) {
+	tmpDir := t.TempDir()
+	stub, argLog := writeRecordingStub(t, tmpDir)
+
+	cfg := createTestConfig(t, tmpDir)
+	cfg.Defaults.PfctlBinary = stub
+	cfg.AuthPF.PfTable = "authpf_users"
+
+	e := createTestExec(t, cfg)
+	anchor := &authpf.AuthPFAnchor{Username: "testuser", UserID: 1000, UserIP: "192.0.2.10"}
+
+	assert.Equal(t, 0, e.removeIPFromPfTable(anchor).ExitCode)
+
+	out, err := os.ReadFile(argLog)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "-t authpf_users -T delete 192.0.2.10")
+}

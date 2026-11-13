@@ -4,6 +4,11 @@ package authpf
 
 import "time"
 
+// UserIPUnknown marks an anchor adopted by the startup import: pf's anchor list
+// (-sA) does not expose the -D user_ip macro that loaded the anchor, so the API
+// does not know the address of an adopted anchor.
+const UserIPUnknown = "unknown"
+
 // AuthPFAnchor represents an anchor to store in anchorsDB.
 type AuthPFAnchor struct {
 	Username  string    `json:"username"`
