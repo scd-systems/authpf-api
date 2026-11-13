@@ -62,7 +62,7 @@ Valid values:
 
 .TP
 \fBLimitations of import:\fP
-1. The \fBuser_ip\fR macro value cannot be detected during import. It will be set to \fBNaN/imported\fR and has no functional effect. Deactivation works without a valid IP address.
+1. The \fBuser_ip\fR macro value cannot be detected during import - \fBpfctl -sA\fR does not expose anchor macros. The adopted anchor takes its address from configuration  \fBrbac.users.<name>.userIp\fR\&. If that is not configured, \fBuser_ip\fR is set to \fBunknown\fR\&. The anchor is still unloaded on deactivate, expiry and shutdown, but the address \fBauthpf.pfTable\fR holds for it cannot be revoked automatically. The API logs a warning with the manual \fBpfctl -t <table> -T delete <ip>\fR command.
 
 2. The expiry datetime is calculated from \fBauthpf.timeout\fR and the current server time at import.
 
@@ -154,7 +154,7 @@ Numeric user ID used as the pf anchor suffix (e.g. \fBauthpf/username(1001)\fR).
 
 .TP
 \fBrbac.users.<name>\&.userIp\fP
-Pin a static IP address passed as the \fBuser_ip\fR macro to \fBpfctl\fR\&. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. \fI(string, optional)\fP
+Pin a static IP address passed as the \fBuser_ip\fR macro to \fBpfctl\fR\&. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. This is also the address the API assigns to an anchor adopted by \fBauthpf.onStartup: import\fR, since pf does not report the macro of an already loaded anchor. \fI(string, optional)\fP
 
 .TP
 \fBrbac.users.<name>\&.userRulesFile\fP
