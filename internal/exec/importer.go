@@ -80,7 +80,15 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 			return err
 		}
 
-		anchor, err := authpf.SetAnchor(username, e.config.AuthPF.Timeout, "NaN/imported", uid, expiresAt)
+		// pf's anchor list carries no address, but rbac.users.<name>.userIp is the
+		// same source the activation path uses. Use it when pinned, otherwise the
+		// address stays unknown and the table entry is reported at cleanup time.
+		userIp := e.config.Rbac.Users[username].UserIP
+		if userIp == "" {
+			userIp = authpf.UserIPUnknown
+		}
+
+		anchor, err := authpf.SetAnchor(username, e.config.AuthPF.Timeout, userIp, uid, expiresAt)
 		if err != nil {
 			return err
 		}

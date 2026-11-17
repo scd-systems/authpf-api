@@ -111,6 +111,12 @@ func (s *Server) Bootstrap() (err error) {
 		if err := e.ImportAuthPF(); err != nil {
 			return err
 		}
+		// Same order as the deactivate path: tables first, then the anchors, which
+		// are the part that revokes access. Must run before s.db.Flush() below.
+		if result := e.FlushAllPFTables(); result != nil {
+			s.logger.Warn().Err(result.Error).
+				Msg("importflush: some pf table entries could not be revoked")
+		}
 		if err := e.FlushAllAnchors("API"); err != nil {
 			return err
 		}

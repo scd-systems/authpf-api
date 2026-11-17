@@ -1,4 +1,4 @@
-.PHONY: help build test test-race clean lint fmt fmt-check vet coverage build-all build-freebsd build-openbsd
+.PHONY: help build test test-race clean lint fmt fmt-check vet coverage build-all build-freebsd build-openbsd man
 
 # Variables
 APP_NAME := authpf-api
@@ -37,6 +37,7 @@ help:
 	@echo "  make coverage          Run tests with coverage report"
 	@echo "  make coverage-html     Generate HTML coverage report"
 	@echo ""
+	@echo "  make man               Regenerate roff man pages from manpages/*.md"
 	@echo "  make lint              Run linter (golangci-lint)"
 	@echo "  make fmt               Format code (gofmt)"
 	@echo "  make fmt-check         Fail if any file is unformatted (does not write)"
@@ -156,6 +157,20 @@ lint:
 	@echo "Running linter..."
 	@$(GOPATH)/bin/golangci-lint run ./...
 	@echo "✓ Linter passed"
+
+# Man pages: markdown sources in manpages/ rendered to roff man(7) with go-md2man.
+# Pinned so regenerated files stay byte-identical; first run needs module access.
+GO_MD2MAN ?= $(GO) run github.com/cpuguy83/go-md2man/v2@v2.0.7
+MANPAGES := manpages/authpf-api.1 manpages/authpf-api.conf.5
+
+man: $(MANPAGES)
+	@echo "✓ Man pages up to date"
+
+manpages/authpf-api.1: manpages/authpf-api.md
+	@$(GO_MD2MAN) -in $< -out $@
+
+manpages/authpf-api.conf.5: manpages/authpf-api.conf.md
+	@$(GO_MD2MAN) -in $< -out $@
 
 # Clean build artifacts
 clean:

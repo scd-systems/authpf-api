@@ -35,7 +35,10 @@ authpf:
   # - importflush: same as import but in addition it remove all anchors to get a clean state for startup
   #
   # Limitations with import:
-  #   1. It is current not possible to detect the UserIP. The UserIP will set to "NaN/imported". It does not have any effect.
+  #   1. The UserIP cannot be detected from pf. The imported user gets its UserIP from
+  #      rbac.users.<name>.userIp. Without userIp the UserIP stays "unknown": the anchor is still
+  #      unloaded, but its pfTable entry must be removed by hand (pfctl -t <table> -T delete <ip>),
+  #      the api logs a warning with that command.
   #   2. The Expire Datetime will calculate by the `authpf.timeout` and current server time.
   #
   onStartup: importflush # none, import, importflush

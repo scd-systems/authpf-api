@@ -54,7 +54,7 @@ AuthPF-specific configuration for rule management and timeouts.
 : `importflush` — Same as `import`, but removes/flushes all anchors immediately after importing to achieve a clean state on startup.
 
 **Limitations of import:**
-: 1. The `user_ip` macro value cannot be detected during import. It will be set to `NaN/imported` and has no functional effect. Deactivation works without a valid IP address.
+: 1. The `user_ip` macro value cannot be detected during import - `pfctl -sA` does not expose anchor macros. The adopted anchor takes its address from configuration  `rbac.users.<name>.userIp`. If that is not configured, `user_ip` is set to `unknown`. The anchor is still unloaded on deactivate, expiry and shutdown, but the address `authpf.pfTable` holds for it cannot be revoked automatically. The API logs a warning with the manual `pfctl -t <table> -T delete <ip>` command.
 : 2. The expiry datetime is calculated from `authpf.timeout` and the current server time at import.
 
 **onShutdown**
@@ -124,7 +124,7 @@ Role-Based Access Control configuration for users and permissions.
 : Numeric user ID used as the pf anchor suffix (e.g. `authpf/username(1001)`). Defaults to `0` if not set. *(integer, optional)*
 
 **rbac.users.\<name\>.userIp**
-: Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. *(string, optional)*
+: Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. This is also the address the API assigns to an anchor adopted by `authpf.onStartup: import`, since pf does not report the macro of an already loaded anchor. *(string, optional)*
 
 **rbac.users.\<name\>.userRulesFile**
 : Override the global `authpf.userRulesFile` for this specific user. If set, this filename is used instead of the global default when loading this user's anchor rules. *(string, optional)*

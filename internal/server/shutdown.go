@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -44,17 +46,22 @@ func (s *Server) deactivateAllActiveUsers() error {
 		return err
 	}
 
-	// Cleanup pf tables
+	// Cleanup pf tables. A failing table delete must never skip the anchor flush
+	// below: the anchors are what actually admit traffic, and once this returns
+	// the process exits with no session DB left to retry from.
+	var tableErr error
 	if result := e.FlushAllPFTables(); result != nil {
+		tableErr = fmt.Errorf("pf table cleanup incomplete: %w", result.Error)
 		s.logger.Error().Err(result.Error).Msg("Error cleanup pf tables")
-		return result.Error
+	} else {
+		s.logger.Info().Msg("All pf tables cleaned up successfully")
 	}
-	s.logger.Info().Msg("All pf tables cleaned up successfully")
 
+	s.logger.Info().Msg("All authpf anchors deactivated successfully")
 	// Exec pfctl flush for all authpf user rules
 	if err = e.FlushAllAnchors("shutdown"); err != nil {
 		s.logger.Error().Err(err).Msg("Error unloading authpf anchors")
-		return err
+		return errors.Join(tableErr, err)
 	}
 	s.logger.Info().Msg("All authpf anchors deactivated successfully")
 

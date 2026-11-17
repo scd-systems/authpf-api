@@ -73,7 +73,7 @@ func createTestExecForImporter(t *testing.T) *Exec {
 		Rbac: config.ConfigFileRbac{
 			Users: map[string]config.ConfigFileRbacUsers{
 				"user1": {Password: "test", Role: "user", UserID: 0},
-				"user2": {Password: "test", Role: "user", UserID: 200},
+				"user2": {Password: "test", Role: "user", UserID: 200, UserIP: "192.0.2.10"},
 				"user4": {Password: "test", Role: "user", UserID: 400},
 				"user5": {Password: "test", Role: "user", UserID: 2222},
 			},
@@ -134,6 +134,11 @@ Anchor 'authpf' not found.
 			t.Fatalf("user %q: expected ID %d, got %d", user, expID, rule.UserID)
 		}
 	}
+
+	// The anchor list carries no address, so it comes from rbac.users.<name>.userIp
+	// or stays marked unknown - never a value that could be passed to pfctl.
+	assert.Equal(t, "192.0.2.10", exec.db.Get("user2").UserIP, "pinned userIp must be adopted")
+	assert.Equal(t, authpf.UserIPUnknown, exec.db.Get("user1").UserIP, "no userIp configured -> unknown")
 }
 
 // TestParsePfctlOutputError ensures that an error from the system command is propagated.

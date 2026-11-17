@@ -200,6 +200,13 @@ func (h *Handler) HandleDeleteDeactivate(c *echo.Context) error {
 				anchor.Username, anchor.UserIP, anchor.UserID))
 	}
 
+	// The entry to revoke is the address that was added on activation, not the
+	// address of this request: a client that changed its IP would otherwise leave
+	// the old entry behind and revoke an unrelated one.
+	if stored := h.db.Get(anchor.Username); stored != nil {
+		anchor.UserIP = stored.UserIP
+	}
+
 	// Exec
 	if err := h.CallExecDeactivateAnchor(anchor); err != nil {
 		return err

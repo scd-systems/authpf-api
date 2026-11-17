@@ -2,6 +2,7 @@ package authpf
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 // Re-export public types so existing internal imports continue to work.
 type AuthPFAnchor = authpf.AuthPFAnchor
 type ReadOnlyAnchorsDB = authpf.ReadOnlyAnchorsDB
+
+const UserIPUnknown = authpf.UserIPUnknown
 
 // AnchorsDB is an object with AuthPFAnchors keyed by username.
 // Its methods protect map access by mutex and return copies of stored anchors.
@@ -101,7 +104,8 @@ func (a *AnchorsDB) Snapshot() map[string]*authpf.AuthPFAnchor {
 }
 
 func SetAnchor(username string, timeout string, userIp string, userId int, expireAt time.Time) (*authpf.AuthPFAnchor, error) {
-	if len(username) < 1 || len(timeout) < 1 || len(userIp) < 1 || userId < 0 || userId > 65535 {
+	if len(username) < 1 || len(timeout) < 1 || userId < 0 || userId > 65535 ||
+		(userIp != authpf.UserIPUnknown && net.ParseIP(userIp) == nil) {
 		return &authpf.AuthPFAnchor{}, fmt.Errorf("missing or wrong parameter SetAnchor() func")
 	}
 	return &authpf.AuthPFAnchor{Username: username, Timeout: timeout, UserIP: userIp, UserID: userId, ExpiresAt: expireAt}, nil
