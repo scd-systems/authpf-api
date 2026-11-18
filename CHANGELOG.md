@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-11-18
 
 ### Fixed
-- jwtToken Timeout validation
-- Lock issue with extensions when using `ReadOnlyAnchorsDB`
+- `jwtToken` timeout validation
+- Locking issues affecting extensions that use `ReadOnlyAnchorsDB`
 - Imported anchors (`onStartup: import` / `importflush`) no longer store the non-address placeholder `NaN/imported`. They take `rbac.users.<u>.userIp` or are marked `unknown`.
 - pfctl flush batch no longer abort at the first failing command, so one broken entry no longer keeps every other user's anchor and table entry loaded
 - Shutdown with `onShutdown: flushall` flushes the anchors even when the pf table cleanup failed
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A negative, zero or sub-second `authpf.schedulerInterval` panicked the process with `non-positive interval for NewTicker` in the scheduler goroutine, after startup had already succeeded. Such values are now rejected at startup, and the scheduler falls back to 60s if it is ever handed an unusable value.
 - Anchor activation no longer leaves the anchor loaded when adding the address to the pf table fails
 - A `jwtSecret` shorter than 32 characters, or only whitespace, is rejected at startup
-- Documentation and manpages
+- Update the documentation and man pages
 
 ### Added
 - Modular extensions system: 
@@ -36,12 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - e2e tests for config validation, scheduler interval, rate limiting and anchor DB locking (incl. a static lock guard), plus unit tests for the new error logging
 
 ### Changed
-- Upgrade all depend packages to latest version
-- Require Go 1.27.4
+- Upgrade all dependencies to their latest versions
+- Switch to Go 1.27.4
 - Migrate echo web framework from version 4 to version 5
-- Improve Error logging
-- Redesign AnchorDB map to a struct object with lock
-- Every configuration parameter is validated at startup; invalid values abort startup and the error names the offending parameter
+- Improve error logging
+- Replace the AnchorDB map with a struct protected by a lock
+- All supported configuration parameters are validated at startup; invalid values abort startup and the error identifies the offending parameter
 - Build and CI: `make test-race`, `make fmt-check` and `make man` targets, race detector and format gate in the PR workflow
 
 ### Removed
