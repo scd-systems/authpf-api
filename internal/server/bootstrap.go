@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -265,10 +266,20 @@ func (s *Server) getLogWriter() (io.Writer, error) {
 	return f, err
 }
 
-// validateSSLFiles checks if SSL certificate and key files exist and are readable
+// validateSSLFiles checks if SSL certificate and key files exist and are readable,
+// and that the key belongs to the certificate.
 func validateSSLFiles(certPath, keyPath string) error {
 	if certPath == "" {
+		// A key without a certificate is a misconfiguration, not "SSL disabled":
+		// SSL stays off and the key is silently ignored.
+		if keyPath != "" {
+			return fmt.Errorf("server.ssl.key is configured but server.ssl.certificate is empty, SSL would stay disabled: %s", keyPath)
+		}
 		return nil
+	}
+
+	if keyPath == "" {
+		return fmt.Errorf("server.ssl.certificate is configured but server.ssl.key is empty: %s", certPath)
 	}
 
 	// Check certificate file
@@ -285,6 +296,13 @@ func validateSSLFiles(certPath, keyPath string) error {
 			return fmt.Errorf("SSL key file not found: %s", keyPath)
 		}
 		return fmt.Errorf("cannot access SSL key file: %s - %v", keyPath, err)
+	}
+
+	// LoadX509KeyPair parses both files and proves the private key belongs to
+	// the certificate. Neither was ever checked before, so a mismatch or a
+	// corrupt file only surfaced in the first TLS handshake.
+	if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
+		return fmt.Errorf("invalid SSL certificate/key pair, certificate: %s, key: %s - %v", certPath, keyPath, err)
 	}
 
 	return nil

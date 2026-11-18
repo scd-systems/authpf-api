@@ -502,10 +502,9 @@ func TestConfigFileTypes(t *testing.T) {
 			},
 			Users: map[string]ConfigFileRbacUsers{
 				"admin": {
-					Password:      "hash",
-					Role:          "admin",
-					UserID:        1,
-					UserRulesFile: "admin.rules",
+					Password: "hash",
+					Role:     "admin",
+					UserID:   1,
 				},
 			},
 		},

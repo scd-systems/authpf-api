@@ -76,40 +76,54 @@ make coverage-html
 
 The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api.conf`.
 
+The whole file is validated at startup and the server exits on the first invalid value, so a
+misconfiguration is reported before pf is touched. An optional parameter that is empty or missing is
+skipped (required parameters are reported as missing instead). Before the content is looked at at all,
+the file permissions are checked: a configuration that is group- or world-readable is refused with
+`config file has insecure permissions: 0644 (should be 0640)`. The tables below list the accepted
+values and the validity conditions that are checked at startup.
+
+Two of these rules are deliberately strict:
+
+- `authpf.flushFilter` does not accept `Sources` or `Reset`. Both modifiers act on global pf state
+  instead of the `authpf.anchorName` anchor that authpf-api always passes with `-a`.
+- `authpf.anchorName` allows the characters `[A-Za-z0-9_.]` only — no `-`, same as `authpf.pfTable`.
+  `anchorName: authpf-api` does not start; use e.g. `anchorName: authpf`.
+
 ### Configuration Parameters
 
 #### Defaults Section
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). Must be accessible by the user running the API. | Yes |
+| `defaults.pfctlBinary` | Path to the pfctl binary executable (e.g., /sbin/pfctl). An absolute path, or a program name that is found in `PATH`. It must be a regular file with an execute bit and be accessible by the user running the API; otherwise authpf-api aborts startup. | Yes |
 
 #### AuthPF Section
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `authpf.timeout` | Set the maximum timeout for authpf anchors (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. | Yes |
-| `authpf.userRulesRootfolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. | Yes |
-| `authpf.userRulesFile` | Filename for user rules within the userRulesRootfolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. | Yes |
-| `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Used to organize and manage rules within the packet filter. | Yes |
-| `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
-| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
-| `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
+| `authpf.timeout` | Set the maximum timeout for authpf anchors (e.g., 30m, 1h). Defines how long the pf rules will be active until the scheduler removes it again. Go duration format (`s`, `m`, `h` — there is no `d` unit), at least 1s and at most 24h. An unusable value aborts startup. | Yes |
+| `authpf.userRulesRootFolder` | Root directory where user-specific rule files are stored (e.g., /etc/authpf/users). Each user gets a subdirectory here. Must be an absolute path to an existing, readable directory; authpf-api aborts startup otherwise. The directory is never created by the server. | Yes |
+| `authpf.userRulesFile` | Filename for user rules within the userRulesRootFolder (e.g., authpf.rules). This file is loaded when a user activates their anchors. A plain file name only: no `/` or `\`, no `..`, no leading dot, characters `[A-Za-z0-9_.]`. Validated at startup. | Yes |
+| `authpf.anchorName` | Name of the PF anchor to use for rule management (e.g., authpf). Only the characters `[A-Za-z0-9_.]` — no `-`, no `/`, no spaces and no shell metacharacters, because the name is passed to `pfctl` as part of the anchor path. Validated at startup; must match the anchor name configured in `/etc/pf.conf`. | Yes |
+| `authpf.flushFilter` | List of flush targets for pfctl command. Each entry is flushed separately as `pfctl -a <anchorName>/<user>(<userId>) -F <target>`. Allowed values: `nat`, `queue`, `ethernet`, `rules`, `states`, `info`, `Tables`, `osfp`, `all` (exact spelling, no abbreviations). `Sources` and `Reset` are rejected: they act on global pf state, not on the anchor. Whitespace, path separators and a leading `-` are rejected too. | Yes |
+| `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none`. Any other value aborts startup. | No |
+| `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Allowed values: `none` (default), `flushall`. Any other value aborts startup. | No |
 | `authpf.schedulerInterval` | Interval of the scheduler loop that expires anchors. Either a bare number of seconds (e.g. `60`) or a Go duration (`90s`, `2m`, `720h`; there is no `d` unit). Minimum 1s, maximum 30 days. Default is 60 seconds when the parameter is empty. | No |
-| `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
+| `authpf.pfTable` | Name of a global pf table to track active user IPs (characters `[A-Za-z0-9_.]`). When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api — a missing table aborts startup. Leave empty to disable. | No |
 
 #### Server Section
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `server.bind` | IP address to bind the server to (e.g., 127.0.0.1 for localhost only). Use 0.0.0.0 to listen on all interfaces. | Yes |
+| `server.bind` | IP address to bind the server to (e.g., 127.0.0.1 for localhost only). Use 0.0.0.0 to listen on all interfaces. Accepted: an IPv4 or IPv6 address literal (`0.0.0.0`, `::`, or the bracketed form `[::1]`) or the name `localhost`. Write IPv6 addresses with brackets — the port is appended as `<bind>:<port>`. Hostnames, `host:port` and CIDR notations are rejected at startup. | Yes |
 | `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. | Yes |
-| `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. | No |
-| `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. | No |
-| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security. If not set, a random secret will be generated. | No |
-| `server.jwtTokenTimeout` | JWT token timeout in hours (default: 8 hours if not set). Determines how long authentication tokens remain valid. | No |
-| `server.elevatorMode` | Elevator mode for privilege escalation (none, sudo, or doas). Required when running server as non-root user (recommended). | No |
-| `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Ensure the directory exists and is writable by the server process. | Yes |
+| `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. Certificate and key are parsed and checked as a pair at startup (`tls.LoadX509KeyPair`): an unparsable file or a key that does not belong to the certificate aborts startup. | No |
+| `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. Setting a key without a certificate (or a certificate without a key) is a configuration error and aborts startup. | No |
+| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security of at least 32 characters; a shorter or whitespace-only value aborts startup. If not set, a random secret will be generated. | No |
+| `server.jwtTokenTimeout` | JWT token timeout. A bare number is hours (`8`, the default when unset); the units `m`, `h` and `d` are also accepted (`30m`, `8h`, `2d`), up to 30 days. Unlike `authpf.timeout`, the `d` unit is allowed here. An unusable value aborts startup. | No |
+| `server.elevatorMode` | Elevator mode for privilege escalation. Allowed values are exactly `none`, `sudo` or `doas` (case sensitive); `sudo` and `doas` must be found in `PATH`. Required when running server as non-root user (recommended). An unknown value aborts startup. | Yes |
+| `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Relative paths are allowed. The file is opened (created, mode 0640) on every startup — also with `-foreground`, which logs to stdout — so a wrong path or an unwritable directory aborts startup. | Yes |
 
 #### RBAC Section
 
@@ -117,19 +131,21 @@ The application is configured via a YAML configuration file. By default, it uses
 
 | Parameter | Description |
 |-----------|-------------|
-| `rbac.roles.<name>.permissions` | List of permission strings assigned to this role (e.g., `activate_own_rules`, `view_other_rules`). See [RBAC - Permissions](#rbac---permissions) for all available values. |
+| `rbac.roles.<name>.permissions` | List of permission strings assigned to this role (e.g., `activate_own_rules`, `view_other_rules`). Only the six values listed in [RBAC - Permissions](#rbac---permissions) are accepted, an unknown value aborts startup. An empty list is allowed, duplicated entries are ignored. |
 
 ##### Users
 
 | Parameter | Description | Required |
 |-----------|-------------|----------|
-| `rbac.users.<name>.password` | Bcrypt password hash for this user. Generate with `./authpf-api -gen-user-password`. | Yes |
-| `rbac.users.<name>.role` | Role assigned to this user. Must match a key defined under `rbac.roles`. | Yes |
-| `rbac.users.<name>.userId` | Numeric user ID used as the pf anchor suffix (e.g., `authpf/username(1001)`). Defaults to `0` if not set. | No |
+| `rbac.users.<name>.password` | Bcrypt password hash for this user. Generate with `./authpf-api -gen-user-password`. Empty values, plain-text passwords and malformed or unsupported bcrypt hashes abort startup; the error names the user, never the hash. | Yes |
+| `rbac.users.<name>.role` | Role assigned to this user. Must be a non-empty key defined under `rbac.roles`; an unknown role aborts startup. | Yes |
+| `rbac.users.<name>.userId` | Numeric user ID used as the pf anchor suffix (e.g., `authpf/username(1001)`). Defaults to `0` if not set. Must not be negative; positive values must be unique across users. | No |
 | `rbac.users.<name>.userIp` | Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used. Also the address used for anchors adopted by `onStartup: import`. | No |
-| `rbac.users.<name>.userRulesFile` | Override the global `authpf.userRulesFile` for this specific user. | No |
 | `rbac.users.<name>.macros` | Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl`. Must also be declared in the user's pf rules file. | No |
 | `rbac.users.<name>.pfTable` | Override the global `authpf.pfTable` for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must exist in `pf.conf`. | No |
+
+In addition, `rbac.users` must contain at least one user and user names must match `[a-zA-Z0-9_-]+`
+with at most 255 characters — the same contract the API applies to requests.
 
 ### Environment Variables
 
@@ -553,7 +569,7 @@ Mode "importflush" will do the same as import, but will remove/flush the anchors
 
 ```yaml
 authpf:
-  onStartup: import # valid modes: none, importflush
+  onStartup: import # valid modes: none, import, importflush
 ```
 
 ### Limitations
@@ -612,6 +628,14 @@ extensions:
       file: /usr/local/etc/authpf-api/rbac.yaml
       watch: true     # enable fsnotify hot-reload
 ```
+
+> **Startup validation:** every entry in `extensions` must have a `name`, that name must match
+> `^[A-Za-z0-9][A-Za-z0-9._-]*$`, and no name may be listed twice. A duplicate would be instantiated
+> and `Init()`'d twice — two fsnotify watchers on one file for `file-rbac`, two middleware instances
+> for `ratelimit` — so the server refuses to start. Unknown names are reported by the loader
+> (`extension "x" not found`). The contents of `config:` are **not** validated here: each extension
+> validates its own keys in
+> [`authpf-api-extensions`](https://github.com/scd-systems/authpf-api-extensions).
 
 ### Creating an Extension
 

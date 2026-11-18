@@ -17,7 +17,7 @@ The original `authpf(8)` is a user shell for authenticating gateways based on SS
 ## OPTIONS
 
 **-foreground**
-: Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing.
+: Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing. The configured logfile is still opened (and created) at startup in both modes, see **authpf-api.conf**(5), parameter `logfile`.
 
 **-version**
 : Display the version information and exit.
