@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/scd-systems/authpf-api/pkg/config"
 )
@@ -505,6 +507,102 @@ func TestValidateConfig_RejectsHostileMacroKeys(t *testing.T) {
 				assert.Error(t, err, "macro key %q must be rejected", tt.key)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateConfig_SchedulerInterval covers the scheduler loop interval.
+// Before the check existed, a negative, zero or sub-second value reached
+// time.NewTicker in the scheduler goroutine and panicked the process after a
+// successful startup, so an operator only saw the crash in the log.
+// Goes through validateConfig rather than the validator directly, so the test
+// covers the gate the server actually runs.
+func TestValidateConfig_SchedulerInterval(t *testing.T) {
+	tests := []struct {
+		name     string
+		interval string
+		wantErr  bool
+		errMsg   string
+	}{
+		{name: "unset falls back to the 60s default", interval: "", wantErr: false},
+		{name: "bare number is seconds, the documented form", interval: "60", wantErr: false},
+		{name: "smallest allowed value", interval: "1", wantErr: false},
+		{name: "seconds unit", interval: "2s", wantErr: false},
+		{name: "minutes unit", interval: "15m", wantErr: false},
+		{name: "hours unit", interval: "1h", wantErr: false},
+		{name: "surrounded by spaces", interval: " 30s ", wantErr: false},
+		{name: "negative duration rejected", interval: "-5s", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "negative bare number rejected", interval: "-1", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "zero rejected", interval: "0", wantErr: true, errMsg: "below the minimum of 1s"},
+		{name: "zero with unit rejected", interval: "0s", wantErr: true, errMsg: "below the minimum of 1s"},
+		{name: "sub-second would truncate to a non-positive ticker", interval: "500ms", wantErr: true, errMsg: "below the minimum of 1s"},
+		{name: "unknown unit rejected", interval: "60x", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "unit without digits rejected", interval: "s", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "text rejected", interval: "abc", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "exponent notation rejected", interval: "1e3", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "unit overflow rejected", interval: "99999999999999999999h", wantErr: true, errMsg: "authpf.schedulerInterval"},
+		{name: "maximum of 30 days accepted", interval: "720h", wantErr: false},
+		{name: "maximum as bare seconds accepted", interval: "2592000", wantErr: false},
+		{name: "above maximum rejected", interval: "721h", wantErr: true, errMsg: "exceeds the maximum of 30 days"},
+		{name: "one second above maximum rejected", interval: "2592001s", wantErr: true, errMsg: "exceeds the maximum of 30 days"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				logger: zerolog.Nop(),
+				config: &config.ConfigFile{
+					AuthPF: config.ConfigFileAuthPF{SchedulerInterval: tt.interval},
+				},
+			}
+			err := s.validateConfig()
+			if tt.wantErr {
+				assert.Error(t, err, "schedulerInterval %q must be rejected", tt.interval)
+				assert.ErrorContains(t, err, tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateConfig_SchedulerIntervalWarnsOnLongInterval covers the soft limit:
+// anything above 30 minutes stays accepted, but the operator has to see that
+// anchors are only revoked on the next loop and therefore live up to a full
+// interval past their own timeout.
+func TestValidateConfig_SchedulerIntervalWarnsOnLongInterval(t *testing.T) {
+	tests := []struct {
+		name     string
+		interval string
+		warns    bool
+	}{
+		{name: "default does not warn", interval: "", warns: false},
+		{name: "60 seconds does not warn", interval: "60", warns: false},
+		{name: "exactly the threshold does not warn", interval: "30m", warns: false},
+		{name: "one second over the threshold warns", interval: "30m1s", warns: true},
+		{name: "one hour warns", interval: "1h", warns: true},
+		{name: "the maximum warns", interval: "720h", warns: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logs := &bytes.Buffer{}
+			s := &Server{
+				logger: zerolog.New(logs),
+				config: &config.ConfigFile{
+					AuthPF: config.ConfigFileAuthPF{SchedulerInterval: tt.interval},
+				},
+			}
+
+			err := s.validateConfig()
+			require.NoError(t, err, "schedulerInterval %q must be accepted", tt.interval)
+
+			if tt.warns {
+				assert.Contains(t, logs.String(), "authpf.schedulerInterval")
+				assert.Contains(t, logs.String(), "\"level\":\"warn\"")
+			} else {
+				assert.NotContains(t, logs.String(), "authpf.schedulerInterval")
 			}
 		})
 	}

@@ -51,8 +51,12 @@ authpf:
   # Global PF Table to use for the remote client IP addresses
   pfTable: authpf_users
 
-  # Set the time-interval for the Scheduler loop in seconds (default: 60 seconds)
-  # SchedulerInterval: 60
+  # Time-interval of the scheduler loop, as bare seconds (60) or a Go duration
+  # ("90s", "2m", "720h"; no "d" unit). Between 1s and 30 days, an unusable
+  # value aborts startup. Above 30 minutes it is accepted with a warning, since
+  # anchors then stay active up to one full interval past their own timeout.
+  # (default: 60s)
+  # schedulerInterval: 60
 
 # Server configuration
 server:

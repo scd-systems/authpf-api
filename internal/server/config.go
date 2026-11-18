@@ -25,6 +25,16 @@ func (s *Server) validateConfig() (err error) {
 		}
 	}
 
+	// Must be rejected here: an unusable value would panic in time.NewTicker
+	// inside the scheduler goroutine and take the process down after startup.
+	interval, err := config.ValidateSchedulerInterval(s.config.AuthPF.SchedulerInterval)
+	if err != nil {
+		return err
+	}
+	if interval > config.SchedulerIntervalWarnThreshold {
+		s.logger.Warn().Msgf("⚠️ authpf.schedulerInterval is %s: expired anchors are only removed on the next loop, so they stay active up to %s past their own timeout", interval, interval)
+	}
+
 	// Validate all macro fields from config file
 	for k, v := range s.config.Rbac.Users {
 		// UserIP Check

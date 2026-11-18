@@ -66,6 +66,9 @@ AuthPF-specific configuration for rule management and timeouts.
 **pfTable**
 : Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as `persist` in `/etc/pf.conf` before starting `authpf-api(1)`. Leave empty to disable. Can be overridden per user via `rbac.users.<name>.pfTable`. *(string, optional)*
 
+**schedulerInterval**
+: Interval of the scheduler loop that removes expired anchors. Either a bare number of seconds (`60`) or a Go duration (`90s`, `2m`, `720h`; there is no `d` unit). Minimum 1 second, maximum 30 days; a value outside that range or an unparsable one aborts startup. Values above 30 minutes are accepted but logged as a warning, because anchors stay active up to one full interval past their own timeout. *(string, optional, default 60s)*
+
 ### server
 
 Server configuration including network binding, SSL/TLS, and authentication.
