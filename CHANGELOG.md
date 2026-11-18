@@ -35,9 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Upgrade all depend packages to latest version
+- Require Go 1.27.4
 - Migrate echo web framework from version 4 to version 5
 - Improve Error logging
 - Redesign AnchorDB map to a struct object with lock
+- Config validation of the configuration file are in `pkg/config` now
+
+### Removed
+- Unused parameter `rbac.users.<name>.userRulesFile`. It was never applied (`authpf.userRulesFile` is used for all users); a leftover entry in an existing configuration file is ignored
 
 ## [0.3.0] - 2026-03-16
 

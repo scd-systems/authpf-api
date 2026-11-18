@@ -618,7 +618,7 @@ Extensions can be enabled in the config file under the `extensions` key:
 ```yaml
 extensions:
   - name: prometheus-metrics
-  - name: ratelimit
+  - name: rate-limit
     config:
       rate: 10        # requests per second
       burst: 30       # burst allowance
@@ -632,10 +632,14 @@ extensions:
 > **Startup validation:** every entry in `extensions` must have a `name`, that name must match
 > `^[A-Za-z0-9][A-Za-z0-9._-]*$`, and no name may be listed twice. A duplicate would be instantiated
 > and `Init()`'d twice — two fsnotify watchers on one file for `file-rbac`, two middleware instances
-> for `ratelimit` — so the server refuses to start. Unknown names are reported by the loader
+> for `rate-limit` — so the server refuses to start. Unknown names are reported by the loader
 > (`extension "x" not found`). The contents of `config:` are **not** validated here: each extension
 > validates its own keys in
 > [`authpf-api-extensions`](https://github.com/scd-systems/authpf-api-extensions).
+>
+> This also applies to the RBAC file `file-rbac` reads: it is checked by the extension, not by the
+> `rbac.*` startup validation of `authpf-api.conf`, so the external file is validated less strictly
+> than the same settings written inline (no bcrypt format check, no `userId` duplicate check).
 
 ### Creating an Extension
 
