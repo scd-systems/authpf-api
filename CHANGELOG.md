@@ -9,13 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - jwtToken Timeout validation
-- Lock issue with extensions when using `ReadOnlyAnchorDB`
+- Lock issue with extensions when using `ReadOnlyAnchorsDB`
 - Imported anchors (`onStartup: import` / `importflush`) no longer store the non-address placeholder `NaN/imported`. They take `rbac.users.<u>.userIp` or are marked `unknown`.
 - pfctl flush batch no longer abort at the first failing command, so one broken entry no longer keeps every other user's anchor and table entry loaded
 - Shutdown with `onShutdown: flushall` flushes the anchors even when the pf table cleanup failed
 - `onStartup: importflush` now revokes the pf table entries too, not only the anchors
 - Deactivating a user revokes the address stored for that user instead of the address the deactivation request came from
 - A negative, zero or sub-second `authpf.schedulerInterval` panicked the process with `non-positive interval for NewTicker` in the scheduler goroutine, after startup had already succeeded. Such values are now rejected at startup, and the scheduler falls back to 60s if it is ever handed an unusable value.
+- Anchor activation no longer leaves the anchor loaded when adding the address to the pf table fails
+- A `jwtSecret` shorter than 32 characters, or only whitespace, is rejected at startup
 - Documentation and manpages
 
 ### Added
@@ -23,15 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Framework-agnostic extension interface
   - Idiomatic lifecycle management via embedded `context.Context`
   - Read-only DB access (`ReadOnlyAnchorsDB`) and global middleware injection (`Middleware()`)
+  - New `extensions:` configuration section to enable and configure each extension
   - New command flag `-list-extensions` to display registered extensions
   - List of first extensions:
     - Rate limiting per client IP (`rate-limit`)
     - External Users File (`file-rbac`) with fsnotify hot-reload
     - Metrics export endpoint for Prometheus (`prometheus-metrics`)
   - Extensions Code Repo: `https://github.com/scd-systems/authpf-api-extensions`
-- New config parameter `SchedulerInterval` to set the time interval in seconds for the scheduler loop
-- `authpf.schedulerInterval` accepts a bare number of seconds (`60`) as documented, plus Go durations (`90s`, `2m`) and bounded to 1s..30 days
-- More tests
+- New config parameter `authpf.schedulerInterval` for the scheduler loop interval: a bare number of seconds (`60`) or a Go duration (`90s`, `2m`), bounded to 1s..30 days
+- e2e tests for config validation, scheduler interval, rate limiting and anchor DB locking (incl. a static lock guard), plus unit tests for the new error logging
 
 ### Changed
 - Upgrade all depend packages to latest version
@@ -39,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrate echo web framework from version 4 to version 5
 - Improve Error logging
 - Redesign AnchorDB map to a struct object with lock
-- Config validation of the configuration file are in `pkg/config` now
+- Every configuration parameter is validated at startup; invalid values abort startup and the error names the offending parameter
+- Build and CI: `make test-race`, `make fmt-check` and `make man` targets, race detector and format gate in the PR workflow
 
 ### Removed
 - Unused parameter `rbac.users.<name>.userRulesFile`. It was never applied (`authpf.userRulesFile` is used for all users); a leftover entry in an existing configuration file is ignored
@@ -125,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RBAC support
 - AuthPF rule management
 
-[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/scd-systems/authpf-api/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/scd-systems/authpf-api/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/scd-systems/authpf-api/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/scd-systems/authpf-api/compare/v0.2.0...v0.2.1
