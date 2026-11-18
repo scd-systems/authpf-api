@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shutdown with `onShutdown: flushall` flushes the anchors even when the pf table cleanup failed
 - `onStartup: importflush` now revokes the pf table entries too, not only the anchors
 - Deactivating a user revokes the address stored for that user instead of the address the deactivation request came from
+- A negative, zero or sub-second `authpf.schedulerInterval` panicked the process with `non-positive interval for NewTicker` in the scheduler goroutine, after startup had already succeeded. Such values are now rejected at startup, and the scheduler falls back to 60s if it is ever handed an unusable value.
+- Documentation and manpages
 
 ### Added
 - Modular extensions system: 
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Metrics export endpoint for Prometheus (`prometheus-metrics`)
   - Extensions Code Repo: `https://github.com/scd-systems/authpf-api-extensions`
 - New config parameter `SchedulerInterval` to set the time interval in seconds for the scheduler loop
+- `authpf.schedulerInterval` accepts a bare number of seconds (`60`) as documented, plus Go durations (`90s`, `2m`) and bounded to 1s..30 days
 - More tests
 
 ### Changed
