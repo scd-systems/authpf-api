@@ -5,8 +5,8 @@ A RESTful HTTP API for pf user rules.
 ## Overview
 
 **AuthPF-API** is a Go-based REST API that provides a secure interface for managing pf user rules on FreeBSD and OpenBSD systems. It allows users to activate and deactivate pf rules through HTTP endpoints with JWT token authentication and fine-grained permission control.
-The original authpf is "_a user shell for authenticating gateways_" -- [openbsd.org](https://man.openbsd.org/authpf) and is based on SSH logins.
-AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
+The original authpf is "_a user shell for authenticating gateways_" ([OpenBSD manual](https://man.openbsd.org/authpf)) and is based on SSH logins.
+AuthPF-API provides an HTTP(S)-based alternative for loading and unloading pf user rules.
 
 ## Features
 
@@ -15,8 +15,8 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 - ⏱️ **Automatic Expiration** - Rules automatically expire after configured timeout
 - 🔄 **Scheduled Cleanup** - Periodic cleanup of expired rules
 - 🏗️ **Cross-Platform Build** - Support for FreeBSD and OpenBSD on multiple architectures
-- 🧑‍💼 **Runs as User** - Runs as Non-Root User - Elevator tool (sudo/doas) support for running pfctl commands
-- 🎚️ **PF Macros** - User defined pf macro support
+- 🧑‍💼 **Non-root operation** - Run as a non-root user, with privilege escalation via sudo or doas for `pfctl` commands
+- 🎚️ **PF Macros** - Support for user-defined pf macros
 - 📋 **PF Table Support** - Automatically track active user IPs in a pf table (global or per-user)
 
 ## Supported Platforms
@@ -25,7 +25,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 - FreeBSD
 - OpenBSD
 - macOS
-- Other pf based OS with anchor support
+- Other pf-based operating systems with anchor support
 
 ### Architectures
 - amd64 (x86-64)
@@ -33,7 +33,7 @@ AuthPF-API is an alternative by using HTTP/S to load/unload pf user rules.
 
 ## Requirements
 
-- Go 1.24 or higher
+- Go 1.27.4 or higher
 - pfctl binary (usually pre-installed on BSD systems)
 - Optional: sudo or doas for privilege escalation
 
@@ -76,12 +76,13 @@ make coverage-html
 
 The application is configured via a YAML configuration file. By default, it uses `/usr/local/etc/authpf-api.conf`.
 
-The whole file is validated at startup and the server exits on the first invalid value, so a
-misconfiguration is reported before pf is touched. An optional parameter that is empty or missing is
-skipped (required parameters are reported as missing instead). Before the content is looked at at all,
-the file permissions are checked: a configuration that is group- or world-readable is refused with
+All supported configuration parameters are validated at startup. The server exits on the first
+invalid value, so a misconfiguration is reported before pf is touched. Unknown YAML keys are
+currently ignored. An optional parameter that is empty or missing is skipped (required parameters
+are reported as missing instead). Before the file is parsed, its permissions are checked: a
+configuration that is group- or world-readable is refused with
 `config file has insecure permissions: 0644 (should be 0640)`. The tables below list the accepted
-values and the validity conditions that are checked at startup.
+values and the validity conditions checked at startup.
 
 Two of these rules are deliberately strict:
 
@@ -120,7 +121,7 @@ Two of these rules are deliberately strict:
 | `server.port` | Port number for the HTTP/HTTPS server (e.g., 8080). Ensure the port is not already in use and firewall allows access. | Yes |
 | `server.ssl.certificate` | Path to SSL certificate file (leave empty to disable SSL). Required for HTTPS connections. Certificate and key are parsed and checked as a pair at startup (`tls.LoadX509KeyPair`): an unparsable file or a key that does not belong to the certificate aborts startup. | No |
 | `server.ssl.key` | Path to SSL private key file (e.g., key.pem). Must match the certificate and be readable by the server process. Setting a key without a certificate (or a certificate without a key) is a configuration error and aborts startup. | No |
-| `server.jwtSecret` | JWT secret key for token signing - MUST be changed before production deployment. Use a strong, random value for security of at least 32 characters; a shorter or whitespace-only value aborts startup. If not set, a random secret will be generated. | No |
+| `server.jwtSecret` | JWT secret key for token signing. In production, configure a strong, random value of at least 32 characters. A shorter or whitespace-only configured value aborts startup. If unset, a random secret is generated at startup. | No |
 | `server.jwtTokenTimeout` | JWT token timeout. A bare number is hours (`8`, the default when unset); the units `m`, `h` and `d` are also accepted (`30m`, `8h`, `2d`), up to 30 days. Unlike `authpf.timeout`, the `d` unit is allowed here. An unusable value aborts startup. | No |
 | `server.elevatorMode` | Elevator mode for privilege escalation. Allowed values are exactly `none`, `sudo` or `doas` (case sensitive); `sudo` and `doas` must be found in `PATH`. Required when running server as non-root user (recommended). An unknown value aborts startup. | Yes |
 | `server.logfile` | Path to the server logfile (e.g., /var/log/authpf-api.log). Relative paths are allowed. The file is opened (created, mode 0640) on every startup — also with `-foreground`, which logs to stdout — so a wrong path or an unwritable directory aborts startup. | Yes |
@@ -166,7 +167,7 @@ export LOG_LEVEL=info
 # Log to stdout instead of logfile
 ./authpf-api -foreground
 
-# Generate User Password (bcrypted)
+# Generate a bcrypt password hash
 ./authpf-api -gen-user-password
 
 # List registered extensions
@@ -239,7 +240,7 @@ Content-Type: application/json
 }
 ```
 
-#### Get Status of all activated rules
+#### Get the status of all activated rules
 ```http
 GET /api/v1/authpf/all
 Authorization: Bearer <token>
@@ -436,9 +437,9 @@ See the full updated sudo example in the [Elevator Setup](#elevator-setup) secti
 
 ## Setup PF
 
-Before you can use authpf-api, please verify that the authpf anchors are set up in pf.conf
+Before using authpf-api, verify that the authpf anchors are configured in `pf.conf`.
 
-/etc/pf.conf
+`/etc/pf.conf`
 ```
 nat-anchor "authpf/*"
 rdr-anchor "authpf/*"
@@ -446,25 +447,25 @@ binat-anchor "authpf/*"
 anchor "authpf/*"
 ```
 
-Verify also that the anchor name is the same as in the config file (`authpf.anchorName: authpf`)
+Also verify that the anchor name matches the one in the configuration file (`authpf.anchorName: authpf`).
 
 ## Setup SSL for AuthPF-API
 
-### Create a Self-Signed CA Root and SSL Certificate
+### Create a Self-Signed Root CA and SSL Certificate
 
-Create CA Root Key
+Create the root CA key
 
 ```sh
 openssl ecparam -genkey -name secp384r1 | openssl ec -aes256 -out rootCA.key
 ```
 
-Self-Sign CA Root
+Self-sign the root CA
 
 ```sh
 openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 3650 -out rootCA.crt
 ```
 
-Create a Server Certificate and sign with the CA Root certificate
+Create a server certificate and sign it with the root CA certificate
 
 ```sh
 openssl ecparam -genkey -name prime256v1 -noout -out mydomain.com.key
@@ -495,7 +496,7 @@ server:
 
 Restart authpf-api.
 
-Copy the rootCA.crt to the clients to verify the server.
+Copy `rootCA.crt` to clients so they can verify the server certificate.
 
 ## Elevator Setup
 
@@ -545,25 +546,20 @@ server:
 
 #### Doas Security Considerations
 
-- The doas setup is similar to sudo, but with some restrictions.
-Doas does not support regular expressions for command arguments yet.
-A solution can be to use the pfctl_wrapper (found under scripts/).
+- The doas setup is similar to sudo, but with some restrictions. Doas does not yet support regular expressions for command arguments. One workaround is to use the `pfctl_wrapper` script in `scripts/`.
+- **Why not use flush all (`pfctl -a "authpf/user" -Fa`) and flush each filter separately?** On FreeBSD 15.0-RELEASE, flushing all results in the error `pfctl: Operation not supported by device` and exit code 1. This is related to a [NETLINK change](https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=291981).
 
-- Why not use flush all (pfctl -a "authpf/user" -Fa) and run each filter flushing separately?
-The flush all under FreeBSD 15.0 RELEASE results in an error (pfctl: Operation not supported by device) with ExitCode 1.
-It's related to a NETLINK change: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=291981
+## Import Existing Anchors
 
-## Import existing Anchors
-
-Authpf-api is able to import existing authpf anchors.
+AuthPF-API can import existing authpf anchors.
 Three modes are configurable:
 - none
 - import
 - importflush
 
-If no import is required, set to none or empty.
-The "import" mode will parse the output of `pfctl -sA` and import all existing anchors (authpf/NAME(USERID)).
-Mode "importflush" will do the same as import, but will remove/flush the anchors directly after importing. 
+If no import is required, set this parameter to `none` or leave it empty.
+The `import` mode parses the output of `pfctl -sA` and imports all existing anchors (`authpf/NAME(USERID)`).
+The `importflush` mode does the same, then immediately removes and flushes the imported anchors.
 
 ### Configure import
 
@@ -574,9 +570,8 @@ authpf:
 
 ### Limitations
 
-1. It is currently not possible to detect the UserIP macro value from pf. The imported anchor takes its address from `rbac.users.<name>.userIp`. If that is not configured, UserIP will set to  "unknown".
-The anchor itself is deactivated without an IP address, but a leftover `pfTable` entry of such a user can only be removed manually (`pfctl -t <table> -T delete <ip>`). The api logs a warning about it.
-2. The Expire datetime will be calculated by the `authpf.timeout` and current server time.
+1. The `user_ip` macro value cannot be recovered from pf. An imported anchor uses the address from `rbac.users.<name>.userIp`; if that is not configured, `user_ip` is set to `unknown`. The anchor is still unloaded on deactivation, expiry, and shutdown, but any corresponding `pfTable` entry can only be removed manually (`pfctl -t <table> -T delete <ip>`). The API logs a warning when this is necessary.
+2. The expiration time is calculated from `authpf.timeout` and the current server time.
 
 ## Extension System
 
@@ -618,7 +613,7 @@ Extensions can be enabled in the config file under the `extensions` key:
 ```yaml
 extensions:
   - name: prometheus-metrics
-  - name: ratelimit
+  - name: rate-limit
     config:
       rate: 10        # requests per second
       burst: 30       # burst allowance
@@ -632,10 +627,14 @@ extensions:
 > **Startup validation:** every entry in `extensions` must have a `name`, that name must match
 > `^[A-Za-z0-9][A-Za-z0-9._-]*$`, and no name may be listed twice. A duplicate would be instantiated
 > and `Init()`'d twice — two fsnotify watchers on one file for `file-rbac`, two middleware instances
-> for `ratelimit` — so the server refuses to start. Unknown names are reported by the loader
+> for `rate-limit` — so the server refuses to start. Unknown names are reported by the loader
 > (`extension "x" not found`). The contents of `config:` are **not** validated here: each extension
 > validates its own keys in
 > [`authpf-api-extensions`](https://github.com/scd-systems/authpf-api-extensions).
+>
+> This also applies to the RBAC file `file-rbac` reads: it is checked by the extension, not by the
+> `rbac.*` startup validation of `authpf-api.conf`, so the external file is validated less strictly
+> than the same settings written inline (no bcrypt format check, no `userId` duplicate check).
 
 ### Creating an Extension
 
@@ -698,7 +697,7 @@ The `init()` function registers the extension, and it is loaded at startup when 
 
 ### Example Extensions
 
-Three example extensions are included in the repository:
+Three example extensions are available in the [authpf-api-extensions repository](https://github.com/scd-systems/authpf-api-extensions):
 
 | Extension | Path | Description |
 |-----------|------|-------------|
@@ -764,10 +763,7 @@ The application uses structured logging with zerolog. Logs can be output to:
 
 ## User Password Generation
 
-The authpf-api uses **bcrypt** and **sha256** in combination for password hashing. 
-Use the `-gen-user-password` flag to generate a `bcrypt` hash for a new user password.
-In the first step, the password input by `-gen-user-password` will be hashed by `sha256` and afterwards hashed again with `bcrypt`. 
-The authentication against the API is only accepting the user password as a `sha256` hash.
+AuthPF-API combines **SHA-256** and **bcrypt** for password hashing. Use the `-gen-user-password` flag to generate a bcrypt hash for a new user's password. First, the password entered with `-gen-user-password` is hashed with SHA-256; the resulting hash is then hashed with bcrypt. The API expects the user's password as a SHA-256 hash during authentication.
 
 ### Interactive Mode
 

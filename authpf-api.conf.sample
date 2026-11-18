@@ -214,10 +214,11 @@ rbac:
 #   * every entry needs a name matching ^[A-Za-z0-9][A-Za-z0-9._-]*$
 #   * each name may only be listed once, a duplicate is loaded twice and is rejected at startup
 #   * unknown names abort startup (see: authpf-api -list-extensions)
-#   * keys under config: are validated by the extension itself, not by authpf-api
+#   * keys under config: are validated by the extension itself, not by authpf-api. That includes
+#     the rbac file of file-rbac: it is not checked by the rbac.* startup validation below
 #extensions:
 #  - name: prometheus-metrics
-#  - name: ratelimit
+#  - name: rate-limit
 #    config:
 #      rate: 10        # requests per second
 #      burst: 30       # burst allowance

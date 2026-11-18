@@ -25,6 +25,9 @@ The original `authpf(8)` is a user shell for authenticating gateways based on SS
 **-gen-user-password**
 : Generate a bcrypt-hashed password for user authentication. The password is first hashed with SHA256, then with bcrypt. Can be used interactively or with piped input. Note: the API login endpoint expects the password to be sent as a SHA256 hash.
 
+**-list-extensions**
+: Display the registered extensions, one per line as *name (version)*, and exit. The configuration file is not read. The names printed here are the values allowed in the `extensions` section, see **authpf-api.conf**(5).
+
 **-configFile** *path*
 : Path to the configuration file. Overrides the `CONFIG_FILE` environment variable and the compiled-in default.
 

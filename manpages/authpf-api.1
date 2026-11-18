@@ -26,6 +26,10 @@ Display the version information and exit.
 Generate a bcrypt-hashed password for user authentication. The password is first hashed with SHA256, then with bcrypt. Can be used interactively or with piped input. Note: the API login endpoint expects the password to be sent as a SHA256 hash.
 
 .TP
+\fB-list-extensions\fP
+Display the registered extensions, one per line as \fIname (version)\fP, and exit. The configuration file is not read. The names printed here are the values allowed in the \fBextensions\fR section, see \fBauthpf-api.conf\fP(5).
+
+.TP
 \fB-configFile\fP \fIpath\fP
 Path to the configuration file. Overrides the \fBCONFIG_FILE\fR environment variable and the compiled-in default.
 
