@@ -10,43 +10,50 @@ The \fBauthpf-api.conf\fP file is a YAML-formatted configuration file for \fBaut
 .PP
 The default location is \fB/usr/local/etc/authpf-api.conf\fR\&. An alternative path can be specified via the \fBCONFIG_FILE\fR environment variable or the \fB-configFile\fP / \fB-c\fP command-line flags.
 
+.PP
+The whole file is validated when \fBauthpf-api(1)\fR starts and the server exits on the first invalid value, before pf is touched. An optional parameter that is empty or missing is skipped; a required parameter that is empty or missing is reported. The file itself must not be group- or world-readable: \fBLoadConfig\fR refuses it with \fIconfig file has insecure permissions\fP unless the mode is 0640 or stricter. The entries below list the accepted values and the conditions checked at startup.
+
 .SH CONFIGURATION SECTIONS
 .SS defaults
 Global default settings applied across the application.
 .TP
 \fBpfctlBinary\fP
-Path to the \fBpfctl(8)\fR binary executable. Must be accessible by the user running \fBauthpf-api(1)\fR\&. \fI(string, required)\fP
+Path to the \fBpfctl(8)\fR binary executable (absolute path) or found in \fBPATH\fR\&. \fI(string, required)\fP
 
 .SS authpf
 AuthPF-specific configuration for rule management and timeouts.
 .TP
 \fBtimeout\fP
-Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Supports duration formats like \fB30m\fR, \fB1h\fR, \fB2d\fR\&. \fI(string, required)\fP
+Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Go duration format (\fB1s\fR, \fB30m\fR, \fB1h\fR; there is no \fBd\fR unit), at least 1 second and at most 24 hours. An unusable value aborts startup. \fI(string, required)\fP
 
 .TP
 \fBuserRulesRootFolder\fP
-Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be readable by the user running \fBauthpf-api(1)\fR\&. \fI(string, required)\fP
+Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be an absolute path to an existing, readable directory. The directory is never created by \fBauthpf-api(1)\fR\&. \fI(string, required)\fP
 
 .TP
 \fBuserRulesFile\fP
-Filename for user rules within the \fBuserRulesRootFolder\fR\&. This file is loaded when a user activates their anchors. Can be overridden per user via \fBrbac.users.<name>.userRulesFile\fR\&. \fI(string, required)\fP
+Filename for user rules within the \fBuserRulesRootFolder\fR\&. This file is loaded when a user activates their anchors. A plain file name only: no \fB/\fR or \fB\\\fR, no \fB\&..\fR, no leading dot, characters \fB[A-Za-z0-9_.]\fR\&. Checked at startup. \fI(string, required)\fP
 
 .TP
 \fBanchorName\fP
-Name of the PF anchor to use for rule management. Used to organize and manage rules within the packet filter. Must match the anchor name configured in \fB/etc/pf.conf\fR\&. \fI(string, required)\fP
+Name of the PF anchor to use for rule management. Only the characters \fB[A-Za-z0-9_.]\fR are allowed — no \fB-\fR — because the name is passed to \fBpfctl(8)\fR as part of the anchor path. Must match the anchor name configured in \fB/etc/pf.conf\fR\&. \fI(string, required)\fP
 
 .TP
 \fBflushFilter\fP
-List of flush targets for \fBpfctl(8)\fR commands. Specifies which rule types to clear when flushing. \fI(array of strings, required)\fP
+List of flush targets for \fBpfctl(8)\fR commands. Specifies which rule types to clear when flushing. Every entry is flushed separately as \fBpfctl -a <anchorName>/<user>(<userId>) -F <target>\fR\&. \fI(array of strings, required)\fP
 
 Valid values:
   \fBnat\fR
   \fBqueue\fR
   \fBethernet\fR
   \fBrules\fR
+  \fBstates\fR
   \fBinfo\fR
-  \fBSources\fR
-  \fBReset\fR
+  \fBTables\fR
+  \fBosfp\fR
+  \fBall\fR
+
+\fBSources\fR and \fBReset\fR are not accepted: they act on global pf state instead of the anchor that is always selected with \fB-a\fR\&. Whitespace, control characters, path separators and a leading \fB-\fR are rejected in any entry.
 
 .TP
 \fBonStartup\fP
@@ -54,17 +61,25 @@ Specifies the startup anchor loading behavior. \fI(string, optional)\fP
 
 Valid values:
 
-\fBnone\fR — Do not import anchors on startup (default)
+\fBnone\fR - Do not import anchors on startup (default)
 
-\fBimport\fR — Import existing anchors from pf. Parses the output of \fBpfctl -sA\fR and imports all existing anchors matching the pattern \fBauthpf/NAME(USERID)\fR\&. Note: anchors without a numeric user ID suffix (e.g. \fBauthpf/user\fR without \fB(2000)\fR) are not imported.
+\fBimport\fR - Import existing anchors from pf. Parses the output of \fBpfctl -sA\fR and imports all existing anchors matching the pattern \fBauthpf/NAME(USERID)\fR\&. Note: anchors without a numeric user ID suffix (e.g. \fBauthpf/user\fR without \fB(2000)\fR) are not imported.
 
 \fBimportflush\fR — Same as \fBimport\fR, but removes/flushes all anchors immediately after importing to achieve a clean state on startup.
 
 .TP
 \fBLimitations of import:\fP
-1. The \fBuser_ip\fR macro value cannot be detected during import - \fBpfctl -sA\fR does not expose anchor macros. The adopted anchor takes its address from configuration  \fBrbac.users.<name>.userIp\fR\&. If that is not configured, \fBuser_ip\fR is set to \fBunknown\fR\&. The anchor is still unloaded on deactivate, expiry and shutdown, but the address \fBauthpf.pfTable\fR holds for it cannot be revoked automatically. The API logs a warning with the manual \fBpfctl -t <table> -T delete <ip>\fR command.
 
-2. The expiry datetime is calculated from \fBauthpf.timeout\fR and the current server time at import.
+.RS
+.IP "  1." 5
+The \fBuser_ip\fR macro value cannot be detected during import - \fBpfctl -sA\fR does not expose anchor macros. The adopted anchor takes its address from configuration  \fBrbac.users.<name>.userIp\fR\&. If that is not configured, \fBuser_ip\fR is set to \fBunknown\fR\&. The anchor is still unloaded on deactivate, expiry and shutdown, but the address \fBauthpf.pfTable\fR holds for it cannot be revoked automatically. The API logs a warning with the manual \fBpfctl -t <table> -T delete <ip>\fR command.
+.RE
+.IP
+
+.RS
+.IP "  1." 5
+The expiry datetime is calculated from \fBauthpf.timeout\fR and the current server time at import.
+.RE
 
 .TP
 \fBonShutdown\fP
@@ -78,7 +93,7 @@ Valid values:
 
 .TP
 \fBpfTable\fP
-Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR before starting \fBauthpf-api(1)\fR\&. Leave empty to disable. Can be overridden per user via \fBrbac.users.<name>.pfTable\fR\&. \fI(string, optional)\fP
+Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR before starting \fBauthpf-api(1)\fR\&. A table that does not exist aborts startup. Leave empty to disable. Can be overridden per user via \fBrbac.users.<name>.pfTable\fR\&. \fI(string, optional)\fP
 
 .TP
 \fBschedulerInterval\fP
@@ -88,7 +103,7 @@ Interval of the scheduler loop that removes expired anchors. Either a bare numbe
 Server configuration including network binding, SSL/TLS, and authentication.
 .TP
 \fBbind\fP
-IP address to bind the server to. Use \fB127.0.0.1\fR for localhost only, or \fB0.0.0.0\fR to listen on all interfaces. \fI(string, required)\fP
+IP address to bind the server to. Use \fB127.0.0.1\fR for localhost only, or \fB0.0.0.0\fR to listen on all interfaces. Accepted are an IPv4 or IPv6 address literal (\fB0.0.0.0\fR, \fB::\fR, \fB[::1]\fR) or the name \fBlocalhost\fR\&. \fI(string, required)\fP
 
 .TP
 \fBport\fP
@@ -100,23 +115,23 @@ SSL/TLS configuration for HTTPS support. \fI(object, optional)\fP
 
 .TP
 \fBssl.certificate\fP
-Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. \fI(string, optional)\fP
+Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. \fI(string, optional)\fP
 
 .TP
 \fBssl.key\fP
-Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if \fBssl.certificate\fR is specified. \fI(string, optional)\fP
+Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if \fBssl.certificate\fR is specified; configuring a key without a certificate (or the other way round) will fail to start. \fI(string, optional)\fP
 
 .TP
 \fBjwtSecret\fP
-JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security. If not set or empty, a random secret is generated automatically on each startup — this means all tokens are invalidated on restart. \fI(string, optional)\fP
+JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security, at least 32 characters. A shorter value are not accepted. If not set or empty, a random secret is generated automatically on each startup — this means all client tokens are invalidated on restart. \fI(string, optional)\fP
 
 .TP
 \fBjwtTokenTimeout\fP
-JWT token validity duration. Determines how long authentication tokens remain valid. Supports duration formats like \fB30m\fR, \fB8h\fR, \fB24h\fR\&. Default is \fB8h\fR if not set. \fI(string, optional)\fP
+JWT token validity duration. A bare number is hours (\fB8\fR), the units \fBm\fR, \fBh\fR and \fBd\fR are also accepted (\fB30m\fR, \fB8h\fR, \fB2d\fR). Maximum is 30 days and the value must be greater than zero. Default is \fB8h\fR\&. \fI(string, optional)\fP
 
 .TP
 \fBelevatorMode\fP
-Elevator mode for privilege escalation. Required when running \fBauthpf-api(1)\fR as a non-root user. \fI(string, optional)\fP
+Elevator mode for privilege escalation. Required when running \fBauthpf-api(1)\fR as a non-root user. Allowed values are exactly \fBnone\fR, \fBsudo\fR or \fBdoas\fR (case sensitive), and so does a configured elevator program that is not found in \fBPATH\fR\&. \fI(string, required)\fP
 
 Valid values:
 
@@ -128,7 +143,7 @@ Valid values:
 
 .TP
 \fBlogfile\fP
-Path to the server logfile. Ensure the directory exists and is writable by the server process. Use the \fB-foreground\fR flag to log to stdout instead. \fI(string, required)\fP
+Path to the server logfile. Relative paths are allowed. The file is opened (created, mode 0640) on every startup, also when started with \fB-foreground\fR, so a wrong path or an unwritable directory aborts startup. \fB-foreground\fR still logs to stdout. \fI(string, required)\fP
 
 .SS rbac
 Role-Based Access Control configuration for users and permissions.
@@ -138,11 +153,11 @@ Role definitions with associated permissions. Each role defines what actions use
 
 .TP
 \fBrbac.roles.<name>\&.permissions\fP
-List of permission strings assigned to this role. See \fBAVAILABLE RBAC PERMISSIONS\fP below. \fI(array of strings, required)\fP
+List of permission strings assigned to this role. Values are listed under \fBAVAILABLE RBAC PERMISSIONS\fP . An empty list is allowed and duplicated entries are ignored. \fI(array of strings, required)\fP
 
 .TP
 \fBrbac.users\fP
-User account definitions with credentials and role assignments. \fI(object, required)\fP
+User account definitions with credentials and role assignments. At least one user is required. User names must match \fB[a-zA-Z0-9_-]+\fR and be at most 255 characters. \fI(object, required)\fP
 
 .TP
 \fBrbac.users.<name>\&.password\fP
@@ -150,27 +165,33 @@ Bcrypt password hash for this user. Generate with \fBauthpf-api -gen-user-passwo
 
 .TP
 \fBrbac.users.<name>\&.role\fP
-Role assigned to this user. Must match a key defined under \fBrbac.roles\fR\&. \fI(string, required)\fP
+Role assigned to this user. Must be a non-empty key defined under \fBrbac.roles\fR\&. \fI(string, required)\fP
 
 .TP
 \fBrbac.users.<name>\&.userId\fP
-Numeric user ID used as the pf anchor suffix (e.g. \fBauthpf/username(1001)\fR). Defaults to \fB0\fR if not set. \fI(integer, optional)\fP
+Numeric user ID used as the pf anchor suffix (e.g. \fBauthpf/username(1001)\fR). Defaults to \fB0\fR if not set. Must not be negative; positive values must be unique across all users. \fI(integer, optional)\fP
 
 .TP
 \fBrbac.users.<name>\&.userIp\fP
 Pin a static IP address passed as the \fBuser_ip\fR macro to \fBpfctl\fR\&. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. This is also the address the API assigns to an anchor adopted by \fBauthpf.onStartup: import\fR, since pf does not report the macro of an already loaded anchor. \fI(string, optional)\fP
 
 .TP
-\fBrbac.users.<name>\&.userRulesFile\fP
-Override the global \fBauthpf.userRulesFile\fR for this specific user. If set, this filename is used instead of the global default when loading this user's anchor rules. \fI(string, optional)\fP
-
-.TP
 \fBrbac.users.<name>\&.macros\fP
-Map of arbitrary key/value pairs passed as additional \fB-D key=value\fR arguments to \fBpfctl\fR when the user's anchor is loaded. Each macro must also be declared in the user's pf rules file. Macro keys and values are validated to contain only alphanumeric characters, underscores, dots, and hyphens. The reserved keys \fBuser_ip\fR and \fBuser_id\fR must not be redefined here if \fBuserIp\fR or \fBuserId\fR are already set. \fI(map of string to string, optional)\fP
+Map of arbitrary key/value pairs passed as additional \fB-D key=value\fR arguments to \fBpfctl\fR when the user's anchor is loaded. Each macro must also be declared in the user's pf rules file. Macro keys must match \fB[A-Za-z][A-Za-z0-9_]*\fR, macro values may contain \fB[A-Za-z0-9_.]\fR, both 1 to 128 characters. The keys \fBuser_ip\fR and \fBuser_id\fR are reserved by the application and rejected. \fI(map of string to string, optional)\fP
 
 .TP
 \fBrbac.users.<name>\&.pfTable\fP
 Override the global \fBauthpf.pfTable\fR for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR\&. \fI(string, optional)\fP
+
+.SS extensions
+Optional list of extensions to load, each with a \fBname\fR and an optional \fBconfig\fR block.
+.TP
+\fBextensions[].name\fP
+Name of the extension to load, as reported by \fBauthpf-api -list-extensions\fR\&. Must match \fB^[A-Za-z0-9][A-Za-z0-9._-]*$\fR and may be listed only once. \fI(string, required)\fP
+
+.TP
+\fBextensions[].config\fP
+Free-form key/value block passed unchanged to the \fBInit()\fR of the extension. These keys are not validated by \fBauthpf-api\fR: each extension checks its own configuration and either reports a bad key at startup or keeps its default for it. \fI(object, optional)\fP
 
 .SH AVAILABLE RBAC PERMISSIONS
 .TP
@@ -380,7 +401,7 @@ server:
   ssl:
     certificate: /etc/ssl/certs/authpf-api.crt
     key: /etc/ssl/private/authpf-api.key
-  jwtSecret: your-strong-random-secret-here
+  jwtSecret: your-strong-random-secret-here-change-me
   jwtTokenTimeout: 12h
   elevatorMode: sudo
   logfile: /var/log/authpf-api.log
@@ -410,7 +431,6 @@ rbac:
       role: user
       userId: 1001
       userIp: 192.168.0.10
-      userRulesFile: custom.rules
       pfTable: custom_table_user1
       macros:
         server_1_port: 22

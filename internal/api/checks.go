@@ -211,7 +211,7 @@ func (h *Handler) resolveAnchorTimeout(c *echo.Context) (string, error) {
 				Wrap(errors.New("maximum 10 characters allowed"))
 		}
 
-		if err := exec.ValidateTimeout(reqTimeout); err != nil {
+		if err := config.ValidateTimeout(reqTimeout); err != nil {
 			return "", echo.NewHTTPError(http.StatusBadRequest, "invalid timeout format").Wrap(err)
 		}
 		return reqTimeout, nil

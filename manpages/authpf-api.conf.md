@@ -10,6 +10,8 @@ The **authpf-api.conf** file is a YAML-formatted configuration file for `authpf-
 
 The default location is `/usr/local/etc/authpf-api.conf`. An alternative path can be specified via the `CONFIG_FILE` environment variable or the **-configFile** / **-c** command-line flags.
 
+The whole file is validated when `authpf-api(1)` starts and the server exits on the first invalid value, before pf is touched. An optional parameter that is empty or missing is skipped; a required parameter that is empty or missing is reported. The file itself must not be group- or world-readable: `LoadConfig` refuses it with *config file has insecure permissions* unless the mode is 0640 or stricter. The entries below list the accepted values and the conditions checked at startup.
+
 ## CONFIGURATION SECTIONS
 
 ### defaults
@@ -17,40 +19,44 @@ The default location is `/usr/local/etc/authpf-api.conf`. An alternative path ca
 Global default settings applied across the application.
 
 **pfctlBinary**
-: Path to the `pfctl(8)` binary executable. Must be accessible by the user running `authpf-api(1)`. *(string, required)*
+: Path to the `pfctl(8)` binary executable (absolute path) or found in `PATH`. *(string, required)*
 
 ### authpf
 
 AuthPF-specific configuration for rule management and timeouts.
 
 **timeout**
-: Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Supports duration formats like `30m`, `1h`, `2d`. *(string, required)*
+: Maximum timeout for authpf anchors. Defines how long pf rules remain active before the scheduler removes them. Go duration format (`1s`, `30m`, `1h`; there is no `d` unit), at least 1 second and at most 24 hours. An unusable value aborts startup. *(string, required)*
 
 **userRulesRootFolder**
-: Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be readable by the user running `authpf-api(1)`. *(string, required)*
+: Root directory where user-specific rule files are stored. Each user gets a subdirectory here. Must be an absolute path to an existing, readable directory. The directory is never created by `authpf-api(1)`. *(string, required)*
 
 **userRulesFile**
-: Filename for user rules within the `userRulesRootFolder`. This file is loaded when a user activates their anchors. Can be overridden per user via `rbac.users.<name>.userRulesFile`. *(string, required)*
+: Filename for user rules within the `userRulesRootFolder`. This file is loaded when a user activates their anchors. A plain file name only: no `/` or `\`, no `..`, no leading dot, characters `[A-Za-z0-9_.]`. Checked at startup. *(string, required)*
 
 **anchorName**
-: Name of the PF anchor to use for rule management. Used to organize and manage rules within the packet filter. Must match the anchor name configured in `/etc/pf.conf`. *(string, required)*
+: Name of the PF anchor to use for rule management. Only the characters `[A-Za-z0-9_.]` are allowed — no `-` — because the name is passed to `pfctl(8)` as part of the anchor path. Must match the anchor name configured in `/etc/pf.conf`. *(string, required)*
 
 **flushFilter**
-: List of flush targets for `pfctl(8)` commands. Specifies which rule types to clear when flushing. *(array of strings, required)*
+: List of flush targets for `pfctl(8)` commands. Specifies which rule types to clear when flushing. Every entry is flushed separately as `pfctl -a <anchorName>/<user>(<userId>) -F <target>`. *(array of strings, required)*
 : Valid values:
 ` `  `nat`
 ` `  `queue`
 ` `  `ethernet`
 ` `  `rules`
+` `  `states`
 ` `  `info`
-` `  `Sources`
-` `  `Reset`
+` `  `Tables`
+` `  `osfp`
+` `  `all`
+
+: `Sources` and `Reset` are not accepted: they act on global pf state instead of the anchor that is always selected with `-a`. Whitespace, control characters, path separators and a leading `-` are rejected in any entry.
 
 **onStartup**
 : Specifies the startup anchor loading behavior. *(string, optional)*
 : Valid values:
-: `none` — Do not import anchors on startup (default)
-: `import` — Import existing anchors from pf. Parses the output of `pfctl -sA` and imports all existing anchors matching the pattern `authpf/NAME(USERID)`. Note: anchors without a numeric user ID suffix (e.g. `authpf/user` without `(2000)`) are not imported.
+: `none` - Do not import anchors on startup (default)
+: `import` - Import existing anchors from pf. Parses the output of `pfctl -sA` and imports all existing anchors matching the pattern `authpf/NAME(USERID)`. Note: anchors without a numeric user ID suffix (e.g. `authpf/user` without `(2000)`) are not imported.
 : `importflush` — Same as `import`, but removes/flushes all anchors immediately after importing to achieve a clean state on startup.
 
 **Limitations of import:**
@@ -64,7 +70,7 @@ AuthPF-specific configuration for rule management and timeouts.
 : `flushall` — Remove all activated user rules when the API server shuts down
 
 **pfTable**
-: Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as `persist` in `/etc/pf.conf` before starting `authpf-api(1)`. Leave empty to disable. Can be overridden per user via `rbac.users.<name>.pfTable`. *(string, optional)*
+: Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as `persist` in `/etc/pf.conf` before starting `authpf-api(1)`. A table that does not exist aborts startup. Leave empty to disable. Can be overridden per user via `rbac.users.<name>.pfTable`. *(string, optional)*
 
 **schedulerInterval**
 : Interval of the scheduler loop that removes expired anchors. Either a bare number of seconds (`60`) or a Go duration (`90s`, `2m`, `720h`; there is no `d` unit). Minimum 1 second, maximum 30 days; a value outside that range or an unparsable one aborts startup. Values above 30 minutes are accepted but logged as a warning, because anchors stay active up to one full interval past their own timeout. *(string, optional, default 60s)*
@@ -74,7 +80,7 @@ AuthPF-specific configuration for rule management and timeouts.
 Server configuration including network binding, SSL/TLS, and authentication.
 
 **bind**
-: IP address to bind the server to. Use `127.0.0.1` for localhost only, or `0.0.0.0` to listen on all interfaces. *(string, required)*
+: IP address to bind the server to. Use `127.0.0.1` for localhost only, or `0.0.0.0` to listen on all interfaces. Accepted are an IPv4 or IPv6 address literal (`0.0.0.0`, `::`, `[::1]`) or the name `localhost`. *(string, required)*
 
 **port**
 : Port number for the HTTP/HTTPS server. Ensure the port is not already in use and that the firewall allows access. *(integer, required)*
@@ -83,26 +89,26 @@ Server configuration including network binding, SSL/TLS, and authentication.
 : SSL/TLS configuration for HTTPS support. *(object, optional)*
 
 **ssl.certificate**
-: Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. *(string, optional)*
+: Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. *(string, optional)*
 
 **ssl.key**
-: Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if `ssl.certificate` is specified. *(string, optional)*
+: Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if `ssl.certificate` is specified; configuring a key without a certificate (or the other way round) will fail to start. *(string, optional)*
 
 **jwtSecret**
-: JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security. If not set or empty, a random secret is generated automatically on each startup — this means all tokens are invalidated on restart. *(string, optional)*
+: JWT secret key for token signing. MUST be changed before production deployment. Use a strong, random value for security, at least 32 characters. A shorter value are not accepted. If not set or empty, a random secret is generated automatically on each startup — this means all client tokens are invalidated on restart. *(string, optional)*
 
 **jwtTokenTimeout**
-: JWT token validity duration. Determines how long authentication tokens remain valid. Supports duration formats like `30m`, `8h`, `24h`. Default is `8h` if not set. *(string, optional)*
+: JWT token validity duration. A bare number is hours (`8`), the units `m`, `h` and `d` are also accepted (`30m`, `8h`, `2d`). Maximum is 30 days and the value must be greater than zero. Default is `8h`. *(string, optional)*
 
 **elevatorMode**
-: Elevator mode for privilege escalation. Required when running `authpf-api(1)` as a non-root user. *(string, optional)*
+: Elevator mode for privilege escalation. Required when running `authpf-api(1)` as a non-root user. Allowed values are exactly `none`, `sudo` or `doas` (case sensitive), and so does a configured elevator program that is not found in `PATH`. *(string, required)*
 : Valid values:
 : `none` — No privilege escalation (default). Only use if running as root.
 : `sudo` — Use `sudo(8)` for privilege escalation. Requires appropriate sudoers configuration.
 : `doas` — Use `doas(1)` for privilege escalation. Requires appropriate doas.conf configuration.
 
 **logfile**
-: Path to the server logfile. Ensure the directory exists and is writable by the server process. Use the `-foreground` flag to log to stdout instead. *(string, required)*
+: Path to the server logfile. Relative paths are allowed. The file is opened (created, mode 0640) on every startup, also when started with `-foreground`, so a wrong path or an unwritable directory aborts startup. `-foreground` still logs to stdout. *(string, required)*
 
 ### rbac
 
@@ -112,31 +118,38 @@ Role-Based Access Control configuration for users and permissions.
 : Role definitions with associated permissions. Each role defines what actions users with that role can perform. *(object, required)*
 
 **rbac.roles.\<name\>.permissions**
-: List of permission strings assigned to this role. See **AVAILABLE RBAC PERMISSIONS** below. *(array of strings, required)*
+: List of permission strings assigned to this role. Values are listed under **AVAILABLE RBAC PERMISSIONS** . An empty list is allowed and duplicated entries are ignored. *(array of strings, required)*
 
 **rbac.users**
-: User account definitions with credentials and role assignments. *(object, required)*
+: User account definitions with credentials and role assignments. At least one user is required. User names must match `[a-zA-Z0-9_-]+` and be at most 255 characters. *(object, required)*
 
 **rbac.users.\<name\>.password**
 : Bcrypt password hash for this user. Generate with `authpf-api -gen-user-password`. *(string, required)*
 
 **rbac.users.\<name\>.role**
-: Role assigned to this user. Must match a key defined under `rbac.roles`. *(string, required)*
+: Role assigned to this user. Must be a non-empty key defined under `rbac.roles`. *(string, required)*
 
 **rbac.users.\<name\>.userId**
-: Numeric user ID used as the pf anchor suffix (e.g. `authpf/username(1001)`). Defaults to `0` if not set. *(integer, optional)*
+: Numeric user ID used as the pf anchor suffix (e.g. `authpf/username(1001)`). Defaults to `0` if not set. Must not be negative; positive values must be unique across all users. *(integer, optional)*
 
 **rbac.users.\<name\>.userIp**
 : Pin a static IP address passed as the `user_ip` macro to `pfctl`. If omitted, the remote client IP of the HTTP request is used automatically. When set, the configured value is always used regardless of the actual source IP. This is also the address the API assigns to an anchor adopted by `authpf.onStartup: import`, since pf does not report the macro of an already loaded anchor. *(string, optional)*
 
-**rbac.users.\<name\>.userRulesFile**
-: Override the global `authpf.userRulesFile` for this specific user. If set, this filename is used instead of the global default when loading this user's anchor rules. *(string, optional)*
-
 **rbac.users.\<name\>.macros**
-: Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl` when the user's anchor is loaded. Each macro must also be declared in the user's pf rules file. Macro keys and values are validated to contain only alphanumeric characters, underscores, dots, and hyphens. The reserved keys `user_ip` and `user_id` must not be redefined here if `userIp` or `userId` are already set. *(map of string to string, optional)*
+: Map of arbitrary key/value pairs passed as additional `-D key=value` arguments to `pfctl` when the user's anchor is loaded. Each macro must also be declared in the user's pf rules file. Macro keys must match `[A-Za-z][A-Za-z0-9_]*`, macro values may contain `[A-Za-z0-9_.]`, both 1 to 128 characters. The keys `user_ip` and `user_id` are reserved by the application and rejected. *(map of string to string, optional)*
 
 **rbac.users.\<name\>.pfTable**
 : Override the global `authpf.pfTable` for this specific user. If set, this user's IP is tracked in this table instead of the global one. The table must be declared as `persist` in `/etc/pf.conf`. *(string, optional)*
+
+### extensions
+
+Optional list of extensions to load, each with a `name` and an optional `config` block.
+
+**extensions[].name**
+: Name of the extension to load, as reported by `authpf-api -list-extensions`. Must match `^[A-Za-z0-9][A-Za-z0-9._-]*$` and may be listed only once. *(string, required)*
+
+**extensions[].config**
+: Free-form key/value block passed unchanged to the `Init()` of the extension. These keys are not validated by `authpf-api`: each extension checks its own configuration and either reports a bad key at startup or keeps its default for it. *(object, optional)*
 
 ## AVAILABLE RBAC PERMISSIONS
 
@@ -320,7 +333,7 @@ server:
   ssl:
     certificate: /etc/ssl/certs/authpf-api.crt
     key: /etc/ssl/private/authpf-api.key
-  jwtSecret: your-strong-random-secret-here
+  jwtSecret: your-strong-random-secret-here-change-me
   jwtTokenTimeout: 12h
   elevatorMode: sudo
   logfile: /var/log/authpf-api.log
@@ -350,7 +363,6 @@ rbac:
       role: user
       userId: 1001
       userIp: 192.168.0.10
-      userRulesFile: custom.rules
       pfTable: custom_table_user1
       macros:
         server_1_port: 22

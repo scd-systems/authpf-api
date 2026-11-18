@@ -15,7 +15,7 @@ The original \fBauthpf(8)\fR is a user shell for authenticating gateways based o
 .SH OPTIONS
 .TP
 \fB-foreground\fP
-Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing.
+Log to stdout instead of the configured logfile. Useful for debugging and running in the foreground during development or testing. The configured logfile is still opened (and created) at startup in both modes, see \fBauthpf-api.conf\fP(5), parameter \fBlogfile\fR\&.
 
 .TP
 \fB-version\fP
