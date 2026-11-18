@@ -91,7 +91,7 @@ func (s *Server) Bootstrap() (err error) {
 	}
 
 	// Validate SSL files if enabled
-	if err := validateSSLFiles(s.config.Server.SSL.Certificate, s.config.Server.SSL.Key); err != nil {
+	if err := config.ValidateSSLFiles(s.config.Server.SSL.Certificate, s.config.Server.SSL.Key); err != nil {
 		return err
 	}
 
@@ -261,33 +261,8 @@ func (s *Server) getLogWriter() (io.Writer, error) {
 	if globalForeground || s.config.Server.Logfile == "" {
 		return os.Stdout, nil
 	}
-	f, err := os.OpenFile(s.config.Server.Logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+	f, err := config.OpenLogfile(s.config.Server.Logfile)
 	return f, err
-}
-
-// validateSSLFiles checks if SSL certificate and key files exist and are readable
-func validateSSLFiles(certPath, keyPath string) error {
-	if certPath == "" {
-		return nil
-	}
-
-	// Check certificate file
-	if _, err := os.Stat(certPath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("SSL certificate file not found: %s", certPath)
-		}
-		return fmt.Errorf("cannot access SSL certificate file: %s - %v", certPath, err)
-	}
-
-	// Check key file
-	if _, err := os.Stat(keyPath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("SSL key file not found: %s", keyPath)
-		}
-		return fmt.Errorf("cannot access SSL key file: %s - %v", keyPath, err)
-	}
-
-	return nil
 }
 
 // generateUserPasswordHash reads a password from stdin and generates a bcrypt hash

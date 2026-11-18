@@ -54,6 +54,10 @@ export PATH="$E2E_TMP/bin:$PATH"
 # Create rules directory
 mkdir -p "$E2E_TMP/rules"
 
+# Create one admin user so RBAC startup validation passes.
+PW_HASH=$(echo "testpassword123" | go run ./cmd/main.go -gen-user-password 2>/dev/null)
+[ -n "$PW_HASH" ] || { echo "Failed to generate password hash"; exit 1; }
+
 # Create config with low rate limit via extension
 cat > "$E2E_TMP/authpf-api.conf" << CONF
 defaults:
@@ -85,7 +89,11 @@ rbac:
         - "deactivate_other_rules"
         - "view_own_rules"
         - "view_other_rules"
-  users: {}
+  users:
+    testuser:
+      password: "$PW_HASH"
+      role: admin
+      userId: 1001
 
 extensions:
   - name: rate-limit
