@@ -65,16 +65,16 @@ func (s *Scheduler) cleanupExpiredRules(now time.Time) {
 func (s *Scheduler) Run() {
 	s.logger.Debug().Msgf("Authpf scheduler starting")
 
-	// Parse scheduler interval from config (default: 60s)
-	interval := 60
-	if s.config.AuthPF.SchedulerInterval != "" {
-		duration, err := time.ParseDuration(s.config.AuthPF.SchedulerInterval)
-		if err == nil {
-			interval = int(duration.Seconds())
-		}
+	// A config that passed validateConfig always yields a usable interval. The
+	// fallback keeps a caller that skipped validation from panicking in
+	// time.NewTicker, which aborts the whole process from this goroutine.
+	interval, err := config.ValidateSchedulerInterval(s.config.AuthPF.SchedulerInterval)
+	if err != nil {
+		s.logger.Warn().Err(err).Msgf("falling back to the default scheduler interval %s", config.DefaultSchedulerInterval)
+		interval = config.DefaultSchedulerInterval
 	}
 
-	ticker := time.NewTicker(time.Second * time.Duration(interval))
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		<-ticker.C

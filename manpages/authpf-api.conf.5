@@ -80,6 +80,10 @@ Valid values:
 \fBpfTable\fP
 Name of a global pf table used to track active user IP addresses. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must be declared as \fBpersist\fR in \fB/etc/pf.conf\fR before starting \fBauthpf-api(1)\fR\&. Leave empty to disable. Can be overridden per user via \fBrbac.users.<name>.pfTable\fR\&. \fI(string, optional)\fP
 
+.TP
+\fBschedulerInterval\fP
+Interval of the scheduler loop that removes expired anchors. Either a bare number of seconds (\fB60\fR) or a Go duration (\fB90s\fR, \fB2m\fR, \fB720h\fR; there is no \fBd\fR unit). Minimum 1 second, maximum 30 days; a value outside that range or an unparsable one aborts startup. Values above 30 minutes are accepted but logged as a warning, because anchors stay active up to one full interval past their own timeout. \fI(string, optional, default 60s)\fP
+
 .SS server
 Server configuration including network binding, SSL/TLS, and authentication.
 .TP

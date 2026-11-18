@@ -95,7 +95,7 @@ The application is configured via a YAML configuration file. By default, it uses
 | `authpf.flushFilter` | List of flush targets for pfctl command (nat, queue, ethernet, rules, info, Sources, Reset). Specifies which rule types to clear when flushing. | Yes |
 | `authpf.onStartup` | Specifies the startup anchor loading. Possible Values are (import, importflush). Import just loads existing anchors. Value `importflush` clears the anchors after importing them from pf. Default `none` | No |
 | `authpf.onShutdown` | Remove all activated user rules when the api server shuts down. Default `none` | No |
-| `authpf.SchedulerInterval` | The time interval in seconds when the scheduler loop runs. Default is 60 seconds when parameter is empty. | No |
+| `authpf.schedulerInterval` | Interval of the scheduler loop that expires anchors. Either a bare number of seconds (e.g. `60`) or a Go duration (`90s`, `2m`, `720h`; there is no `d` unit). Minimum 1s, maximum 30 days. Default is 60 seconds when the parameter is empty. | No |
 | `authpf.pfTable` | Name of a global pf table to track active user IPs. When set, the user's IP is added to this table on anchor activation and removed on deactivation. The table must exist in `pf.conf` before starting authpf-api. Leave empty to disable. | No |
 
 #### Server Section
