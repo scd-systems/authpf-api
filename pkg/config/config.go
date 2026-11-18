@@ -13,7 +13,31 @@ import (
 
 // maxTokenTimeout is the longest JWT token timeout accepted from the config.
 const maxTokenTimeout = 30 * 24 * time.Hour
+
+// minJwtSecretLength is the minimum length of JWT Secret in configuration
 const minJwtSecretLength = 32
+
+// DefaultSchedulerInterval is the scheduler loop interval used when
+// authpf.schedulerInterval is empty.
+const DefaultSchedulerInterval = 60 * time.Second
+
+// minSchedulerInterval is how often the scheduler may at most take the session
+// DB lock and shell out to pfctl. Anything below a second only spins.
+const minSchedulerInterval = time.Second
+
+// maxSchedulerInterval is the longest accepted loop interval, mirroring the
+// bound on the JWT token timeout. Above it, expired anchors would effectively
+// never be revoked again.
+const maxSchedulerInterval = 30 * 24 * time.Hour
+
+// SchedulerIntervalWarnThreshold is the point where the operator is warned
+// without the value being rejected: an anchor stays active up to one full
+// interval past its own timeout, so a long loop makes revocations late.
+const SchedulerIntervalWarnThreshold = 30 * time.Minute
+
+// schedulerSecondsPattern matches the bare number form documented in README.md
+// and authpf-api.conf.sample, where schedulerInterval: 60 means 60 seconds.
+var schedulerSecondsPattern = regexp.MustCompile(`^[\d]+$`)
 
 // tokenTimeoutPattern matches a whole number with an optional m, h or d unit.
 // A missing unit means hours.
@@ -81,6 +105,36 @@ func ValidateTokenTimeoutValue(timeout string) (time.Duration, error) {
 
 	if duration > maxTokenTimeout {
 		return 0, fmt.Errorf("token timeout %q exceeds maximum allowed duration of 30 days", timeout)
+	}
+
+	return duration, nil
+}
+
+// ValidateSchedulerInterval converts authpf.schedulerInterval into a duration.
+// A bare number is read as seconds, the format the docs and the config sample
+// use; anything else must be a Go duration such as "90s" or "2m". An empty
+// value selects the default. Values below one second are rejected: a
+// non-positive interval makes time.NewTicker panic in the scheduler goroutine,
+// and a fractional one truncated to zero seconds does the same. Values above
+// 30 days are rejected, see maxSchedulerInterval.
+func ValidateSchedulerInterval(value string) (time.Duration, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return DefaultSchedulerInterval, nil
+	}
+	if schedulerSecondsPattern.MatchString(trimmed) {
+		trimmed += "s"
+	}
+
+	duration, err := time.ParseDuration(trimmed)
+	if err != nil {
+		return 0, fmt.Errorf("invalid authpf.schedulerInterval %q (expected seconds like 60, or a duration like 90s)", value)
+	}
+	if duration < minSchedulerInterval {
+		return 0, fmt.Errorf("authpf.schedulerInterval %q is below the minimum of 1s", value)
+	}
+	if duration > maxSchedulerInterval {
+		return 0, fmt.Errorf("authpf.schedulerInterval %q exceeds the maximum of 30 days", value)
 	}
 
 	return duration, nil

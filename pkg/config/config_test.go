@@ -601,3 +601,100 @@ func TestValidateTokenTimeoutValueErrorMessages(t *testing.T) {
 	_, err = ValidateTokenTimeoutValue("31d")
 	assert.ErrorContains(t, err, "maximum")
 }
+
+// TestValidateSchedulerIntervalValid covers accepted scheduler intervals. A
+// bare number is seconds, the form README.md and authpf-api.conf.sample use.
+func TestValidateSchedulerIntervalValid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  time.Duration
+	}{
+		{"empty selects the default", "", DefaultSchedulerInterval},
+		{"spaces only select the default", "   ", DefaultSchedulerInterval},
+		{"bare number is seconds", "60", 60 * time.Second},
+		{"bare number one is the minimum", "1", time.Second},
+		{"leading zero", "060", 60 * time.Second},
+		{"seconds unit", "2s", 2 * time.Second},
+		{"minutes unit", "15m", 15 * time.Minute},
+		{"hours unit", "2h", 2 * time.Hour},
+		{"mixed duration", "1m30s", 90 * time.Second},
+		{"above a minute as seconds", "90s", 90 * time.Second},
+		{"surrounded by spaces", " 30s ", 30 * time.Second},
+		{"maximum as hours", "720h", maxSchedulerInterval},
+		{"maximum as bare seconds", "2592000", maxSchedulerInterval},
+		{"just below the maximum", "719h59m59s", maxSchedulerInterval - time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateSchedulerInterval(tt.input)
+			assert.NoError(t, err, "input %q must be accepted", tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestValidateSchedulerIntervalInvalid covers the values that used to reach
+// time.NewTicker as a non-positive interval and panic the scheduler goroutine.
+func TestValidateSchedulerIntervalInvalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"negative seconds", "-30"},
+		{"negative duration", "-5s"},
+		{"negative minutes", "-1m"},
+		{"zero", "0"},
+		{"zero with unit", "0s"},
+		{"zero minutes", "0m"},
+		{"sub-second", "500ms"},
+		{"one microsecond", "1us"},
+		{"unit only", "s"},
+		{"unknown unit", "60x"},
+		{"text", "abc"},
+		{"inner space", "60 s"},
+		{"exponent notation", "1e3"},
+		{"unit overflow", "99999999999999999999h"},
+		{"one hour above the maximum", "721h"},
+		{"one second above the maximum", "2592001s"},
+		{"far above the maximum", "8760h"},
+		{"day unit is not a Go duration unit", "31d"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateSchedulerInterval(tt.input)
+			assert.Error(t, err, "input %q must be rejected", tt.input)
+			assert.Equal(t, time.Duration(0), got, "must return zero duration on error")
+		})
+	}
+}
+
+// TestValidateSchedulerIntervalErrorMessages locks in the hints users see in
+// the server log when their config is wrong.
+func TestValidateSchedulerIntervalErrorMessages(t *testing.T) {
+	_, err := ValidateSchedulerInterval("abc")
+	assert.ErrorContains(t, err, "invalid authpf.schedulerInterval")
+
+	_, err = ValidateSchedulerInterval("-5s")
+	assert.ErrorContains(t, err, "below the minimum of 1s")
+
+	_, err = ValidateSchedulerInterval("721h")
+	assert.ErrorContains(t, err, "maximum of 30 days")
+}
+
+// TestSchedulerIntervalWarnThreshold pins the boundary the server warns at: the
+// value stays accepted, the operator just gets told that anchors stay active up
+// to a full interval past their own timeout.
+func TestSchedulerIntervalWarnThreshold(t *testing.T) {
+	assert.Equal(t, 30*time.Minute, SchedulerIntervalWarnThreshold)
+
+	at, err := ValidateSchedulerInterval("30m")
+	assert.NoError(t, err)
+	assert.False(t, at > SchedulerIntervalWarnThreshold, "30m itself must not warn")
+
+	over, err := ValidateSchedulerInterval("30m1s")
+	assert.NoError(t, err)
+	assert.True(t, over > SchedulerIntervalWarnThreshold, "30m1s must warn")
+}
