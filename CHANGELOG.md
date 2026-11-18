@@ -5,14 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.1] - 2026-08-xx
+## [0.4.0] - 2026-11-18
+
+### Fixed
+- jwtToken Timeout validation
+- Lock issue with extensions when using `ReadOnlyAnchorDB`
+- Imported anchors (`onStartup: import` / `importflush`) no longer store the non-address placeholder `NaN/imported`. They take `rbac.users.<u>.userIp` or are marked `unknown`.
+- pfctl flush batch no longer abort at the first failing command, so one broken entry no longer keeps every other user's anchor and table entry loaded
+- Shutdown with `onShutdown: flushall` flushes the anchors even when the pf table cleanup failed
+- `onStartup: importflush` now revokes the pf table entries too, not only the anchors
+- Deactivating a user revokes the address stored for that user instead of the address the deactivation request came from
 
 ### Added
-- New parameter `SchedulerInterval` to configure the time interval in seconds for the scheduler 
+- Modular extensions system: 
+  - Framework-agnostic extension interface
+  - Idiomatic lifecycle management via embedded `context.Context`
+  - Read-only DB access (`ReadOnlyAnchorsDB`) and global middleware injection (`Middleware()`)
+  - New command flag `-list-extensions` to display registered extensions
+  - List of first extensions:
+    - Rate limiting per client IP (`rate-limit`)
+    - External Users File (`file-rbac`) with fsnotify hot-reload
+    - Metrics export endpoint for Prometheus (`prometheus-metrics`)
+  - Extensions Code Repo: `https://github.com/scd-systems/authpf-api-extensions`
+- New config parameter `SchedulerInterval` to set the time interval in seconds for the scheduler loop
+- More tests
 
 ### Changed
-- Migrate code to use echo web framework version 5
-
+- Upgrade all depend packages to latest version
+- Migrate echo web framework from version 4 to version 5
+- Improve Error logging
+- Redesign AnchorDB map to a struct object with lock
 
 ## [0.3.0] - 2026-03-16
 
