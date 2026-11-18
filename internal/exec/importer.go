@@ -71,7 +71,7 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 		}
 
 		// Check configure Timeout Variable
-		if err := ValidateTimeout(e.config.AuthPF.Timeout); err != nil {
+		if err := config.ValidateTimeout(e.config.AuthPF.Timeout); err != nil {
 			return err
 		}
 		// Calculate the ExpireAt Timeout
@@ -106,27 +106,6 @@ func (e *Exec) parsePfctlOutput(result *SystemCommandResult) error {
 		}
 	}
 	e.logger.Debug().Int("count", e.db.Len()).Msg("Import anchor(s) done")
-	return nil
-}
-
-// Check for valid AuthPF Timeout string
-func ValidateTimeout(timeoutStr string) error {
-	if timeoutStr == "" {
-		return fmt.Errorf("missing timeout validation parameter, timeout must be a valid duration (e.g., '1h', '30m'), got empty timeout string")
-	}
-
-	d, err := time.ParseDuration(timeoutStr)
-	if err != nil {
-		return fmt.Errorf("invalid timeout format, timeout must be a valid duration (e.g., '1h', '30m'), got: %s", timeoutStr)
-	}
-
-	if d < time.Second {
-		return fmt.Errorf("timeout must be at least 1 second, provided timeout: %v", d)
-	}
-
-	if d > 24*time.Hour {
-		return fmt.Errorf("timeout cannot exceed 24 hours, provided timeout: %v", d)
-	}
 	return nil
 }
 
