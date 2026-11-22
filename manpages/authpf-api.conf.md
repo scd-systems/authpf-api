@@ -89,7 +89,7 @@ Server configuration including network binding, SSL/TLS, and authentication.
 : SSL/TLS configuration for HTTPS support. *(object, optional)*
 
 **ssl.certificate**
-: Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. *(string, optional)*
+: Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. Absolute paths and paths relative to the working directory of the process are both accepted. *(string, optional)*
 
 **ssl.key**
 : Path to the SSL private key file. Must match the certificate and be readable by the server process. Required if `ssl.certificate` is specified; configuring a key without a certificate (or the other way round) will fail to start. *(string, optional)*
