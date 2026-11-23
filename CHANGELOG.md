@@ -5,13 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
+## [0.4.1] - 2026-11-23
 
 ### Fixed
 - HTTPS startup with an absolute `server.ssl.certificate` / `server.ssl.key` path failed with `readfile server.crt: invalid argument`. Echo v5 resolves `StartTLS` path arguments through an `fs.FS` (`os.DirFS(".")` by default), whose naming rules reject absolute paths and paths with `./` or `..` segments. The key pair is now loaded by `pkg/config` and handed to Echo already parsed, so certificate and key are resolved like every other configured path. 
-
-### Changed
 
 ## [0.4.0] - 2026-11-18
 
@@ -136,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RBAC support
 - AuthPF rule management
 
-[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/scd-systems/authpf-api/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/scd-systems/authpf-api/compare/v0.3.0...v0.4.1
 [0.4.0]: https://github.com/scd-systems/authpf-api/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/scd-systems/authpf-api/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/scd-systems/authpf-api/compare/v0.2.1...v0.2.2
