@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -262,7 +263,18 @@ func (s *Server) startServer(e *echo.Echo) error {
 	}
 
 	if s.config.Server.SSL.Certificate != "" {
-		return sc.StartTLS(context.Background(), e, s.config.Server.SSL.Certificate, s.config.Server.SSL.Key)
+		cert, err := s.config.Server.SSL.TLSKeyPair()
+		if err != nil {
+			return err
+		}
+		// Echo resolves StartTLS path arguments through fs.FS, which rejects
+		// absolute paths, so it gets the key pair Validate() already loaded.
+		// MinVersion and NextProtos mirror what echo.StartTLS would have set.
+		sc.TLSConfig = &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2"},
+			Certificates: []tls.Certificate{cert},
+		}
 	}
 
 	return sc.Start(context.Background(), e)

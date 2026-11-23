@@ -2350,3 +2350,79 @@ func TestValidateConfigRBACFullConfig(t *testing.T) {
 	}
 	assert.NoError(t, cfg.Validate())
 }
+
+// Echo v5 passed StartTLS path arguments to an fs.FS (default os.DirFS(".")),
+// whose naming rules reject anything that is not fs.ValidPath. Absolute paths,
+// "./x" and "sub/../x" all failed with "readfile /…/server.crt: invalid
+// argument" — after Validate() had accepted exactly those files, because it uses
+// OS paths. TLSKeyPair() is the seam that keeps Echo away from the filesystem,
+// so it has to accept whatever the OS accepts.
+func TestTLSKeyPairAcceptsEveryOSPathForm(t *testing.T) {
+	tmp := t.TempDir()
+	cert, key := pathsWriteKeyPair(t, tmp, "server")
+	require.NoError(t, os.Mkdir(filepath.Join(tmp, "sub"), 0750))
+
+	tests := []struct {
+		name  string
+		cert  string
+		key   string
+		chdir bool
+	}{
+		{name: "absolute path", cert: cert, key: key},
+		{name: "leading dot segment", cert: "./server.crt", key: "./server.key", chdir: true},
+		{name: "dot-dot segment", cert: "sub/../server.crt", key: "sub/../server.key", chdir: true},
+		{name: "bare name in the working directory", cert: "server.crt", key: "server.key", chdir: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.chdir {
+				t.Chdir(tmp)
+			}
+			ssl := ConfigFileServerSSL{Certificate: tt.cert, Key: tt.key}
+
+			pair, err := ssl.TLSKeyPair()
+			require.NoError(t, err, "%q has to load like any other OS path", tt.cert)
+			assert.NotEmpty(t, pair.Certificate, "a loaded pair has to carry the certificate")
+			assert.NotNil(t, pair.PrivateKey, "a loaded pair has to carry the private key")
+		})
+	}
+}
+
+// An unresolvable path stays an OS error that names the file. It must not come
+// back as the EINVAL of the removed fs.FS loader, which reported the operation
+// instead of the problem.
+func TestTLSKeyPairUnresolvablePathNamesTheFile(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	pair, err := (&ConfigFileServerSSL{Certificate: "missing.crt", Key: "missing.key"}).TLSKeyPair()
+	require.Error(t, err)
+	assert.Empty(t, pair.Certificate, "a failed load must not hand out a certificate")
+	assert.Nil(t, pair.PrivateKey)
+	assert.Contains(t, err.Error(), "missing.crt", "the error has to name the file")
+	assert.NotContains(t, err.Error(), "invalid argument")
+}
+
+// "No certificate configured" means HTTPS off, not a startup failure.
+func TestTLSKeyPairWithoutSSLIsNoCertificate(t *testing.T) {
+	pair, err := (&ConfigFileServerSSL{}).TLSKeyPair()
+
+	assert.NoError(t, err)
+	assert.Empty(t, pair.Certificate)
+	assert.Nil(t, pair.PrivateKey)
+}
+
+// The server starts from this pair without another check, so a mismatched or
+// unparsable pair has to fail here and not in the first TLS handshake.
+func TestTLSKeyPairRejectsMismatchedPair(t *testing.T) {
+	tmp := t.TempDir()
+	certA, _ := pathsWriteKeyPair(t, tmp, "server-a")
+	_, keyB := pathsWriteKeyPair(t, tmp, "server-b")
+
+	pair, err := (&ConfigFileServerSSL{Certificate: certA, Key: keyB}).TLSKeyPair()
+	require.Error(t, err)
+	assert.Empty(t, pair.Certificate)
+	assert.Contains(t, err.Error(), "invalid SSL certificate/key pair")
+	assert.Contains(t, err.Error(), certA)
+	assert.Contains(t, err.Error(), keyB)
+}

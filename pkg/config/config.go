@@ -789,11 +789,33 @@ func ValidateSSLFiles(certPath, keyPath string) error {
 		return fmt.Errorf("cannot access SSL key file: %s - %v", keyPath, err)
 	}
 
-	// LoadX509KeyPair parses both files and proves the private key belongs to
-	// the certificate. Neither was ever checked before, so a mismatch or a
-	// corrupt file only surfaced in the first TLS handshake.
-	if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
-		return fmt.Errorf("invalid SSL certificate/key pair, certificate: %s, key: %s - %v", certPath, keyPath, err)
+	// Parsing both files proves the private key belongs to the certificate.
+	// Neither was ever checked before, so a mismatch or a corrupt file only
+	// surfaced in the first TLS handshake.
+	if _, err := loadSSLKeyPair(certPath, keyPath); err != nil {
+		return err
 	}
 	return nil
+}
+
+// loadSSLKeyPair is the only place that touches the SSL files on disk. The
+// server hands the result to Echo instead of a path, because Echo resolves
+// StartTLS path arguments through fs.FS (default os.DirFS(".")), which rejects
+// absolute paths with EINVAL.
+func loadSSLKeyPair(certPath, keyPath string) (tls.Certificate, error) {
+	tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("invalid SSL certificate/key pair, certificate: %s, key: %s - %w", certPath, keyPath, err)
+	}
+	return tlsCert, nil
+}
+
+// TLSKeyPair returns the configured certificate/key pair, already checked by
+// Validate(). The zero certificate means "SSL disabled" (no certificate
+// configured) and is not an error.
+func (ssl *ConfigFileServerSSL) TLSKeyPair() (tls.Certificate, error) {
+	if ssl.Certificate == "" {
+		return tls.Certificate{}, nil
+	}
+	return loadSSLKeyPair(ssl.Certificate, ssl.Key)
 }

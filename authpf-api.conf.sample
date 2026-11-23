@@ -90,7 +90,8 @@ server:
   # Certificate and key are parsed and matched as a pair at startup, so a
   # corrupt file or a key that does not belong to the certificate aborts
   # startup. Configuring only one of the two is an error too. Leave both empty
-  # to disable SSL (plain HTTP).
+  # to disable SSL (plain HTTP). Both paths are read like any other file:
+  # absolute, or relative to the working directory of the process.
   ssl:
     # Path to SSL certificate file (empty: SSL disabled)
     certificate:

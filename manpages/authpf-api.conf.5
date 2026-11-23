@@ -115,7 +115,7 @@ SSL/TLS configuration for HTTPS support. \fI(object, optional)\fP
 
 .TP
 \fBssl.certificate\fP
-Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. \fI(string, optional)\fP
+Path to the SSL certificate file. Leave empty to disable SSL and use plain HTTP. Required for HTTPS connections. Certificate and key are parsed and matched against each other at startup. Absolute paths and paths relative to the working directory of the process are both accepted. \fI(string, optional)\fP
 
 .TP
 \fBssl.key\fP
